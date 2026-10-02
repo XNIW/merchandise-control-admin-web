@@ -11,7 +11,7 @@ const sql=(input,database=db,user='postgres')=>execFileSync('/usr/local/bin/dock
  '--host','unix:///var/run/docker.sock','exec','-i',container,'psql','-X','-qAt','-v','ON_ERROR_STOP=1','-U',user,'-d',database,
 ],{input,encoding:'utf8',env,timeout:120000,stdio:['pipe','pipe','pipe']}).trim();
 const q=value=>`'${value.replaceAll("'","''")}'`;
-const migration=readFileSync('supabase/migrations/20261002171237_wechat_010_admin_identity_case.sql','utf8');
+const migration=readFileSync('supabase/migrations/20261002180757_wechat_010_admin_identity_case.sql','utf8');
 const regression=readFileSync('supabase/tests/wechat_010_admin_identity_case.sql','utf8');
 const source=readFileSync('supabase/migrations/20260612010000_task_057_shop_scoped_catalog.sql','utf8');
 const signatures=[

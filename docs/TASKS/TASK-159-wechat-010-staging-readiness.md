@@ -1,6 +1,31 @@
 # TASK-159 — WECHAT-010 controlled Mini staging readiness
 
-## TASK-159 EXECUTION — preserve Admin product identity case, 2026-10-02 UTC
+## TASK-159 REVIEW — TEST155 identity case fix applied, 2026-10-02 18:08 UTC
+
+Both independent reviews approved the exact identity patch. Stacked PR130 head
+ed099f1c passed Database migrations/pgTAP, Verify and Cloudflare build checks
+(CI37044429416 and CF37044429434); deployment jobs were skipped. The coordinator
+applied the reviewed SQL once to TEST at18:07:54–18:07:57UTC. Supabase assigned
+service version20261002180757, advancing the registry from154 to155.
+
+The18:08:53 private admin-identity-case-postcheck.json records PASS: only the two
+expected function bodies changed, with CREATE MD5
+3c60b9f2115fe672c4ce77c7f5f1033d and UPDATE MD5
+b0f15a596d384da887174b3ed054357f. All existing registry entries, target OIDs/full
+metadata/ACL, other functions/triggers and scoped data, History and image
+versions remain unchanged. No existing product codes were backfilled.
+
+The source filename is aligned from20261002171237 to20261002180757, with SQL
+SHA2569d52258cb07899c59bc35eddf596fef8f37d936a03bc2dedb60c086cc9ef3545
+unchanged (11547bytes; joined-SQL MD59e4741b64d7b0999b3000f06990e922f).
+The local runner changes only its migration-path literal. This metadata receipt
+adds no SQL behavior and does not repeat the177passing local SQL checks or the
+passing Node22 verification. Final delta review and exact-head CI remain pending.
+PR130 remains open on PR128; source integration and authentic post-fix behavior
+are not yet accepted. No new Worker deployment or native recovery success is
+claimed. Registry154's recovery failures remain preserved and unresolved.
+
+## Historical pre-apply validation — Admin product identity case, 2026-10-02 UTC
 
 An authentic Admin name-only save preserved stock1.25 but uppercased the
 unchanged barcode and item number. Canonical catalog_text_policy_v1 requires
