@@ -340,3 +340,25 @@ repair, remote SQL or new runtime behavior by this writer. Byte/hash and path
 checks, runner syntax, security scan and diff checks PASS. Large unchanged suites
 are not rerun for this receipt. No authentic recovery, performance or native
 convergence acceptance is inferred from application success.
+
+
+## 2026-10-02 — price-digest checkpoint performance REVIEW
+
+Authentic iOS/Android recovery after History v2 still fails with HTTP500/57014 in
+the price aggregate (origin8227/8181ms). Resource preflight is clean; these are not
+the earlier preflight/History-format failures. The sole Admin writer used only a
+local schema clone and synthetic data. New additive migration narrows/materializes
+the price CTE, validates bytewise distinct timestamps once per SELECT and converts
+the amount scalar to PL/pgSQL with the exact existing expression. Scope, parent
+checks, validation grammar, ordered raw digest, all other domains and8s stay exact.
+
+PASS9 guard cases,14+184+365 assertions, deterministic callcount RED→GREEN,
+complete JSON equality on61595rows/41345prices (165legacy),2074 and10001events,
+NULL/invalid/empty/Unicode/nonfinite/rounding/all-unique timestamp cases, exact
+metadata/ACL/OID, other functions, row/event fingerprints and rollback/reapply.
+Local full2074 timing4405–4467→3831–3956ms;10001boundary5896→5430ms. The Mac baseline
+finished below8s; authentic failure receipts remain authoritative and no live
+recovery/P95 is claimed. Private logs price-digest-performance-tests.log and
+price-digest-investigate-next.log. Full Admin Node22.23.3 verify and diff checks
+PASS (price-digest-performance-verify.log). Freeze for root/recovery review before source
+integration; no remote action or native Retry by this writer.

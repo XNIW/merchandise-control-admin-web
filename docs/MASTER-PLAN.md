@@ -1,5 +1,23 @@
 # MerchandiseControl Admin Web - Master Plan
 
+## TASK-159 REVIEW — measured price-digest checkpoint timeout, 2026-10-02 UTC
+
+After registry149 and a clean resource preflight, one authentic iOS Retry still
+failed: checkpoint HTTP500/SQLSTATE57014 in the prices version-digest SELECT.
+This is distinct from the earlier preflight timeout and History format rejection.
+One delegated Admin writer will reproduce/profile the complete pipeline locally,
+then prepare the smallest measured correction with identical DTOs, hashes, order,
+scope, ACL and the unchanged 8-second runtime limit. No remote action by the writer;
+two independent reviews and CI gates precede integration and coordinator release.
+
+The bounded candidate passes9 baseline guards,14 new+184 History+365 native
+assertions and exact complete JSON/metadata/data/event rollback proofs. Actual
+price DTO calls halve; timestamp validations fall from82690 to1324 without changing
+the validator. Local61595-row/2074-event checkpoint4405–4467ms→3831–3956ms;
+10001-event boundary5430ms. iOS and Android authentic timeouts remain open until
+coordinator release and terminal Retry; no live PASS or DONE follows from these
+local samples. [Measured scope and runbook](RUNBOOKS/wechat-recovery-checkpoint-performance.md).
+
 ## TASK-159 REVIEW — History TEST receipt and source reconciliation, 2026-10-01
 
 PR121 merged d1287cab with head/postmerge CI and Cloudflare PASS. The coordinator

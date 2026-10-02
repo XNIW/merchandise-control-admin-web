@@ -1,5 +1,44 @@
 # TASK-159 — WECHAT-010 controlled Mini staging readiness
 
+## REVIEW — price-digest checkpoint timeout after History v2, 2026-10-02 UTC
+
+The authentic iOS RI06 single Retry at 00:11:49 UTC terminated with HTTP500 at
+00:11:58 UTC. Correlated Postgres SQLSTATE57014 at 00:11:58.614 identifies
+`sync_legacy_timestamp_is_canonical_v1(text)` inside the checkpoint's prices
+version-digest SELECT. The exact RPC origin latency was 8227ms, upstream8099ms.
+Registry149, prior performance SQL and History v2 were already applied; the fresh
+resource preflight had zero violations. Preserve this FAIL evidence separately
+from the earlier preflight timeout and the corrected History compatibility issue.
+
+The sole Admin writer will inspect plans and measure representative local synthetic
+data with about 41,345 prices, including the complete checkpoint and exact output
+parity. Optimize only demonstrated repeated work; retain all validators, scope and
+parent relationships, canonical strings/digests, ACL/metadata and the 8-second
+runtime deadline. Add meaningful regression/benchmark evidence, then freeze for
+root/recovery review. No remote apply, deployment, live-data mutation or further
+native Retry is authorized to this writer. Private failure receipt:
+`ios-ri06-history-v2-failure-logs.json`.
+
+A second authentic Android failure at00:24:27.912UTC reaches the same price
+aggregate (chain-step context), origin8181ms. Preserve both failures. Candidate
+SQL changes only the price CTE/digest evaluation strategy and a scalar helper's
+language with identical expression; no validator grammar or 8s budget change.
+The materialized narrow row projection serializes the DTO once; per-SELECT
+bytewise timestamp de-duplication retains the exact validator and NULL/invalid
+fallback. All scope/parent predicates and ordered raw digest inputs remain exact.
+
+Local proof:9 baseline/ACL/source/signature cases,14 new+184 History+365 native
+assertions PASS. Actual function counters are RED→GREEN: DTO82690→41345 and
+legacy timestamp82690→1324 on41345 prices. Full JSON is identical on61595 rows in
+mixed shop/legacy scope,2074/10001 events and the current baseline. Separate price
+aggregate comparisons cover invalid/NULL/empty/all-unique timestamp cases. Complete2074 checkpoint4405–4467ms→3831–3956ms;
+10001 events5896→5430ms with the10000 cap unchanged. Baseline Mac did not hit8s;
+no live resolution or percentile is claimed. Metadata/ACL/OID, unrelated functions,
+row/event fingerprints and rollback/reapply are exact. See the performance runbook.
+Full Admin Node22.23.3 verify PASS (lint/type generation/typecheck/security/build),
+plus diff checks. Independent immutable-patch reviews precede integration and
+coordinator release.
+
 ## REVIEW — applied History receipt and version reconciliation, 2026-10-01
 
 PR121 head0875e944 merged d1287cab at 23:44:48 UTC after required CI PASS.
