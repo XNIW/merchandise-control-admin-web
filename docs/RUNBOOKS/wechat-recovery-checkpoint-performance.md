@@ -1,6 +1,87 @@
 # WECHAT-010 — prestazioni del checkpoint di recovery
 
-## Current review — final integrity, 2 October 2026 UTC
+## Current review — complete pipeline, 2 October 2026 UTC
+
+PR124 merged at `2e236586` with head and postmerge CI/Cloudflare PASS. The
+coordinator applied the exact integrity SQL once at 01:37:45 UTC as service version
+`20261002013745`, registry151. The source migration originally named
+`20261002011223` is renamed byte-for-byte, SHA256
+`c3960c7e7c4ffd49dd61e5a84b9108ddd2fb0fa34f1d5e87d6439fe3d546c07b`;
+its regression runner changes only that filename. The independent postcheck at
+01:38:10 preserves prior registry entries, scoped data/events, OIDs/ACL and other
+functions/triggers, with the expected checkpoint body change only.
+
+Authentic iOS Retry at 01:39:43–01:39:52 still failed HTTP500/SQLSTATE57014 in final
+integrity. There was no new manifest/finalization proof. Subsequent standalone
+read-only phase profiling identified cumulative work across preflight, events,
+products, prices and integrity. Instrumented phase timings must not be summed and
+presented as an authenticated RPC measurement. Runtime `statement_timeout=8s`,
+lease checks and the catalog fence remain unchanged.
+
+The new additive migration `20261002022202_wechat_010_checkpoint_pipeline_performance.sql`
+changes exactly three existing routines:
+
+- The checkpoint's product SELECT projects the nine fields it consumes and
+  materializes the same recovery DTO bytecount once per row in the same statement.
+  Counts, raw digest fields, UUID ordering, WHERE predicate and byte threshold are
+  identical. No preflight summary is reused across snapshots or differing domains.
+- The event-row and relation-row scope helpers use PL/pgSQL and short-circuit only
+  when the row already has a shop. That branch is exactly `event shop IS NOT NULL
+  AND row shop = event shop`. Each complete original legacy expression remains
+  byte-identical in the fallback, preserving SQL NULL and mapping semantics.
+
+The guard pins exact OIDs by signature, bodies, owner, full ACL, arguments/defaults,
+security, language, volatility and evaluation attributes. Only the two existing
+helper languages and the three bodies change. No grants, new routines, indexes,
+row rewrite, timeout extension or weakened validator are introduced. DDL has
+transaction-local 5s lock and 60s statement limits. Runtime keeps its existing 8s.
+
+Before any coordinator application, refresh the registry151 and scoped fingerprints;
+new authorized fixtures may have changed row/event counts since earlier diagnostics.
+Save all three definitions and complete metadata, then apply reviewed bytes once.
+Verify unchanged existing OIDs, ACL and attributes (except the two intended helper
+languages), all unrelated definitions/triggers and scoped row/event fingerprints.
+The expected new body MD5 values are event scope `95de885c228cb643e349730ae925078c`,
+relation scope `2eb0aee5feb14762b8a52da19662e5f0` and checkpoint
+`f9f74642dbf4e8c1b7e1949f8972c582`. Any compensating restoration uses the saved
+three definitions after review and the same postchecks; it never resets data.
+No remote application or authenticated terminal recovery has been performed for
+this candidate. A successful source check or phase SELECT is not native recovery.
+
+Local verification command (dedicated disposable clone, synthetic rows only):
+
+```sh
+node scripts/testing/wechat-010-checkpoint-pipeline-performance.mjs
+```
+
+The fixture retains the previous representative 61,595 rows and 2,074 events. The
+runner uses TEST's `work_mem=2184kB`, one parallel worker and JIT off, and enforces
+8s per complete authenticated checkpoint. It compares complete JSON, current and
+zero verified baselines, six calls in a single forced-generic backend, and the
+10,001-event cap. Exact metadata/data/other-function parity and rollback/reapply
+are required. Product vectors cover NULL, Unicode, oversize, nonfinite and tombstone
+inputs, including exact aggregate parity and reduced DTO evaluation count.
+The 32 targeted pgTAP assertions include 8,750 comparisons against canonical
+SQL oracles using synthetic mapping-table copies, plus 3,750 comparisons through
+real mapped/disabled/absent states. They exercise NULL, ambiguous/unverified and
+nonfinite mapping cases without disabling canonical triggers. The full 184 History
+and 365 native recovery contract assertions are also required.
+
+Independent read-only TEST product SELECT comparison already returned identical
+complete JSON: baseline 1653.153/1620.620ms versus candidate 1202.087/1170.984ms in
+ABBA order, two samples each. The receipt is kept privately in
+`checkpoint151-products-comparison.json`. This is a phase-only improvement; it
+proves neither full RPC completion nor p95. Final source clone checks pass all
+32+184+365 assertions and 15 guard scenarios plus wrong-role denial. Complete
+checkpoint samples are baseline3979/3956/3977ms versus candidate2728/2706/2789ms;
+current verified baseline2121ms versus1993ms; 10001-event cap6224ms versus3349ms.
+Both versions complete six same-backend forced-generic calls under8s each.
+Product DTO evaluation count is39664 versus19832 with identical aggregate JSON.
+Complete metadata/data/other-function parity and rollback/reapply pass. Logs are
+private in `checkpoint-pipeline-performance.log`; the initial vector-fixture SQL
+failure remains separately preserved. No native terminal PASS is implied.
+
+## Previous review — final integrity, 2 October 2026 UTC
 
 PR123 merged at `e4377f83` after exact-head and postmerge CI/Cloudflare PASS.
 The coordinator applied the price-digest SQL once at 00:54:14 UTC. Source version

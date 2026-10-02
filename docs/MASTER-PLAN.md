@@ -1,5 +1,31 @@
 # MerchandiseControl Admin Web - Master Plan
 
+## TASK-159 REVIEW — complete checkpoint pipeline, 2026-10-02 UTC
+
+PR124 merged at 2e236586 with head/postmerge CI and Cloudflare PASS. The coordinator
+applied the exact integrity SQL once as service version20261002013745 (registry151).
+Its independent postcheck preserves prior registry entries, function metadata/ACL,
+scoped data and events. The subsequent authentic iOS Retry at01:39:43–01:39:52 UTC
+still fails HTTP500/SQLSTATE57014 in final integrity. No terminal native recovery,
+convergence or performance acceptance follows from the earlier phase improvement.
+
+The sole Admin writer now addresses measured cumulative checkpoint work. The
+bounded candidate materializes each product bytecount once within its SELECT and
+adds equivalent non-NULL shop fast paths to the two existing scope predicates.
+Legacy predicate expressions remain exact. No preflight byte reuse across snapshots,
+scalar/DTO changes, new privileges, fence change or runtime8s extension is allowed.
+Final source checks compare exact complete JSON at3956–3979ms versus2706–2789ms
+with TEST work_mem/parallel/JIT settings. The10001-event case is6224ms versus3349ms;
+both versions also pass six same-backend forced-generic calls under8s each. All
+32 targeted +184 History +365 native assertions, 15 guard cases plus wrong-role
+denial, metadata/data parity and rollback/reapply pass. The coordinator's readonly
+product-only comparison is identical at1620.620–1653.153ms versus1170.984–1202.087ms.
+These bounded samples are not authenticated RPC or p95 acceptance. Independent
+frozen-artifact reviews precede integration; only the coordinator may apply
+remotely. The prior integrity filename is aligned with identical SQL bytes. Node22
+full verify (lint, type generation/typecheck, security scan and build) and diffcheck
+PASS; local logs and source fingerprints accompany the frozen review artifact.
+
 ## TASK-159 REVIEW — final integrity checkpoint timeout, 2026-10-02 UTC
 
 PR123 is merged at e4377f83 with exact-head and postmerge CI/Cloudflare PASS.
