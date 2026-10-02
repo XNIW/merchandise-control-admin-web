@@ -1,5 +1,42 @@
 # TASK-159 — WECHAT-010 controlled Mini staging readiness
 
+## TASK-159 EXECUTION — preserve Admin product identity case, 2026-10-02 UTC
+
+An authentic Admin name-only save preserved stock1.25 but uppercased the
+unchanged barcode and item number. Canonical catalog_text_policy_v1 requires
+case-sensitive identity text without case folding. A separate branch from the
+unchanged PR128 head contains the bounded fix: remove only four upper() wrappers
+from the two personal product functions. Existing btrim/nullif, strict text-policy
+triggers, revision/sync wrappers, OIDs and complete permissions remain unchanged;
+there is no backfill or alteration of already stored codes.
+
+The exact-body source check passes. The migration guard explicitly resolves
+both public functions; the regression reproduces the old guard accepting
+conforming shadow functions while the public target drifted, then proves atomic
+refusal by the qualified guard. An isolated local clone reproduced eight failed
+baseline assertions. The corrected actual RPC tests passed27/27; canonical text
+policy20/20, revision44/44 and Mini mutation86/86 also passed (177checks total).
+These cover mixed-case create with an uppercase peer, name-only identity and
+quantity preservation, explicit identity edit, trim collision, stale revision,
+invalid controls and cross-shop refusal. Both exact ACL sets, unknown grants,
+grant options, metadata/signature drift and wrong deploy role were checked.
+Rollback/reapply preserved OIDs, full metadata/ACL, other functions/triggers and
+data. The clone and runner were absent at17:46:43UTC. Pinned Node22 repository
+verification subsequently passed lint, route types, typecheck, secret/security
+scan and production build. Final immutable review is pending. No remote
+application, authentic post-fix success, commit or integration is claimed.
+
+Registry154's recovery timeout remains unresolved. A separate read-only literal
+ABBA integrity diagnostic returned identical20counters but no performance benefit
+from the four-counter fusion. The subsequent six-call prepared generic-plan
+experiment also returned identical20zero counters, with3generic/0custom plans
+per variant. Repeated baseline494.717/495.735ms versus candidate488.298/488.765ms
+shows only a small standalone difference; first calls were511.309/489.112ms.
+These same-snapshot, forced-generic SELECT measurements exclude authentication,
+fences and other checkpoint phases, and establish no full-RPC8s acceptance.
+The candidate stays archived privately and excluded from this identity source
+change; no checkpoint or runtime deadline change is included here.
+
 ## TASK-159 REVIEW — TEST154 applied; authenticated recovery pending, 2026-10-02 15:09 UTC
 
 PR128 candidate head `2e7237f4` passed exact-head database/pgTAP, Verify and
