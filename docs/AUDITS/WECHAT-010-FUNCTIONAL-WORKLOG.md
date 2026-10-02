@@ -540,3 +540,63 @@ one filename literal. This bounded metadata delta requires independent final rev
 and new exact-head CI before merge. No local build/PG workload is repeated during the
 reserved native host slot. Registry152 authentic FAIL is retained; registry153
 recovery remains NOT_RUN until final main CI and the separate authentic gate.
+
+
+### 2026-10-02 — registry153 cold-cost diagnosis and bounded candidate preparation
+
+PR127 is integrated at `e0089365`, with exact-head and postmerge CI/Cloudflare
+checks passing. TEST registry153 is applied and metadata/data postchecks pass.
+The subsequent authentic iOS attempt completed one checkpoint HTTP200 but its
+next checkpoint timed out HTTP500/57014 before activation. Prepared recovery
+state is preserved; no terminal recovery or DONE acceptance is claimed.
+
+The coordinator's read-only two-round diagnostics return identical preflight
+JSON but expose substantial first-execution cost in product/price counts and
+metadata-bound scans. JIT counters are zero; serial planning alone does not
+remove that cost. These diagnostics do not impersonate authentication and do
+not reproduce the complete authenticated RPC deadline.
+
+The sole Admin writer now prepares a bounded candidate: combine each product/
+price capped count with metadata-only upper bounds, with the original count
+branch on contract drift; calculate exact product scalar JSON bytes separately
+inside preflight and the product aggregate. Preserve all six capped counts,
+first-violation/prefix-byte ordering, compression and TOAST guards, original
+fallback loops, DTO/hash/order, scope, ACL, fences and the8s runtime deadline.
+No values or byte totals are shared across checkpoint statements. Existing
+private dependency/type guards remain the trust boundary; no new framework,
+index, grant, data rewrite or remote application is authorized to this writer.
+
+This is candidate preparation, not a demonstrated performance fix. Required
+validation includes adversarial/resource/drift/full-JSON equivalence, cold and
+warm complete-pipeline measurements, and two immutable-artifact reviews before
+integration. Local runtime/build checks are NOT_RUN during the separately
+coordinated native host window; no claim is inferred from source preparation.
+
+### 2026-10-02 UTC — bounded product candidate validation in progress
+
+Migration9a09b810 remains unchanged. Local12+184+365 pgTAP and migration guards
+passed. The first harness timeout/cleanup error and subsequent original153 and
+candidate8s failures in the unchanged event phase are preserved. Concurrent
+emulator load was observed and then normally stopped by its coordinator; causal
+attribution remains limited. Functional-only120s oracle work is explicitly
+separate from8s acceptance. No source commit, remote apply or runtime acceptance
+is inferred; the disposable clone will be retained for further diagnosis.
+
+### 2026-10-02 UTC — bounded product functional evidence and TEST diagnostic
+
+The functional-only continuation completed successfully with source9a09b810
+unchanged. Per-row/aggregate vectors, full JSON, all-unique values, scope/caps/
+first-violation, drift, metadata/ACL/data and rollback passed. Its120s oracle calls
+are explicitly not8s acceptance; earlier8s failures remain preserved. The clone
+is retained privately for diagnosis. The coordinator's twice-reviewed TEST
+READONLY/ROLLBACK copied diagnostic returned exact reference/round equality at
+5716.469/3711.593ms, excluding authentication/fences/final assembly. Event shapes
+are not assumed representative merely from equal total counts. Source checks
+and final review are pending; no remote apply or genuine recovery success.
+
+At06:49UTC pinned Node22 verify completed with exit0: lint, type generation/check,
+security scan and production build passed. The seven-file candidate is prepared
+for immutable review. TEST153 stays applied; earlier8s FAIL evidence remains
+unaltered and no remote application or authenticated recovery acceptance is
+claimed. No local PG/build workload remains; the isolated synthetic clone is
+retained for read-only diagnosis.

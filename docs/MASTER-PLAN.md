@@ -1,5 +1,43 @@
 # MerchandiseControl Admin Web - Master Plan
 
+## TASK-159 REVIEW — bounded scan and product byte candidate, 2026-10-02 UTC
+
+PR127 is integrated at `e0089365`, with exact-head and postmerge CI/Cloudflare
+checks passing. TEST registry153 is applied and metadata/data postchecks pass.
+The subsequent authentic iOS attempt completed one checkpoint HTTP200 but its
+next checkpoint timed out HTTP500/57014 before activation. Prepared recovery
+state is preserved; no terminal recovery or DONE acceptance is claimed.
+
+The coordinator's read-only two-round diagnostics return identical preflight
+JSON but expose substantial first-execution cost in product/price counts and
+metadata-bound scans. JIT counters are zero; serial planning alone does not
+remove that cost. These diagnostics do not impersonate authentication and do
+not reproduce the complete authenticated RPC deadline.
+
+The sole Admin writer now prepares a bounded candidate: combine each product/
+price capped count with metadata-only upper bounds, with the original count
+branch on contract drift; calculate exact product scalar JSON bytes separately
+inside preflight and the product aggregate. Preserve all six capped counts,
+first-violation/prefix-byte ordering, compression and TOAST guards, original
+fallback loops, DTO/hash/order, scope, ACL, fences and the8s runtime deadline.
+No values or byte totals are shared across checkpoint statements. Existing
+private dependency/type guards remain the trust boundary; no new framework,
+index, grant, data rewrite or remote application is authorized to this writer.
+
+Local12+184+365 SQL checks, migration guards and the complete functional
+continuation passed: full JSON/per-row bytes, vectors, all-unique values, cap/
+precedence, dependency drift, metadata/ACL and rollback. The original153 and
+candidate8s failures in the unchanged event phase remain preserved. The later
+120s local oracle establishes equivalence only, not budget acceptance.
+
+A coordinator-run read-only copied-body diagnostic on TEST returned identical
+preflight/product/full-round values at5716.469 and3711.593ms. It excludes auth,
+fences and final RPC assembly and uses different planning context; it is not an
+authenticated8s PASS or a controlled AB comparison with earlier diagnostics.
+Node22 source verification (lint, types, security and build) passed. Two
+immutable-artifact reviews remain pending. TEST153
+and its authentic failure remain current; this candidate has not been applied.
+
 ## TASK-159 REVIEW — TEST153 applied; authentic recovery pending, 2026-10-02 UTC
 
 PR127 source head `a8a693ab` passed database/pgTAP, Verify and Cloudflare checks
