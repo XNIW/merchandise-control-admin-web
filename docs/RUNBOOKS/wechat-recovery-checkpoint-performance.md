@@ -1,6 +1,25 @@
 # WECHAT-010 — prestazioni del checkpoint di recovery
 
-## Current review — guarded preflight and price bytes, 2 October 2026 UTC
+## TASK-159 REVIEW — TEST153 applied; authentic recovery pending, 2026-10-02 UTC
+
+PR127 source head `a8a693ab` passed database/pgTAP, Verify and Cloudflare checks
+on the exact reviewed SQL. After both independent reviews, the coordinator applied
+those bytes once to TEST at04:40 UTC. Supabase assigned service version
+`20261002044017`, advancing the registry from152 to153. The04:40:41 postcheck confirms
+all152 prior entries unchanged, the two existing routines changed only in their
+expected bodies, and the new private SECURITY INVOKER helper. Existing OIDs/ACL and
+all other functions, triggers, scoped data/events, image versions and physical
+History state remain unchanged.
+
+The original filename `20261002040159` is aligned to `20261002044017` with SQL SHA256
+`e6e3a2631c82e506461c400e16a910f87c8e007ff8ad29a643ce10b3f19af826` unchanged; the runner
+changes only its migration path. This receipt stays in PR127 for final metadata
+review and exact-head CI before merge; no auto-merge is enabled. The writer performed
+no remote application or deployment. Registry152's authentic FAIL remains preserved;
+registry153 authentic recovery is NOT_RUN and awaits final main CI and the separate
+coordinator/native gate. No terminal recovery, percentile or DONE acceptance.
+
+## Pre-application review — guarded preflight and price bytes, 2 October 2026 UTC
 
 The registry152 authentic failure remains unresolved. The coordinator's single
 read-only nine-phase diagnostic measured9230.271ms before authentication/fence and
@@ -8,7 +27,7 @@ final assembly; standalone phase timings are not summed to claim RPC latency.
 Preflight serialized every product/price DTO in a bounded PL/pgSQL loop before the
 checkpoint serialized them again. Repeated price scalars added further work.
 
-The candidate migration `20261002040159_wechat_010_preflight_price_bytes.sql`
+The candidate migration `20261002044017_wechat_010_preflight_price_bytes.sql`
 changes only the existing preflight and checkpoint bodies and adds one private
 `SECURITY INVOKER` predicate. No business row, existing ACL/OID, DTO builder,
 validator, scope/parent predicate, digest ordering, fence or runtime8s setting changes.
