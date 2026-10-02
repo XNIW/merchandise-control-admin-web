@@ -1,5 +1,33 @@
 # MerchandiseControl Admin Web - Master Plan
 
+## TASK-159 REVIEW — deferred Admin marker refresh, 2026-10-02 UTC
+
+PR125 is integrated at7bd490ba with exact-head and postmerge CI/Cloudflare PASS.
+The coordinator applied the exact SQL once at02:53:17 UTC as service20261002025317,
+registry152. The independent02:53:40 postcheck preserves OIDs/full ACL, all unrelated
+metadata/functions/triggers and scoped data/events, with only the three expected
+bodies and two helper languages changed. The source filename and runner reference
+are aligned byte-for-byte. The single authentic iOS Retry02:55:18–02:55:27 still
+failed HTTP500/57014, now in the price SELECT (line418). No manifest, finalization
+or verified recovery appeared; Android152 remains NOT_RUN. No identical retry or
+new speculative SQL optimization is authorized by this receipt. The sole writer addresses
+a separate deterministic Admin-shell defect, reproduced against its exact source:
+a marker observed while a form is focused or the refresh throttle is active is
+consumed even though no refresh occurs; later identical markers never retry.
+This does not establish the cause of the earlier interrupted live Admin tab.
+
+Bounded scope: acknowledge the marker only after router.refresh() is invoked,
+retain it across deferral/cancel, recheck focus/visibility/current scope at the
+200ms timer, and cover focus/throttle/same-marker/race/unmount behavior with local
+regressions. Preserve authorization, shop-scoped marker API, polling/backoff and
+form protection. No DDL, Worker deployment or live business mutation by the writer.
+The eleven isolated callback regressions now pass (nine fail against saved original
+source), including offline within the timer, reconnect, backoff and native focus. After host release, Node22 full verify (lint, typecheck, security, build) and the
+existing Admin marker contract pass. A broader local source-test batch has31PASS
+and one unrelated missing Win7POS file; it is not a full-suite PASS. No live poller
+acceptance is claimed. Frozen review, exact-head CI and selective staging review
+precede release.
+
 ## TASK-159 REVIEW — complete checkpoint pipeline, 2026-10-02 UTC
 
 PR124 merged at 2e236586 with head/postmerge CI and Cloudflare PASS. The coordinator
