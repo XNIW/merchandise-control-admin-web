@@ -394,3 +394,45 @@ clone is removed in finally. Logs and coordinator failure/read-only plans remain
 private under checkpoint-integrity-performance-* and integrity-readonly-*; no
 protected configuration or real row contents are published. No remote action by
 the writer, no live recovery/convergence PASS, no DONE.
+
+
+## 2026-10-02 — complete checkpoint pipeline and registry151 receipt
+
+PR124 merged at2e236586 after required head/postmerge CI/Cloudflare PASS. The
+coordinator applied the reviewed integrity SQL once at01:37:45 UTC as service
+20261002013745, registry151, with independent metadata/data postcheck at01:38:10.
+The source20261002011223 filename and its runner reference are aligned without
+changing SQL SHA256c3960c7e7c4ffd49dd61e5a84b9108ddd2fb0fa34f1d5e87d6439fe3d546c07b.
+Authentic iOS Retry01:39:43–01:39:52 still failed500/57014; no recovery finalization
+or new manifest was observed. This failure remains separate from successful SQL
+application and the earlier standalone phase improvement.
+
+The sole writer profiled the full pipeline using existing representative fixtures
+and TEST work_mem2184kB/parallel1/JIToff. Additive source20261002022202 changes only
+product bytecount evaluation within one SELECT and the two existing scope helpers'
+non-NULL row-shop branch. Each legacy expression stays exact; metadata differs only
+in the three intended bodies and two languages. There is no new grant or runtime
+8s/fence/validator change, no cross-statement preflight cache or data mutation.
+
+The coordinator's independent readonly product SELECT comparison returned exact
+complete JSON and ABBA execution1653.153/1620.620ms versus1202.087/1170.984ms.
+These are two phase samples per version, not full RPC/p95 or native acceptance.
+Local exploration showed complete checkpoint parity at3901–3976ms versus2682–2694ms.
+Two earlier exploratory runners correctly hit canonical mapping-write guards;
+their FAIL logs were preserved and invalid mapping cases moved to explicit test-only
+helper/table copies. The initial source runner passed contracts and full checkpoints
+but its vector fixture used unavailable min(uuid); that FAIL log is preserved too,
+and the fixture now uses ordered LIMIT1. No canonical trigger was disabled.
+
+The source regression suite exercises full metadata/OID/ACL/unrelated-function/data
+parity, three accepted ACL permutations and twelve rejected drift cases plus wrong
+role, 32 targeted +184 History +365 native pgTAP assertions, product DTO callcounts,
+NULL/Unicode/oversize/nonfinite/tombstone aggregate parity, current/zero baselines,
+forced generic same-backend calls, 10001-event cap and rollback/reapply. All PASS:
+complete checkpoint3979/3956/3977ms versus2728/2706/2789ms; current baseline2121
+versus1993ms; cap6224 versus3349ms. Product DTO evaluations39664→19832 with identical
+aggregate JSON; both versions complete six generic backend calls under8s each.
+The clone is removed. Node22 full verify (lint, type generation/typecheck, security
+scan and build) and diffcheck PASS. Logs and immutable source fingerprints are
+recorded privately for two independent reviews before integration. No remote action
+by this writer, no live terminal recovery/convergence PASS, no DONE.
