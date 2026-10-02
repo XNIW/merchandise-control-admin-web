@@ -600,3 +600,29 @@ for immutable review. TEST153 stays applied; earlier8s FAIL evidence remains
 unaltered and no remote application or authenticated recovery acceptance is
 claimed. No local PG/build workload remains; the isolated synthetic clone is
 retained for read-only diagnosis.
+
+### 2026-10-02 15:09 UTC — TEST154 apply and source-version reconciliation
+
+PR128 candidate head `2e7237f4` passed exact-head database/pgTAP, Verify and
+Cloudflare build checks after the independent immutable-artifact reviews.
+The coordinator applied the reviewed SQL once to TEST at15:09:09 UTC, advancing
+registry153 to154 with service version `20261002150909`. The15:09:43 private
+`bounded-product-bytes-postcheck.json` records POSTCHECK_PASS: all153 previous
+registry entries are unchanged; only the two expected routine bodies changed.
+The existing private helper, existing OIDs/full metadata/ACL, all other functions,
+triggers, scoped data/events, image versions and physical History remain unchanged.
+
+The source filename `20261002054522` is aligned to `20261002150909` in this same
+open PR, with SQL SHA256
+`9a09b8106aa8dbb3f86365ef964cc0e6a204fc8e38440b660716ebb179f04e27`
+unchanged. The local runner changes only its migration path. This receipt delta
+adds no SQL behavior, data mutation or deployment; no local PG/build/global
+verification is repeated for the filename and documentation changes. Final-head
+CI and metadata review precede any merge; the PR is not yet integrated.
+
+Registry153's authentic iOS first-checkpoint HTTP200 followed by HTTP500/57014,
+and the local8s failures, remain preserved evidence. The120s functional oracle
+and copied read-only diagnostic establish their stated equivalence only.
+Authenticated recovery on154 is pending; no terminal recovery,8s runtime PASS or
+DONE is claimed. Earlier06/07UTC preparation and validation entries below are
+historical and do not describe the15:09 applied state.

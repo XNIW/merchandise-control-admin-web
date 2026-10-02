@@ -4,7 +4,7 @@ import { readFileSync, statSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { performance } from 'node:perf_hooks';
 import { createHash } from 'node:crypto';
-const migration=readFileSync('supabase/migrations/20261002054522_wechat_010_bounded_product_bytes.sql','utf8');
+const migration=readFileSync('supabase/migrations/20261002150909_wechat_010_bounded_product_bytes.sql','utf8');
 const helper='app_private.sync_recovery_scalar_bytes_contract_v1()';
 const extract=(source,anchor,delimiter)=>{const start=source.indexOf(anchor);assert.ok(start>=0,anchor);const end=source.indexOf(delimiter+';',source.toLowerCase().indexOf('as '+delimiter,start)+delimiter.length+3);assert.ok(end>=0);return source.slice(start,end+delimiter.length+1);};
 const container='supabase_db_MerchandiseControlSupabase',template='wechat010_sync_final_20260926';
