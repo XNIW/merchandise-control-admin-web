@@ -317,3 +317,26 @@ DTO/digest/scope/rollback checks PASS again. Full Admin Node22 verify PASS.
 Private logs: history-timestamp-acl-red.log, history-timestamp-acl-green.log,
 history-timestamp-acl-verify.log. No remote SQL/application or authentic Retry by
 this writer; independent review and any second coordinator apply remain pending.
+
+## 2026-10-01 — History TEST v2 applied and version receipt REVIEW
+
+PR121 head0875e944 merged d1287cab at 23:44:48 UTC after exact-head Verify,
+Database and Cloudflare PASS. Head CI36942045201/CF36942044782 and postmerge
+CI36942419923/CF36942419889 SUCCESS; staging/production deploy jobs SKIPPED.
+The coordinator applied the corrected migration once at 23:51:53 UTC, service
+version20261001235153 from source20261001215458. Registry149 preserves all148
+previous entries. SQL SHA256 remains
+765a891c7c89f4aff0824384754c5aa8a9dfda4766a6fd77fd4a7a0efd7080d1.
+
+Independent postcheck23:52:26 UTC PASS: two existing function OIDs/full metadata/ACL
+preserved, expected History source bodies and postgres-only new helper; all scoped
+data, original History row fingerprints, image versions and2074 events unchanged.
+Other functions and triggers are unchanged. Private receipts are
+history-timestamp-v2-{apply-intent,apply-result,after,postcheck}.json.
+
+This source-only delta renames the SQL file to the service version and changes
+only its runner path plus documentation. SQL bytes are identical; no registry
+repair, remote SQL or new runtime behavior by this writer. Byte/hash and path
+checks, runner syntax, security scan and diff checks PASS. Large unchanged suites
+are not rerun for this receipt. No authentic recovery, performance or native
+convergence acceptance is inferred from application success.

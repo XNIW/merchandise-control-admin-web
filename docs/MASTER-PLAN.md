@@ -1,6 +1,19 @@
 # MerchandiseControl Admin Web - Master Plan
 
-## TASK-159 REVIEW — History migration ACL precondition, 2026-10-01
+## TASK-159 REVIEW — History TEST receipt and source reconciliation, 2026-10-01
+
+PR121 merged d1287cab with head/postmerge CI and Cloudflare PASS. The coordinator
+applied the corrected History migration once at 23:51:53 UTC; Supabase assigned
+service version20261001235153, registry149. Independent postcheck at 23:52:26 UTC
+confirms all prior148 registry entries unchanged, preserved existing function
+OID/metadata/ACL, expected two body changes and one postgres-only private helper.
+Scoped data, the three original History rows, image versions, 2074 events, other
+functions and triggers are unchanged. This source-only receipt renames the SQL
+file to the assigned version with identical bytes and updates its runner path.
+Authentic recovery and native convergence are not yet verified. Earlier review
+entries below describe their historical pre-application state.
+
+## Historical REVIEW — History migration ACL precondition, 2026-10-01
 
 PR120 is merged with head/postmerge CI PASS. Its TEST application was rejected
 atomically by the baseline ACL guard; registry148, function definitions, data and
@@ -11,7 +24,7 @@ ACL scenarios, 184 History and 365 native assertions, complete checkpoint tests
 and full Node22 verify PASS. Independent review precedes source integration and
 any second application by the coordinator. Runtime SQL remains byte-identical.
 
-## TASK-159 REVIEW — History timestamp compatibility, 2026-10-01
+## Historical REVIEW — History timestamp compatibility, 2026-10-01
 
 Performance PR119 is merged at4532831b after Verify/Database/Cloudflare PASS;
 the coordinator applied the exact SQL once as service20261001220355 (registry148),
