@@ -1,5 +1,26 @@
 # TASK-159 — WECHAT-010 controlled Mini staging readiness
 
+## TASK-159 REVIEW — fractional stock in the existing product editor, 2026-10-02 UTC
+
+The coordinator reproduced a name-only save blocked by native number validation
+when the existing stock quantity was1.25. The input imposed integer steps while
+the unchanged server contract accepts finite nonnegative quantities. The sole
+application change is stockQuantity step1→any, retaining min0/type number and
+all server, price, revision and authorization behavior.
+
+An isolated Chromium regression renders the actual overview form and performs
+ordinary native submissions:1.25,0.001 and1.234567 were rejected before the fix
+and pass afterward with every non-name FormData value unchanged. Negative stock
+still prevents submission. All4 browser cases and5 existing form tests pass;
+pinned Node22 verify passes lint, types, security scan and production build.
+The first local build rejected an external node_modules symlink; after copying
+the same dependencies into this worktree, verify passed without a source workaround.
+
+The browser regression has no app/backend connection and is not an authenticated
+save or post-deployment acceptance. Source work is isolated from open PR128;
+its separate TEST154 receipt remains there. No migration, data rewrite or deployment
+was performed by this writer. This five-file patch awaits independent review.
+
 ## TASK-159 REVIEW — TEST153 applied; authentic recovery pending, 2026-10-02 UTC
 
 PR127 source head `a8a693ab` passed database/pgTAP, Verify and Cloudflare checks

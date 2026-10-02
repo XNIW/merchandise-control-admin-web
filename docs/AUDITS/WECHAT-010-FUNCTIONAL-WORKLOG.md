@@ -540,3 +540,35 @@ one filename literal. This bounded metadata delta requires independent final rev
 and new exact-head CI before merge. No local build/PG workload is repeated during the
 reserved native host slot. Registry152 authentic FAIL is retained; registry153
 recovery remains NOT_RUN until final main CI and the separate authentic gate.
+
+### 2026-10-02 UTC — bounded fractional-stock editor fix started
+
+The coordinator reproduced a name-only save blocked by native number validation
+when the existing stock quantity was1.25. The input imposes integer steps while
+the unchanged server contract accepts finite nonnegative quantities. This bounded
+fix changes only that input step, retaining min0/type number and all server,
+price, revision and authorization behavior. An isolated browser regression must
+prove fractional name-only submission without changing stock and preserve negative
+quantity rejection. Source work is isolated from open PR128; no migration, data
+rewrite, deployment or authentic post-fix acceptance is part of this change.
+
+### 2026-10-02 UTC — fractional-stock editor validation completed
+
+The coordinator reproduced a name-only save blocked by native number validation
+when the existing stock quantity was1.25. The input imposed integer steps while
+the unchanged server contract accepts finite nonnegative quantities. The sole
+application change is stockQuantity step1→any, retaining min0/type number and
+all server, price, revision and authorization behavior.
+
+An isolated Chromium regression renders the actual overview form and performs
+ordinary native submissions:1.25,0.001 and1.234567 were rejected before the fix
+and pass afterward with every non-name FormData value unchanged. Negative stock
+still prevents submission. All4 browser cases and5 existing form tests pass;
+pinned Node22 verify passes lint, types, security scan and production build.
+The first local build rejected an external node_modules symlink; after copying
+the same dependencies into this worktree, verify passed without a source workaround.
+
+The browser regression has no app/backend connection and is not an authenticated
+save or post-deployment acceptance. Source work is isolated from open PR128;
+its separate TEST154 receipt remains there. No migration, data rewrite or deployment
+was performed by this writer. This five-file patch awaits independent review.
