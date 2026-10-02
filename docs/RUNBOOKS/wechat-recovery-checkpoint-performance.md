@@ -1,6 +1,6 @@
 # WECHAT-010 — prestazioni del checkpoint di recovery
 
-## Current review — complete pipeline, 2 October 2026 UTC
+## Current status — pipeline applied; authentic retry still failed, 2 October 2026 UTC
 
 PR124 merged at `2e236586` with head and postmerge CI/Cloudflare PASS. The
 coordinator applied the exact integrity SQL once at 01:37:45 UTC as service version
@@ -18,7 +18,17 @@ products, prices and integrity. Instrumented phase timings must not be summed an
 presented as an authenticated RPC measurement. Runtime `statement_timeout=8s`,
 lease checks and the catalog fence remain unchanged.
 
-The new additive migration `20261002022202_wechat_010_checkpoint_pipeline_performance.sql`
+PR125 integrated the reviewed pipeline correction at `7bd490ba` after exact-head
+and postmerge CI/Cloudflare PASS. The coordinator applied its exact SQL once at
+02:53:17 UTC, service `20261002025317`, registry152. The 02:53:40 independent
+postcheck confirms the expected three bodies and two helper languages only;
+existing OIDs/full ACL and all other metadata, unrelated functions/triggers,
+History storage, scoped rows and events are unchanged. Source version
+`20261002022202` is renamed to the assigned service version with identical SHA256
+`38e504d8b2bd06620b4325c20189eb420ec75afead3572f0685bbb12ed2ba626`.
+The local regression runner changes only its migration path. There is no replay.
+
+The applied migration `20261002025317_wechat_010_checkpoint_pipeline_performance.sql`
 changes exactly three existing routines:
 
 - The checkpoint's product SELECT projects the nine fields it consumes and
@@ -36,17 +46,21 @@ helper languages and the three bodies change. No grants, new routines, indexes,
 row rewrite, timeout extension or weakened validator are introduced. DDL has
 transaction-local 5s lock and 60s statement limits. Runtime keeps its existing 8s.
 
-Before any coordinator application, refresh the registry151 and scoped fingerprints;
-new authorized fixtures may have changed row/event counts since earlier diagnostics.
-Save all three definitions and complete metadata, then apply reviewed bytes once.
-Verify unchanged existing OIDs, ACL and attributes (except the two intended helper
-languages), all unrelated definitions/triggers and scoped row/event fingerprints.
-The expected new body MD5 values are event scope `95de885c228cb643e349730ae925078c`,
-relation scope `2eb0aee5feb14762b8a52da19662e5f0` and checkpoint
-`f9f74642dbf4e8c1b7e1949f8972c582`. Any compensating restoration uses the saved
-three definitions after review and the same postchecks; it never resets data.
-No remote application or authenticated terminal recovery has been performed for
-this candidate. A successful source check or phase SELECT is not native recovery.
+The coordinator refreshed registry151 and scoped fingerprints immediately before
+application, retaining all three definitions and complete metadata. Postcheck
+confirmed event scope body MD5 `95de885c228cb643e349730ae925078c`, relation scope
+`2eb0aee5feb14762b8a52da19662e5f0` and checkpoint
+`f9f74642dbf4e8c1b7e1949f8972c582`. Any compensating restoration requires review
+and the saved three definitions plus the same metadata/data postchecks; it never
+resets data. Receipts remain private under `checkpoint-pipeline-apply-*`.
+The single authentic iOS Retry on registry152 at02:55:18–02:55:27 failed again
+HTTP500/SQLSTATE57014, now in the price SELECT at checkpoint line418, origin8279ms
+and upstream8049ms. Binding remained unchanged; manifest/finalization/journal were
+absent and verified=false. Android152 is NOT_RUN and there is no identical retry.
+The private log is `checkpoint-pipeline-ios-failure-logs.json`. Successful source
+integration, SQL application or a phase SELECT is not native recovery acceptance.
+Further correction requires evidence from the complete cumulative execution, not
+a speculative change based only on the final interrupted statement.
 
 Local verification command (dedicated disposable clone, synthetic rows only):
 

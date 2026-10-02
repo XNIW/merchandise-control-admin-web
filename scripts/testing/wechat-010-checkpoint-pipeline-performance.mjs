@@ -17,7 +17,7 @@ const sql = (input, db = database, role = 'postgres') => execFileSync(docker, [
   '-v', 'ON_ERROR_STOP=1', '-U', role, '-d', db,
 ], { input: `set work_mem='2184kB';set max_parallel_workers_per_gather=1;set jit=off;\n${input}`, env, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], timeout: 120000 }).trim();
 const literal = (value) => `'${value.replaceAll("'", "''")}'`;
-const migration = readFileSync('supabase/migrations/20261002022202_wechat_010_checkpoint_pipeline_performance.sql', 'utf8');
+const migration = readFileSync('supabase/migrations/20261002025317_wechat_010_checkpoint_pipeline_performance.sql', 'utf8');
 const fixture = `
 
  insert into auth.users(instance_id,id,aud,role,raw_app_meta_data,raw_user_meta_data,created_at,updated_at) values('00000000-0000-0000-0000-000000000000','00000000-0000-4000-8000-000000009201','authenticated','authenticated','{}','{}',now(),now());

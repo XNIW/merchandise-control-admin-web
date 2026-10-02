@@ -436,3 +436,48 @@ The clone is removed. Node22 full verify (lint, type generation/typecheck, secur
 scan and build) and diffcheck PASS. Logs and immutable source fingerprints are
 recorded privately for two independent reviews before integration. No remote action
 by this writer, no live terminal recovery/convergence PASS, no DONE.
+
+
+## 2026-10-02 — registry152 receipt and deferred Admin marker correction
+
+PR125 merged7bd490ba after head04c117d9 and postmerge CI/Cloudflare SUCCESS.
+The coordinator applied SQL38e504d8b2bd06620b4325c20189eb420ec75afead3572f0685bbb12ed2ba626
+once02:53:17 UTC as service20261002025317, registry152. Postcheck02:53:40 preserves
+OID/full ACL, other metadata/functions/triggers and all scoped data/events/History
+storage; only the three expected bodies and two helper languages change. Source
+20261002022202 is renamed to that service version byte-for-byte; the old runner
+changes one path literal. No remote application by the writer or replay.
+
+The single actual iOS Retry02:55:18–02:55:27 still failed500/57014 in the price
+SELECT at line418, origin8279/upstream8049ms. No manifest/finalization/journal or
+verified recovery appeared. Android152 remains NOT_RUN. The failure is preserved;
+local speedup and successful application do not establish native recovery. No
+new speculative SQL optimization is included in this delta.
+
+A separate source-exact isolated reproduction proves Admin ShopShell consumes an
+event marker while focus/throttle prevents refresh, so subsequent identical polls
+never retry. This is not attributed as the cause of the interrupted earlier live
+tab. The minimum correction acknowledges only an actual router.refresh invocation;
+network availability, visibility/form focus and stopped scope are checked again
+in the 200ms callback.
+Timer ownership prevents a cancelled old callback clearing a new timer handle.
+Focus/pageshow/visibility paths, shop cleanup, the authorized marker route, polling
+interval/backoff, and no-refresh-during-edit protection remain in place. This
+acknowledgement is not a server-response or rendered-data acceptance assertion.
+
+Eleven isolated tests execute the real TypeScript component callbacks with fake DOM,
+clock, router and fetch ports: focused/throttled same-marker retry, 200ms focus,
+visibility/offline races and reconnect, pageshow cancellation, stale callback/unmount, scope replacement,
+HTTP backoff, timer ownership and the native focus listener. Saved original source
+has nine FAIL/two PASS; corrected source eleven PASS (246ms). The first reviewed
+version failed the newly added offline-race test before the network guard was added;
+its ten existing cases still passed. Both prior and new artifacts/logs are preserved
+privately; final logs are admin-marker-v2-before-tests.log and admin-marker-v2-after-tests.log.
+No UI or backend operation was performed by these tests. After host release,
+Node22 full verify (lint, type generation/typecheck, security scan and build) and
+diffcheck PASS. The existing Admin marker contract passes separately. A broader
+local source-test batch reports31PASS and one ENOENT for the pre-existing external
+Win7POS SalesSyncOutboxRepository.cs; that batch is not reported as full PASS and
+the unrelated repository is unchanged. Independent review, exact-head CI and a
+separate selective staging review remain before release. No live poller/native
+convergence PASS or DONE.
