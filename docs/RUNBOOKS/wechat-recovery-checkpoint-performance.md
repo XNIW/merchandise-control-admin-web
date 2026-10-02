@@ -1,5 +1,92 @@
 # WECHAT-010 — prestazioni del checkpoint di recovery
 
+## Current REVIEW — price digest, 2 October 2026 UTC
+
+After the previous performance and History fixes were applied (registry149),
+authentic iOS and Android recovery each still reached HTTP500/SQLSTATE57014 in the
+checkpoint price aggregate. iOS origin8227ms/upstream8099ms at00:11:58.614UTC;
+Android origin8181ms at00:24:27.912UTC. The clean resource preflight does not prove
+that the complete checkpoint finishes. Both original failures remain preserved;
+this candidate has no remote application or authentic recovery acceptance yet.
+
+`20261002002517_wechat_010_price_digest_performance.sql` changes only the price
+aggregate in `shop_sync_recovery_checkpoint_v1` and the implementation language of
+`sync_price_canonical_amount_v1`. The latter returns the exact existing expression.
+The price CTE materializes only digest inputs and the computed DTO byte count,
+so each DTO is serialized once. Non-NULL timestamp spellings are de-duplicated
+with bytewise `C` collation and each calls the unchanged validator once per SELECT.
+Two LEFT JOINs retain every price, including NULL/invalid spellings and the original
+`invalid` fallback. There is no persistent cache. Scope/parent predicates, raw
+strings, UUID ordering, hash expressions, all other domains and the preflight
+remain unchanged. The RPC stays VOLATILE; its 8s runtime budget is unchanged.
+
+The DDL guard requires postgres, exact signatures/source/attributes and complete
+ACL sets (canonical local or the observed TEST checkpoint set). It never grants or
+revokes existing permissions. CREATE OR REPLACE preserves OIDs/owners/ACLs. Local
+DDL lock/statement limits remain5s/60s. No data, trigger, index or registry repair.
+
+PostgreSQL can fold an ordinary CTE into its parent query; explicit
+[MATERIALIZED](https://www.postgresql.org/docs/17/queries-with.html#QUERIES-WITH-CTE-MATERIALIZATION)
+prevents duplicate computation here. The evidence below also measures actual
+[transaction-local function counters](https://www.postgresql.org/docs/17/monitoring-stats.html),
+rather than inferring speed or evaluation counts from source alone.
+
+Run the isolated regression/benchmark from the repository root with Node22:
+
+```sh
+node scripts/testing/wechat-010-price-digest-performance.mjs
+```
+
+The runner uses only a disposable local Docker schema clone, no database URL or
+live rows, and removes the clone in `finally`. All fixture triggers remain active.
+Its61,595 synthetic rows contain41,345 prices,165 legacy prices and663/661 distinct
+effective/created timestamps, matching the measured price cardinalities. Other
+domain counts remain the existing synthetic load described below; this is not a
+copy or exact distribution of TEST. It compares complete checkpoint JSON, including
+all byte counts, hashes, scope and event decisions, under the real authenticated
+role in verified mixed shop/legacy scope.
+
+Local results on2 October (milliseconds):
+
+| Complete checkpoint | Previous source | Candidate |
+| --- | --- | --- |
+| 2074 events, first call in a new backend | 4432 | 3865 |
+| 2074 events, repeated shared-cache calls | 4405 /4467 | 3956 /3831 |
+| Verified current event baseline | 2952 | 2428 |
+| 10001 events, baseline zero | 5896 | 5430 |
+
+Each candidate checkpoint uses8s. The original diagnostic oracle permits40s,
+although it completed below8s on this Mac. These are local samples, not remote
+percentiles or proof that TEST now finishes. Each call has a fresh backend/plan;
+shared data/OS caches are not evicted. The10001-event case still inspects10000,
+reports incomplete scan and requires full recovery. Separate EXPLAIN measurements
+attribute the gain to the price stage; other pipeline stages remain unchanged.
+
+Deterministic RED→GREEN: original price aggregate calls the DTO constructor82,690
+times and the timestamp validator82,690 times; candidate calls41,345 and1,324.
+The complete old/new JSON SHA256 for the2074-event fixture is
+`e8f14905be56beaeccf1243a7caf8f23c56d500ac5e0a72c524191502991e013`.
+Nine baseline/ACL/source/signature cases,14 new scalar assertions,184 History and
+365 native contract assertions PASS. Temporary projections also prove equal
+NULL/invalid/empty/Unicode/nonfinite/rounding results and all82,690 timestamps
+unique. Every non-NULL unique spelling is still validated. Full metadata except
+the intended scalar language, unrelated functions, row/event fingerprints and
+compensating rollback/reapply remain exact. Private logs:
+`price-digest-performance-tests.log`, `price-digest-investigate-next.log`.
+Full Admin Node22.23.3 verify PASS (lint/type generation/typecheck/security/build);
+`git diff --check` PASS. Verification log: `price-digest-performance-verify.log`.
+
+Before coordinator release, acquire a fresh registry149/source/metadata/ACL
+snapshot and protected original definitions. In a coordinated DDL window apply
+only the twice-reviewed merged SQL once; record any service-assigned version.
+Independently compare existing OIDs/full metadata/ACL, expected two body changes,
+other functions/triggers, scoped rows and event fingerprints. Rollback is an
+additive reviewed restoration of those protected definitions, with data untouched.
+Only then perform a bounded authentic Retry and assess the terminal recovery and
+latency. A clean preflight or successful migration alone is insufficient.
+
+## Historical receipt — first performance delta, 1 October 2026
+
 Stato: PR119 integrata in main4532831b con CI/Cloudflare PASS; migrazione TEST
 applicata una sola volta dal coordinatore il1 ottobre2026. Nessun Retry autentico
 è stato eseguito per dichiarare recovery/convergenza. Il checkpoint canonico, i
