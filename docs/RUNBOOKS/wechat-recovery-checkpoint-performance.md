@@ -1,6 +1,103 @@
 # WECHAT-010 — prestazioni del checkpoint di recovery
 
-## Current REVIEW — price digest, 2 October 2026 UTC
+## Current review — final integrity, 2 October 2026 UTC
+
+PR123 merged at `e4377f83` after exact-head and postmerge CI/Cloudflare PASS.
+The coordinator applied the price-digest SQL once at 00:54:14 UTC. Source version
+`20261002002517` maps to service `20261002005414`, registry 150; SQL SHA256
+`54bc73e0dcbd4bd1d4323989b3bce6dc1c528117fe45509c35b5301243d8474a` is unchanged.
+The 00:54:42 postcheck preserved previous 149 registry entries, function identities,
+ACL and all scoped data/events, with only the expected implementation changes.
+This source reconciliation renames the migration and its regression-runner path.
+
+Authentic recovery remains open: iOS at 00:55:17 and Android at 00:59:26 each still
+returned HTTP500/SQLSTATE57014, now inside the final integrity SELECT after the
+price/history/image aggregates. Mini polling also waited on the same catalog
+fence. Preserve these failures; the lock and the runtime 8s deadline are unchanged.
+The native apps were parked normally to prevent repeated contention during diagnosis.
+
+The additive candidate changes only the final integrity SELECT in
+`shop_sync_recovery_checkpoint_v1`: narrower materialized row projections and
+per-SELECT validation of distinct non-NULL price timestamps and numeric values.
+Date strings use bytewise `C` collation. Numeric equality only coalesces values
+with the same predicate result, including NaN and signed zero. LEFT JOINs retain
+every scoped row, so violations are still counted per row, including multiple
+invalid fields on one product. NULL price/date remains invalid; NULL product
+number remains materializable. No persistent or cross-statement cache exists.
+All validators, event processing, scopes, parent checks, DTOs, digest inputs/order,
+lease checks, advisory locks and final status construction remain unchanged.
+
+The DDL guard checks the exact checkpoint signature, source, attributes and complete
+canonical-local or observed-TEST ACL set. It also pins the three memoized predicate
+bodies, immutability and evaluation configuration. The migration replaces only the
+checkpoint body; it adds no helper, index, privilege, data mutation or timeout change.
+
+The coordinator additionally compared the original and candidate SELECT against
+TEST in read-only transactions with an 8s limit, without calling an authenticated
+RPC or changing a definition. All 20 integrity counters were equal and zero.
+Original execution 3536.944/3183.693ms versus candidate 1785.830/1827.670ms; the second
+pair reversed execution order. This proves the measured SELECT improvement, not
+terminal recovery or full RPC completion. Four plans and the comparison are kept
+privately in `integrity-readonly-comparison-receipt.json`. No p95 is inferred from
+these two samples per version. The earlier dataset counts refer to that snapshot;
+subsequent authorized Mini fixtures require a fresh pre-application fingerprint.
+
+Run the local regression and whole-checkpoint benchmark with Node22:
+
+```sh
+node scripts/testing/wechat-010-checkpoint-integrity-performance.mjs
+```
+
+Its disposable local Docker clone has 61,595 synthetic rows: 19,832 products
+(19,772 active, 19,811 parent-linked), 41,345 prices, 135 suppliers, 104 categories,
+178 History (83 active, 1,437 array rows) and one ready primary image. History data
+and overlay text total 232,794 and 23,852 bytes. These generated strings are not
+real business data, and the sizes are not asserted to match TEST exactly. Numeric
+cardinalities and near-universal parent references address the previous simpler
+fixture. All business triggers remain active; the image fixture uses the normal
+server-managed guard in the disposable clone only.
+
+Local complete-checkpoint samples on 2 October, milliseconds:
+
+| Case | Previous source | Candidate |
+| --- | --- | --- |
+| 2,074 events, first new backend | 4225 | 3972 |
+| Repeated calls, fresh backend/shared data cache | 4197 / 4153 | 3943 / 3969 |
+| Verified current event baseline | 2383 | 2130 |
+| 10,001 events, baseline zero | 6613 | 6190 |
+
+Every measured call keeps the 8s deadline. These are local samples, not cold-cache
+or remote percentile claims. Complete old/new JSON is identical, including the
+scope, hashes, payload budgets and event decisions. The 10,001-event case still
+inspects 10,000 and requires full recovery. Six consecutive calls in each of the
+same original/candidate backends with `force_generic_plan` also remain identical
+and finish under the per-statement 8s deadline.
+
+Deterministic RED→GREEN in the final SELECT: price validator calls 41,345→1,142;
+product-number calls 59,496→1,345; legacy-timestamp calls 82,773→1,407 (including
+83 unchanged History calls). All-unique distributions validate every distinct input
+and finish under 8s. Temporary constraint-free projections compare every integrity
+counter for NULL, NaN, infinities, signed zero, subnormal/large/fractional numbers,
+invalid dates, missing parents, duplicate barcodes and empty inputs; no malformed
+canonical rows or disabled triggers are involved.
+
+Nine guard scenarios plus the wrong deploy role, nine focused pgTAP assertions,
+184 History and 365 native-contract assertions PASS. Full metadata/OID/ACL and
+all unrelated function definitions stay exact; row/event fingerprints are unchanged.
+An explicit rollback then reapplication preserves the same output and metadata.
+Full Admin Node22 verify, targeted runner lint and diff checks PASS. Private logs:
+`checkpoint-integrity-performance-tests.log`, `checkpoint-integrity-performance-verify.log`.
+
+Before release, the coordinator must refresh registry 150, exact checkpoint source/
+metadata/ACL and all scoped row/event fingerprints (including newly authorized
+Mini fixtures), save protected original definitions, then apply only the reviewed
+merged additive migration once. Record its assigned service version. Independently
+verify the target OID/metadata/ACL, unchanged predicates/other functions/triggers
+and all data/events. A reviewed additive restoration of the saved checkpoint is
+the rollback. Only a subsequent authentic terminal recovery proves the full RPC
+fits the existing budget. The read-only SELECT improvement does not establish that.
+
+## Historical review — price digest, before its 2 October 2026 application
 
 After the previous performance and History fixes were applied (registry149),
 authentic iOS and Android recovery each still reached HTTP500/SQLSTATE57014 in the
