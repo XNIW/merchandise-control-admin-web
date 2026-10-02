@@ -362,3 +362,35 @@ recovery/P95 is claimed. Private logs price-digest-performance-tests.log and
 price-digest-investigate-next.log. Full Admin Node22.23.3 verify and diff checks
 PASS (price-digest-performance-verify.log). Freeze for root/recovery review before source
 integration; no remote action or native Retry by this writer.
+
+
+## 2026-10-02 — final integrity performance and prior application receipt
+
+PR123 merged e4377f83 after required exact-head and postmerge CI/Cloudflare PASS.
+The coordinator applied its exact SQL once as service20261002005414 (registry150);
+00:54:42 postcheck preserved prior149 registry entries, OID/ACL, unrelated functions,
+all scoped data and events. Rename from source20261002002517 and runner reference
+is byte-identical SHA25654bc73e0dcbd4bd1d4323989b3bce6dc1c528117fe45509c35b5301243d8474a.
+The subsequent iOS/Android authentic retries still failed500/57014 in the final
+integrity SELECT; Mini polling also waited on the unchanged catalog fence. These
+failures remain evidence, not a successful recovery.
+
+One Admin writer profiled the complete local pipeline and prepared additive
+20261002011223 with only narrower final-SELECT projections and per-SELECT distinct
+predicate evaluation. Validators, NULL behavior, row counts, order/digests, scope,
+authorization, locks and runtime8s remain exact; no helper/index/ACL/data changes.
+The coordinator's read-only TEST comparison confirms identical20 counts and
+execution3536.944/3183.693ms →1785.830/1827.670ms. This is not authenticated RPC
+acceptance. SQL application, terminal native recovery and latency acceptance are
+still pending independent reviews, integration and coordinator release.
+
+Local clone validation: nine guard cases plus deploy-role denial, nine new +184
+History +365 native assertions PASS; 61,595 representative synthetic rows,2074 and
+10001 events; complete JSON/metadata/data parity; NULL/nonfinite/signed-zero/
+invalid/all-unique vectors; six same-backend generic-plan calls each version;
+rollback/reapply exact. Full checkpoint4153–4225ms →3943–3972ms; cap case6190ms.
+Node22 full verify, targeted final runner lint and diff/security checks PASS. The
+clone is removed in finally. Logs and coordinator failure/read-only plans remain
+private under checkpoint-integrity-performance-* and integrity-readonly-*; no
+protected configuration or real row contents are published. No remote action by
+the writer, no live recovery/convergence PASS, no DONE.

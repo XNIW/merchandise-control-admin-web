@@ -1,5 +1,45 @@
 # TASK-159 — WECHAT-010 controlled Mini staging readiness
 
+## TASK-159 REVIEW — final integrity checkpoint timeout, 2026-10-02 UTC
+
+PR123 is merged at e4377f83 with exact-head and postmerge CI/Cloudflare PASS.
+The coordinator applied its SQL once at 00:54:14 UTC as service version
+20261002005414; registry150. Independent postcheck at 00:54:42 UTC reports no
+metadata/data differences beyond the two expected body changes and the intended
+scalar language. Existing OIDs/ACL, other functions, scoped rows and events remain
+unchanged. The sole Admin writer is reconciling the source filename and runner
+reference with identical SQL bytes. The subsequent authentic failure and the separate measured correction are
+consolidated below; no remote replay by the writer or live recovery acceptance.
+
+The next authentic iOS Retry (00:55:08–00:55:17 UTC) still fails HTTP500/57014,
+now in the final integrity SELECT after completing price/history/image digests.
+The demonstrated improvement is not terminal recovery acceptance. Profile the
+entire integrity phase locally, including repeated scalar validation, projections
+and parent relationships; implement only measured equivalent work reduction.
+Keep the applied SQL intact, add a separate migration for any correction, and
+consolidate its review with the byte-identical service-version rename. No timeout,
+authorization, integrity, data or scope relaxation; no remote action by the writer.
+
+The candidate changes only the checkpoint's final integrity SELECT. All predicates
+and all other checkpoint statements stay unchanged; there are no new helpers,
+grants, index changes or data rewrites. Per-SELECT distinct-value validation retains
+row multiplicity and exact NULL/NaN/signed-zero behavior. Local checks already
+confirm full metadata/OID/ACL parity, unchanged helper definitions, exact complete
+JSON and red-to-green validation-call counts. The coordinator's two read-only TEST
+comparisons produce identical 20 counters and reduce that SELECT from 3536.944/
+3183.693ms to 1785.830/1827.670ms. These are not authenticated RPC or terminal
+recovery acceptance. The native deadline remains 8s, and the observed failure
+receipts remain preserved. [Runbook](../RUNBOOKS/wechat-recovery-checkpoint-performance.md).
+
+Final local validation PASS: nine guard cases plus wrong deploy role, nine focused
+assertions, 184 History and 365 native contract assertions; full JSON/data/metadata
+rollback parity; invalid and all-unique values; six pooled generic-plan calls for
+each version. Complete synthetic checkpoint 4153–4225ms → 3943–3972ms, current
+baseline 2383 → 2130ms, 10,001-event boundary 6613 → 6190ms with the existing
+10,000 inspection cap. All calls retain the 8s deadline. Node22 verify and final
+diff/security checks PASS. Independent artifact reviews precede integration;
+authentic recovery remains unaccepted.
+
 ## REVIEW — price-digest checkpoint timeout after History v2, 2026-10-02 UTC
 
 The authentic iOS RI06 single Retry at 00:11:49 UTC terminated with HTTP500 at
