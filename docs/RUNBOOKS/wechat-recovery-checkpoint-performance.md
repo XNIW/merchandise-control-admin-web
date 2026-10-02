@@ -1,5 +1,95 @@
 # WECHAT-010 — prestazioni del checkpoint di recovery
 
+## Current review — guarded preflight and price bytes, 2 October 2026 UTC
+
+The registry152 authentic failure remains unresolved. The coordinator's single
+read-only nine-phase diagnostic measured9230.271ms before authentication/fence and
+final assembly; standalone phase timings are not summed to claim RPC latency.
+Preflight serialized every product/price DTO in a bounded PL/pgSQL loop before the
+checkpoint serialized them again. Repeated price scalars added further work.
+
+The candidate migration `20261002040159_wechat_010_preflight_price_bytes.sql`
+changes only the existing preflight and checkpoint bodies and adds one private
+`SECURITY INVOKER` predicate. No business row, existing ACL/OID, DTO builder,
+validator, scope/parent predicate, digest ordering, fence or runtime8s setting changes.
+DDL has local5s lock/60s statement limits and requires the exact reviewed source,
+signature/metadata/ACL baselines, including both verified checkpoint ACL sets.
+Missing attributes and NULL/default ACLs fail closed individually in aggregate
+checks; the new helper has only postgres execution privilege.
+
+The runtime predicate pins14 dependency bodies/full metadata,27 typed columns,
+PostgreSQL major17 and UTF8. It is read once inside the STABLE preflight snapshot
+and once in a MATERIALIZED CTE inside the checkpoint's price SELECT. Drift selects
+the original loops or the entire original price SELECT, including scalar behavior;
+no result is cached across statements. The guard reads only pg_catalog.
+
+Preflight keeps all six capped counts and the active compressed-History gate before
+DTO evaluation. Product/price counts use disjoint shop/legacy UNION ALL branches
+with one outer cap+1. Later logical text lengths are metadata-only and cast to bigint
+before arithmetic. Proven row/domain/remaining-total bounds permit set-based exact
+bytes; unproven rows use each complete original loop, preserving domain order, first
+violation and prefix bytes. Prices continue to include orphans in this preflight.
+
+The conservative product bound is1714+6×the four raw text byte lengths; the price
+bound is752+6×the five lengths. They include JSON punctuation/keys, UUID/nulls,
+float8 worst-case scalar output, canonical amount and timestamps. Passing row bounds
+also proves the pinned storage byte/character limits; mandatory fields stay nonnull.
+These bounds select a path and never substitute for returned exact payload bytes.
+
+For proven prices, exact bytes are170 fixed key/punctuation bytes plus four UUID
+scalars(38 or4), five text JSON scalars, the typed float8 scalar, canonical string/null
+and timestamp/null. Each scalar uses PostgreSQL's actual `to_jsonb(value)::text`;
+SQL NULL contributes4. Only numbers and update timestamps are memoized per SELECT.
+Texts are serialized directly: a prior five-text-join experiment was equivalent but
+slower on all-unique values and is not the candidate. The checkpoint rechecks a local
+row bound and uses the original DTO for each unsafe row. Parent/scope filters and
+ordered digest inputs remain exact; no preflight bytes cross into this SELECT.
+
+The proof follows PostgreSQL17 source: [metadata-only text length](https://github.com/postgres/postgres/blob/REL_17_6/src/backend/utils/adt/varlena.c#L682),
+[JSON escaping](https://github.com/postgres/postgres/blob/REL_17_6/src/backend/utils/adt/json.c#L1473),
+[typed JSONB scalars](https://github.com/postgres/postgres/blob/REL_17_6/src/backend/utils/adt/jsonb.c#L655)
+and [bounded float8 output](https://github.com/postgres/postgres/blob/REL_17_6/src/backend/utils/adt/float.c#L502).
+Fixed JSON key overhead is297 for16 product keys and170 for12 price keys. Float8
+output is bounded conservatively at360 expanded JSON bytes, timestamp scalars at31
+and the guarded canonical amount at19. Dependency/type drift disables this proof.
+
+The coordinator's v6 READ ONLY comparison preserves complete original preflight
+and price JSON and measures6736.758ms for nine phases in one execution. It excludes
+authentication, fence and final checkpoint assembly; it is not native RPC success,
+a latency percentile or terminal recovery. Earlier slower candidates and authentic
+FAIL receipts remain preserved privately. Final source validation and two exact
+artifact reviews are required before integration; the writer does not apply remotely.
+
+Local command (dedicated disposable clone, no protected/real rows):
+
+```sh
+node scripts/testing/wechat-010-preflight-price-bytes.mjs
+```
+
+Before coordinator application, save both existing definitions/full metadata, exact
+registry entries, dependency metadata, scoped data/event fingerprints and confirm
+the new helper is absent. After application, compare existing OIDs/full ACL and all
+non-body metadata, helper invoker/owner/ACL, unrelated functions/triggers, scoped data
+and events. If compensating restoration is authorized, restore the two saved
+functions first, remove only this new helper, and repeat those checks; never reset
+business data or disable a trigger. Actual Retry and terminal recovery remain a
+separate coordinator/native gate.
+
+
+Final source validation PASS:12 guard scenarios plus wrong-role rejection;
+12 new+184 History+365 native pgTAP assertions; exact complete JSON on61,595
+synthetic rows/2,074 events (baseline2717/2723ms, candidate1994/1963ms); two sets
+of six same-backend forced-generic calls under8s;41,345 all-unique price values;
+90 scope/NULL/outer-cap cases;15 original-loop fallback cases; scalar/vector
+comparisons across four extra_float_digits settings. Existing metadata/OID/ACL,
+unrelated routines and row/event fingerprints remain exact. Shape drift in both
+DTO builders preserves preflight JSON; price-builder drift also directly compares
+original/candidate price aggregates. Product-builder drift's price branch is
+established by the false global guard and whole-original-SELECT fallback. Node22
+full verify (lint/typecheck/security/build) and diff checks PASS. The two initial
+fixture-only syntax failures remain preserved; neither changed runtime SQL.
+No remote application, authenticated native success, percentile or DONE claim.
+
 ## Current status — pipeline applied; authentic retry still failed, 2 October 2026 UTC
 
 PR124 merged at `2e236586` with head and postmerge CI/Cloudflare PASS. The

@@ -481,3 +481,37 @@ Win7POS SalesSyncOutboxRepository.cs; that batch is not reported as full PASS an
 the unrelated repository is unchanged. Independent review, exact-head CI and a
 separate selective staging review remain before release. No live poller/native
 convergence PASS or DONE.
+
+## 2026-10-02 UTC — preflight/price bytes execution
+
+The sole Admin writer starts `codex/wechat-010-preflight-price-bytes` from74f1d3cc.
+The coordinator's authentic registry152 failure remains preserved. Exact same-snapshot
+read-only preflight/price comparisons pass for v6; the complete nine-phase diagnostic
+is6736.758ms and does not include authentication/fence/assembly or establish recovery
+acceptance. A guarded additive migration, private invoker predicate, original-path
+fallbacks and local synthetic regressions are in preparation. No remote action by
+the writer, data/ACL/timeout relaxation or DONE claim.
+
+### Guarded-source validation and review handoff
+
+Final source validation PASS:12 guard scenarios plus wrong-role rejection;
+12 new+184 History+365 native pgTAP assertions; exact complete JSON on61,595
+synthetic rows/2,074 events (baseline2717/2723ms, candidate1994/1963ms); two sets
+of six same-backend forced-generic calls under8s;41,345 all-unique price values;
+90 scope/NULL/outer-cap cases;15 original-loop fallback cases; scalar/vector
+comparisons across four extra_float_digits settings. Existing metadata/OID/ACL,
+unrelated routines and row/event fingerprints remain exact. Shape drift in both
+DTO builders preserves preflight JSON; price-builder drift also directly compares
+original/candidate price aggregates. Product-builder drift's price branch is
+established by the false global guard and whole-original-SELECT fallback. Node22
+full verify (lint/typecheck/security/build) and diff checks PASS. The two initial
+fixture-only syntax failures remain preserved; neither changed runtime SQL.
+No remote application, authenticated native success, percentile or DONE claim.
+
+Private evidence: `preflight-price-bytes-third.log` is the complete green run;
+`preflight-price-bytes-verify.log` is Node22 full verification. The first two logs
+retain missing SQL separators in test-only function-recreation fixtures; the final
+runtime SQL is unchanged across the complete green run and handoff. Prior v5
+text-join performance regression and the v4 remote insufficient-margin diagnostic
+remain private and are not promoted. The source-only patch awaits two independent
+reviews; the coordinator retains all remote apply and authentic Retry authority.

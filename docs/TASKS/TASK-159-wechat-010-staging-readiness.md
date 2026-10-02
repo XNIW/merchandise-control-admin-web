@@ -1,5 +1,46 @@
 # TASK-159 — WECHAT-010 controlled Mini staging readiness
 
+## TASK-159 REVIEW — bounded preflight and exact price bytes, 2026-10-02 UTC
+
+PR126 merged at `74f1d3cc` with exact-head and postmerge CI/Cloudflare PASS. The
+coordinator released only the reviewed Admin poller change to TEST; no new live
+poller acceptance is claimed here. Registry152 still has the preserved authentic
+native checkpoint timeout. Complete single-execution read-only profiling, without
+impersonating authentication or changing the8s runtime deadline, identifies repeated
+preflight DTO serialization and price scalar work as the remaining measured costs.
+
+The sole Admin writer is preparing one additive migration: preserve preflight
+first-violation/prefix-byte semantics with original-loop fallback; use metadata-only
+bounds before exact set-based byte calculation; retain one capped count over disjoint
+shop/legacy branches; calculate exact flat price JSON bytes and memoized typed scalars
+only within each SELECT. Existing DTOs, scope/parent filters, digest strings/order,
+TOAST guards, authorization, fences, data and ACL remain unchanged. A new private
+SECURITY INVOKER contract predicate pins dependency metadata/types plus PostgreSQL17
+and UTF8; drift falls back to the original paths. No cross-statement byte reuse.
+
+Preliminary local full JSON/vector/fallback equivalence passes. The coordinator's
+single v6 nine-phase READ ONLY diagnostic is6736.758ms with exact original preflight
+and price JSON equality. This excludes authentication/fence/final assembly and is
+not authenticated RPC, terminal recovery, p95 or DONE acceptance. Earlier slower
+and failed candidates remain private evidence. Final guarded-source regressions,
+full checks and two immutable-artifact reviews precede source integration; only the
+coordinator may apply remotely. No remote action is delegated to this writer.
+
+
+Final source validation PASS:12 guard scenarios plus wrong-role rejection;
+12 new+184 History+365 native pgTAP assertions; exact complete JSON on61,595
+synthetic rows/2,074 events (baseline2717/2723ms, candidate1994/1963ms); two sets
+of six same-backend forced-generic calls under8s;41,345 all-unique price values;
+90 scope/NULL/outer-cap cases;15 original-loop fallback cases; scalar/vector
+comparisons across four extra_float_digits settings. Existing metadata/OID/ACL,
+unrelated routines and row/event fingerprints remain exact. Shape drift in both
+DTO builders preserves preflight JSON; price-builder drift also directly compares
+original/candidate price aggregates. Product-builder drift's price branch is
+established by the false global guard and whole-original-SELECT fallback. Node22
+full verify (lint/typecheck/security/build) and diff checks PASS. The two initial
+fixture-only syntax failures remain preserved; neither changed runtime SQL.
+No remote application, authenticated native success, percentile or DONE claim.
+
 ## TASK-159 REVIEW — deferred Admin marker refresh, 2026-10-02 UTC
 
 PR125 is integrated at7bd490ba with exact-head and postmerge CI/Cloudflare PASS.
