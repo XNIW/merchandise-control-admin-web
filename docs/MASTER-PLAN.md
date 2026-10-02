@@ -1,5 +1,65 @@
 # MerchandiseControl Admin Web - Master Plan
 
+## TASK-159 REVIEW — TEST153 applied; authentic recovery pending, 2026-10-02 UTC
+
+PR127 source head `a8a693ab` passed database/pgTAP, Verify and Cloudflare checks
+on the exact reviewed SQL. After both independent reviews, the coordinator applied
+those bytes once to TEST at04:40 UTC. Supabase assigned service version
+`20261002044017`, advancing the registry from152 to153. The04:40:41 postcheck confirms
+all152 prior entries unchanged, the two existing routines changed only in their
+expected bodies, and the new private SECURITY INVOKER helper. Existing OIDs/ACL and
+all other functions, triggers, scoped data/events, image versions and physical
+History state remain unchanged.
+
+The original filename `20261002040159` is aligned to `20261002044017` with SQL SHA256
+`e6e3a2631c82e506461c400e16a910f87c8e007ff8ad29a643ce10b3f19af826` unchanged; the runner
+changes only its migration path. This receipt stays in PR127 for final metadata
+review and exact-head CI before merge; no auto-merge is enabled. The writer performed
+no remote application or deployment. Registry152's authentic FAIL remains preserved;
+registry153 authentic recovery is NOT_RUN and awaits final main CI and the separate
+coordinator/native gate. No terminal recovery, percentile or DONE acceptance.
+
+## TASK-159 pre-application REVIEW — bounded preflight and exact price bytes, 2026-10-02 UTC
+
+PR126 merged at `74f1d3cc` with exact-head and postmerge CI/Cloudflare PASS. The
+coordinator released only the reviewed Admin poller change to TEST; no new live
+poller acceptance is claimed here. Registry152 still has the preserved authentic
+native checkpoint timeout. Complete single-execution read-only profiling, without
+impersonating authentication or changing the8s runtime deadline, identifies repeated
+preflight DTO serialization and price scalar work as the remaining measured costs.
+
+The sole Admin writer is preparing one additive migration: preserve preflight
+first-violation/prefix-byte semantics with original-loop fallback; use metadata-only
+bounds before exact set-based byte calculation; retain one capped count over disjoint
+shop/legacy branches; calculate exact flat price JSON bytes and memoized typed scalars
+only within each SELECT. Existing DTOs, scope/parent filters, digest strings/order,
+TOAST guards, authorization, fences, data and ACL remain unchanged. A new private
+SECURITY INVOKER contract predicate pins dependency metadata/types plus PostgreSQL17
+and UTF8; drift falls back to the original paths. No cross-statement byte reuse.
+
+Preliminary local full JSON/vector/fallback equivalence passes. The coordinator's
+single v6 nine-phase READ ONLY diagnostic is6736.758ms with exact original preflight
+and price JSON equality. This excludes authentication/fence/final assembly and is
+not authenticated RPC, terminal recovery, p95 or DONE acceptance. Earlier slower
+and failed candidates remain private evidence. Final guarded-source regressions,
+full checks and two immutable-artifact reviews precede source integration; only the
+coordinator may apply remotely. No remote action is delegated to this writer.
+
+
+Final source validation PASS:12 guard scenarios plus wrong-role rejection;
+12 new+184 History+365 native pgTAP assertions; exact complete JSON on61,595
+synthetic rows/2,074 events (baseline2717/2723ms, candidate1994/1963ms); two sets
+of six same-backend forced-generic calls under8s;41,345 all-unique price values;
+90 scope/NULL/outer-cap cases;15 original-loop fallback cases; scalar/vector
+comparisons across four extra_float_digits settings. Existing metadata/OID/ACL,
+unrelated routines and row/event fingerprints remain exact. Shape drift in both
+DTO builders preserves preflight JSON; price-builder drift also directly compares
+original/candidate price aggregates. Product-builder drift's price branch is
+established by the false global guard and whole-original-SELECT fallback. Node22
+full verify (lint/typecheck/security/build) and diff checks PASS. The two initial
+fixture-only syntax failures remain preserved; neither changed runtime SQL.
+No remote application, authenticated native success, percentile or DONE claim.
+
 ## TASK-159 REVIEW — deferred Admin marker refresh, 2026-10-02 UTC
 
 PR125 is integrated at7bd490ba with exact-head and postmerge CI/Cloudflare PASS.

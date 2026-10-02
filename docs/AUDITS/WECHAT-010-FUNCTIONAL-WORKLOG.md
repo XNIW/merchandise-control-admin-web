@@ -481,3 +481,62 @@ Win7POS SalesSyncOutboxRepository.cs; that batch is not reported as full PASS an
 the unrelated repository is unchanged. Independent review, exact-head CI and a
 separate selective staging review remain before release. No live poller/native
 convergence PASS or DONE.
+
+## 2026-10-02 UTC — preflight/price bytes execution
+
+The sole Admin writer starts `codex/wechat-010-preflight-price-bytes` from74f1d3cc.
+The coordinator's authentic registry152 failure remains preserved. Exact same-snapshot
+read-only preflight/price comparisons pass for v6; the complete nine-phase diagnostic
+is6736.758ms and does not include authentication/fence/assembly or establish recovery
+acceptance. A guarded additive migration, private invoker predicate, original-path
+fallbacks and local synthetic regressions are in preparation. No remote action by
+the writer, data/ACL/timeout relaxation or DONE claim.
+
+### Guarded-source validation and review handoff
+
+Final source validation PASS:12 guard scenarios plus wrong-role rejection;
+12 new+184 History+365 native pgTAP assertions; exact complete JSON on61,595
+synthetic rows/2,074 events (baseline2717/2723ms, candidate1994/1963ms); two sets
+of six same-backend forced-generic calls under8s;41,345 all-unique price values;
+90 scope/NULL/outer-cap cases;15 original-loop fallback cases; scalar/vector
+comparisons across four extra_float_digits settings. Existing metadata/OID/ACL,
+unrelated routines and row/event fingerprints remain exact. Shape drift in both
+DTO builders preserves preflight JSON; price-builder drift also directly compares
+original/candidate price aggregates. Product-builder drift's price branch is
+established by the false global guard and whole-original-SELECT fallback. Node22
+full verify (lint/typecheck/security/build) and diff checks PASS. The two initial
+fixture-only syntax failures remain preserved; neither changed runtime SQL.
+No remote application, authenticated native success, percentile or DONE claim.
+
+Private evidence: `preflight-price-bytes-third.log` is the complete green run;
+`preflight-price-bytes-verify.log` is Node22 full verification. The first two logs
+retain missing SQL separators in test-only function-recreation fixtures; the final
+runtime SQL is unchanged across the complete green run and handoff. Prior v5
+text-join performance regression and the v4 remote insufficient-margin diagnostic
+remain private and are not promoted. The source-only patch awaits two independent
+reviews; the coordinator retains all remote apply and authentic Retry authority.
+
+## 2026-10-02 04:40 UTC — TEST153 application and source-version reconciliation
+
+Both independent reviewers approved frozen patch798bd32e7883a580c31fce3fc6763ff9ca6333f06026bd1b2c187a8d2f2be9de.
+PR127 head `a8a693ab` passed exact-head CI36964734936 and Cloudflare36964734963;
+deployment jobs were skipped. Per the revised integration order, the PR remains open
+while the coordinator applies the reviewed SQL and this writer aligns the service
+version within the same PR. The writer did not apply remotely or enable auto-merge.
+
+The coordinator applied the SQL once to TEST at04:40 UTC; Supabase assigned
+`20261002044017`, registry153. Private `preflight-scalar-bytes-postcheck.json`
+(SHA256 `ca4d45469d3c9a04b3fd4d807fcfdc1ed52c38ccdcc124e3843b83f68d28f4ff`)
+records POSTCHECK_PASS at04:40:41 UTC: prior152 entries unchanged; existing target
+OID/full metadata/ACL preserved apart from expected bodies; new helper private and
+invoker-only; unrelated functions/triggers and scoped data/events/images/History
+unchanged. Expected body MD5 values are contract43da0ada1f005843049c6b60c6f60b01,
+preflightde913a4c8b1bb0beb241627287146543 and checkpoint5d65fddf42c5750257fa85b981d3e389.
+
+Source migration `20261002040159_wechat_010_preflight_price_bytes.sql` is renamed to
+`20261002044017_wechat_010_preflight_price_bytes.sql` with identical SHA256
+`e6e3a2631c82e506461c400e16a910f87c8e007ff8ad29a643ce10b3f19af826`; the runner changes
+one filename literal. This bounded metadata delta requires independent final review
+and new exact-head CI before merge. No local build/PG workload is repeated during the
+reserved native host slot. Registry152 authentic FAIL is retained; registry153
+recovery remains NOT_RUN until final main CI and the separate authentic gate.
