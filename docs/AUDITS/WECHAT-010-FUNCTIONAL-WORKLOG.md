@@ -627,6 +627,134 @@ Authenticated recovery on154 is pending; no terminal recovery,8s runtime PASS or
 DONE is claimed. Earlier06/07UTC preparation and validation entries below are
 historical and do not describe the15:09 applied state.
 
+## TASK-159 EXECUTION — price scalar integrity candidate, 2026-10-02 UTC
+
+After TEST154 application, authentic Android recovery still returned HTTP500 /
+SQLSTATE57014 in the final integrity SELECT (checkpoint body line910). This
+identifies where the cumulative8s deadline expired, not a proven expensive
+subquery. The prior native failures and local8s failures remain evidence.
+
+The sole Admin writer prepares a separate branch from the unchanged PR128 head.
+The candidate combines only four non-relational price counters in one MATERIALIZED
+aggregate, preserving the exact three LEFT JOIN memo expressions, all predicates,
+all20 integrity counters and the unchanged parent WHERE NOT EXISTS (including
+scoped tombstoned products). No other checkpoint phase, DTO/hash/order, helper,
+ACL, scope/fence, business row or runtime deadline changes. PR129 and the selective
+fractional-stock release worktree remain outside this source delta.
+
+Validation is pending: complete original154/candidate JSON and digest equality;
+NULL/nonfinite/date/byte-boundary/parent/empty/all-distinct vectors; generic plans;
+full checkpoint8s attempts with failures preserved. A diagnostic120s oracle may
+establish equivalence only. Coordinator-reviewed read-only plans will measure
+actual row/loop and temp work before any latency claim. No local heavy tests,
+remote query/application, runtime retry or deployment has been performed for
+this candidate. No authenticated recovery acceptance or DONE is claimed.
+
+A separate observed Admin identity defect is included in this same task scope:
+a real name-only save preserved stock1.25 but uppercased unchanged barcode/item
+number. Canonical catalog_text_policy_v1 forbids case folding. The bounded second
+migration removes only four upper() wrappers in the two legacy personal product
+functions; btrim/nullif, strict text-policy triggers, sync/revision wrappers and
+all permissions remain unchanged, with no backfill. Actual RPC regression source
+is prepared for mixed-case create with an uppercase peer, name-only identity and
+stock preservation, explicit edit, trim collision, stale revision and invalid/
+cross-shop refusal. Tests are NOT_RUN until coordinator grants the local lane;
+no remote application or authentic post-fix success is claimed.
+
+### 2026-10-02 17:29 UTC — integrity candidate not selected; identity scope isolated
+
+The coordinator's approved read-only literal ABBA diagnostic returned identical
+20counter JSON. Baseline execution397.575/394.289ms versus candidate399.635/
+400.413ms shows no benefit for the four-price-counter fusion in that experiment.
+The candidate migration, harness and scope notes are archived privately with
+patch SHA2567f7eefe6596494e24cbd61dc88dd44f9c02277e2f255274e73c8dbfdefebe432.
+It is excluded from the identity branch; no source integration or application is
+claimed. These standalone dynamic plans do not reproduce the full authenticated
+RPC, its fences or automatic PLpgSQL planning. A separate generic-plan diagnostic
+remains prepared, not a performance acceptance result.
+
+The Admin identity branch changes only the two exact public function bodies by
+removing four upper() wrappers. The preliminary guard review identified missing
+schema qualification; the two regprocedure names now include public. and the
+local runner includes a shadow-search_path regression. Syntax and whitespace
+checks pass; actual RPC/guard/rollback tests are still NOT_RUN until the
+coordinator releases the host. PR128, PR129 and release worktrees are untouched.
+
+### 2026-10-02 17:46 UTC — isolated identity regression and release
+
+The coordinator granted the local lane at17:45:17UTC. The writer started the
+approved Node22 runner at17:45:42UTC and released the host at17:46:43UTC after
+exit0 and cleanup checks. Baseline reproduces eight failed assertions; candidate
+actual-RPC27/27, text-policy20/20, revision44/44 and Mini mutations86/86 pass
+(177pgTAP checks). The original identity case failure remains in the log.
+
+Exact canonical and TEST ACLs are accepted; extra grants, grant options, wrong
+volatility/STRICT/signature and wrong deploy role are rejected. The shadow-schema
+regression reproduces the unqualified guard failure and proves the corrected
+public guard refuses it atomically. Rollback/reapply and full OID/metadata/ACL,
+other routines, triggers and data checks pass. The final local inventory reports
+zero identity clones and no runner PID; no primary or cleanup error occurred.
+The private0600 log admin-identity-case-first.log has SHA256
+7ee2d016ab322bde29b2ef9a609b78fb352921bca81e22f8f498b1a31b6df3c7.
+No remote query/application, SDK/UI operation, build, commit or deployment was
+performed by this batch. Repository verification and final reviews are pending;
+there is no authentic post-fix acceptance claim.
+
+### 2026-10-02 17:50 UTC — identity source verification
+
+Pinned Node22.23.3 scripts/verify.mjs completed with exit0: eslint, route type
+generation, TypeScript, security scan and production build passed. It contains
+no PG step; the177SQL checks were not repeated. The source migration, pgTAP and
+runner bytes are unchanged from the reviewed v2 and the passing isolated batch.
+Only the bounded factual documentation was updated for final immutable review.
+The integrity experiment remains excluded, and remote application and authentic
+post-fix behavior remain NOT_RUN for this identity correction.
+
+### 2026-10-02 17:49 UTC measurement — prepared generic integrity result
+
+The coordinator executed the separately reviewed generic-v2 diagnostic once
+at17:49:09–17:49:20UTC, using READ ONLY/REPEATABLE READ, transaction-local
+force_generic_plan and unchanged8s statement timeout. Both variants returned
+exactly the same20zero counters and recorded3generic/0custom plans before the
+comparator. Repeated baseline494.717/495.735ms versus candidate488.298/488.765ms
+shows a small standalone difference; first calls were511.309/489.112ms.
+Root temp-read blocks were5599 versus4249; temp-written blocks were722 for both.
+These counters are not summed across child nodes or presented as I/O timings.
+
+Private price-integrity-154-readonly-generic-v2-result.json SHA256
+f5a870cf54d1e788a5c368470018c270eb3398c3547ac54813b1017e3d11adc2
+preserves the complete result. A prepared SELECT under forced generic planning
+is not the full authenticated RPC or its automatic PLpgSQL planning, and these
+repeats are not independent cold samples. The small measured difference does
+not establish recovery within8s. The integrity candidate remains unshipped and
+excluded from the identity branch. Earlier preparation/NOT_RUN entries remain
+chronological evidence; identity source and passing test bytes are unchanged.
+
+### 2026-10-02 18:08 UTC — TEST155 identity apply and source alignment
+
+Both independent reviews approved the exact identity patch. Stacked PR130 head
+ed099f1c passed Database migrations/pgTAP, Verify and Cloudflare build checks
+(CI37044429416 and CF37044429434); deployment jobs were skipped. The coordinator
+applied the reviewed SQL once to TEST at18:07:54–18:07:57UTC. Supabase assigned
+service version20261002180757, advancing the registry from154 to155.
+
+The18:08:53 private admin-identity-case-postcheck.json records PASS: only the two
+expected function bodies changed, with CREATE MD5
+3c60b9f2115fe672c4ce77c7f5f1033d and UPDATE MD5
+b0f15a596d384da887174b3ed054357f. All existing registry entries, target OIDs/full
+metadata/ACL, other functions/triggers and scoped data, History and image
+versions remain unchanged. No existing product codes were backfilled.
+
+The source filename is aligned from20261002171237 to20261002180757, with SQL
+SHA2569d52258cb07899c59bc35eddf596fef8f37d936a03bc2dedb60c086cc9ef3545
+unchanged (11547bytes; joined-SQL MD59e4741b64d7b0999b3000f06990e922f).
+The local runner changes only its migration-path literal. This metadata receipt
+adds no SQL behavior and does not repeat the177passing local SQL checks or the
+passing Node22 verification. Final delta review and exact-head CI remain pending.
+PR130 remains open on PR128; source integration and authentic post-fix behavior
+are not yet accepted. No new Worker deployment or native recovery success is
+claimed. Registry154's recovery failures remain preserved and unresolved.
+
 ### 2026-10-02 UTC — bounded fractional-stock editor fix started
 
 The coordinator reproduced a name-only save blocked by native number validation
@@ -679,3 +807,31 @@ not establish the cause or resolution of the historical timeout. Authentic final
 recovery, cross-client convergence, performance and phone acceptance remain open.
 TASK-159/WECHAT-010 is not DONE. Earlier dated sections are historical receipts,
 not fresh runtime or deployment evidence.
+
+### Source integration — PR128 merged, PR130 reconciliation, 2026-10-04 Santiago
+
+The authorized normal merge of PR128 completed at 03:54:17 UTC as main
+`3201a311cec512a6c638fcc650b59f05e918b66d`, from reviewed head
+`ad2d1aba23cc9d4fff13cbe6adb2a028d5c2c87c`. Exact-head CI37168350875 and
+Cloudflare37168350885 passed; their staging/production deployment jobs were skipped.
+The newly started main CI37175407216/Cloudflare37175407209 were still in progress
+when this reconciliation began; no result is inferred from the earlier head.
+
+PR130 is now reconciled with that merged main, including PR129's fractional-stock
+input fix. Both sides of the three documentation conflicts are retained below.
+The identity migration remains byte-for-byte SHA256
+`9d52258cb07899c59bc35eddf596fef8f37d936a03bc2dedb60c086cc9ef3545`;
+its runner and pgTAP source are unchanged from PR130 head `d4f171d4`. The bounded
+product migration remains SHA256
+`9a09b8106aa8dbb3f86365ef964cc0e6a204fc8e38440b660716ebb179f04e27`.
+This resolution adds no SQL or runtime behavior. Existing passing tests on those
+immutable sources are reused; focused compatibility review and new exact-head CI
+precede PR130's merge, and PR130 remains Draft pending those gates.
+
+This is source integration only: registry155 is not reapplied, no database or
+Worker operation is performed, and the archived price proposals stay excluded.
+Diagnostic STEP1 remains INCONCLUSIVE / NOT_EXECUTED_AFTER_ORDINARY_RECOVERY_COMPLETION;
+ordinary recovery completion does not close the historical timeout cause. Authentic
+post-fix behavior, final recovery, cross-client convergence, performance and phone
+acceptance remain separate and open. TASK-159/WECHAT-010 is not DONE. Earlier dated
+sections retain their historical receipts and statuses.
