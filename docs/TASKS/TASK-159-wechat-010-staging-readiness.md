@@ -1,5 +1,90 @@
 # TASK-159 — WECHAT-010 controlled Mini staging readiness
 
+## TASK-159 source integration review — 2026-10-03 Santiago (2026-10-04 UTC)
+
+PR128 is being reconciled with latest main `553c4568`, which includes the
+fractional-stock editor fix from PR129. The three documentation conflicts retain
+both the bounded-product/TEST154 receipts and the fractional-stock history below.
+The reviewed migration remains byte-for-byte SHA256
+`9a09b8106aa8dbb3f86365ef964cc0e6a204fc8e38440b660716ebb179f04e27`;
+no SQL, dependency, authorization or runtime behavior is changed by this resolution.
+Earlier CI results qualify their recorded heads only. Focused compatibility review
+and CI on the new integration head are pending; PR128 remains unmerged.
+
+PR130's identity-case delta remains separate and based on PR128 until the reviewed
+PR128 integration is merged. This source operation does not reapply registry155,
+deploy a Worker, execute the frozen price proposal or establish live acceptance.
+The coordinator closed diagnostic STEP1 as INCONCLUSIVE /
+NOT_EXECUTED_AFTER_ORDINARY_RECOVERY_COMPLETION: ordinary recovery completion does
+not establish the cause or resolution of the historical timeout. Authentic final
+recovery, cross-client convergence, performance and phone acceptance remain open.
+TASK-159/WECHAT-010 is not DONE. Earlier dated sections are historical receipts,
+not fresh runtime or deployment evidence.
+
+## TASK-159 REVIEW — TEST154 applied; authenticated recovery pending, 2026-10-02 15:09 UTC
+
+PR128 candidate head `2e7237f4` passed exact-head database/pgTAP, Verify and
+Cloudflare build checks after the independent immutable-artifact reviews.
+The coordinator applied the reviewed SQL once to TEST at15:09:09 UTC, advancing
+registry153 to154 with service version `20261002150909`. The15:09:43 private
+`bounded-product-bytes-postcheck.json` records POSTCHECK_PASS: all153 previous
+registry entries are unchanged; only the two expected routine bodies changed.
+The existing private helper, existing OIDs/full metadata/ACL, all other functions,
+triggers, scoped data/events, image versions and physical History remain unchanged.
+
+The source filename `20261002054522` is aligned to `20261002150909` in this same
+open PR, with SQL SHA256
+`9a09b8106aa8dbb3f86365ef964cc0e6a204fc8e38440b660716ebb179f04e27`
+unchanged. The local runner changes only its migration path. This receipt delta
+adds no SQL behavior, data mutation or deployment; no local PG/build/global
+verification is repeated for the filename and documentation changes. Final-head
+CI and metadata review precede any merge; the PR is not yet integrated.
+
+Registry153's authentic iOS first-checkpoint HTTP200 followed by HTTP500/57014,
+and the local8s failures, remain preserved evidence. The120s functional oracle
+and copied read-only diagnostic establish their stated equivalence only.
+Authenticated recovery on154 is pending; no terminal recovery,8s runtime PASS or
+DONE is claimed. Earlier06/07UTC preparation and validation entries below are
+historical and do not describe the15:09 applied state.
+
+## Historical pre-apply review — bounded scan and product byte candidate, 2026-10-02 06:49 UTC
+
+PR127 is integrated at `e0089365`, with exact-head and postmerge CI/Cloudflare
+checks passing. TEST registry153 is applied and metadata/data postchecks pass.
+The subsequent authentic iOS attempt completed one checkpoint HTTP200 but its
+next checkpoint timed out HTTP500/57014 before activation. Prepared recovery
+state is preserved; no terminal recovery or DONE acceptance is claimed.
+
+The coordinator's read-only two-round diagnostics return identical preflight
+JSON but expose substantial first-execution cost in product/price counts and
+metadata-bound scans. JIT counters are zero; serial planning alone does not
+remove that cost. These diagnostics do not impersonate authentication and do
+not reproduce the complete authenticated RPC deadline.
+
+The sole Admin writer now prepares a bounded candidate: combine each product/
+price capped count with metadata-only upper bounds, with the original count
+branch on contract drift; calculate exact product scalar JSON bytes separately
+inside preflight and the product aggregate. Preserve all six capped counts,
+first-violation/prefix-byte ordering, compression and TOAST guards, original
+fallback loops, DTO/hash/order, scope, ACL, fences and the8s runtime deadline.
+No values or byte totals are shared across checkpoint statements. Existing
+private dependency/type guards remain the trust boundary; no new framework,
+index, grant, data rewrite or remote application is authorized to this writer.
+
+Local12+184+365 SQL checks, migration guards and the complete functional
+continuation passed: full JSON/per-row bytes, vectors, all-unique values, cap/
+precedence, dependency drift, metadata/ACL and rollback. The original153 and
+candidate8s failures in the unchanged event phase remain preserved. The later
+120s local oracle establishes equivalence only, not budget acceptance.
+
+A coordinator-run read-only copied-body diagnostic on TEST returned identical
+preflight/product/full-round values at5716.469 and3711.593ms. It excludes auth,
+fences and final RPC assembly and uses different planning context; it is not an
+authenticated8s PASS or a controlled AB comparison with earlier diagnostics.
+Node22 source verification (lint, types, security and build) passed. Two
+immutable-artifact reviews remain pending. TEST153
+and its authentic failure remain current; this candidate has not been applied.
+
 ## TASK-159 REVIEW — fractional stock in the existing product editor, 2026-10-02 UTC
 
 The coordinator reproduced a name-only save blocked by native number validation

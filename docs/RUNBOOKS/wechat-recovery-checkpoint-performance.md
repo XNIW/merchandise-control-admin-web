@@ -1,5 +1,122 @@
 # WECHAT-010 — prestazioni del checkpoint di recovery
 
+## TASK-159 REVIEW — TEST154 applied; authenticated recovery pending, 2026-10-02 15:09 UTC
+
+PR128 candidate head `2e7237f4` passed exact-head database/pgTAP, Verify and
+Cloudflare build checks after the independent immutable-artifact reviews.
+The coordinator applied the reviewed SQL once to TEST at15:09:09 UTC, advancing
+registry153 to154 with service version `20261002150909`. The15:09:43 private
+`bounded-product-bytes-postcheck.json` records POSTCHECK_PASS: all153 previous
+registry entries are unchanged; only the two expected routine bodies changed.
+The existing private helper, existing OIDs/full metadata/ACL, all other functions,
+triggers, scoped data/events, image versions and physical History remain unchanged.
+
+The source filename `20261002054522` is aligned to `20261002150909` in this same
+open PR, with SQL SHA256
+`9a09b8106aa8dbb3f86365ef964cc0e6a204fc8e38440b660716ebb179f04e27`
+unchanged. The local runner changes only its migration path. This receipt delta
+adds no SQL behavior, data mutation or deployment; no local PG/build/global
+verification is repeated for the filename and documentation changes. Final-head
+CI and metadata review precede any merge; the PR is not yet integrated.
+
+Registry153's authentic iOS first-checkpoint HTTP200 followed by HTTP500/57014,
+and the local8s failures, remain preserved evidence. The120s functional oracle
+and copied read-only diagnostic establish their stated equivalence only.
+Authenticated recovery on154 is pending; no terminal recovery,8s runtime PASS or
+DONE is claimed. Earlier06/07UTC preparation and validation entries below are
+historical and do not describe the15:09 applied state.
+
+## Historical pre-apply candidate — capped metadata and exact product bytes, 2 October 2026 06:49 UTC
+
+Registry153 is integrated through PR127/main `e0089365`; applied source and
+metadata/data parity remain confirmed. Its authentic iOS attempt reached one
+checkpoint HTTP200 and then failed the next HTTP500/57014 before activation.
+Prepared recovery state is preserved. Earlier NOT_RUN entries below are historical;
+there is still no terminal recovery or complete8s acceptance.
+
+Two-round read-only profiling with all11 known statements identified first-run
+execution cost in the product/price count and metadata-bound scans. JIT counters
+are zero, and diagnostic-only serial planning does not remove the difference.
+Standalone phase/plan timings are not summed into an authenticated latency claim.
+The candidate combines those repeated scans and independently removes product DTO
+construction where its exact scalar representation is proven.
+
+`20261002150909_wechat_010_bounded_product_bytes.sql` changes only preflight and
+checkpoint bodies. The existing private catalog predicate is evaluated before
+preparing typed count/bound queries: true selects one capped UNION ALL scan carrying
+only boolean/bigint metadata; false executes the original count SQL. This avoids
+preparing new field references under missing/type-drift contracts. The predicate
+is pure pg_catalog work under the existing postgres definer caller; its exact
+body/full metadata are pinned by the migration. Its trusted code is not a new
+business-data or authorization bypass.
+
+All six counts, capped at their original limit+1, still precede row-limit and
+compressed-History returns. Products cap at125000 and prices at175000. Above a cap,
+subset bounds are ignored by the original row-count failure. Below every cap,
+the complete-set bounds are reused only within the same STABLE preflight snapshot.
+Each text length is bigint before addition or multiplication; even the capped
+worst-case text lengths fit bigint. No raw text or DTO enters the count tuplestore.
+Payload scans retain their order, original first violation/prefix bytes and entire
+original loops when the proof fails. Prices still include orphan rows here.
+
+Exact product bytes are297 fixed key/punctuation bytes plus six UUID scalars,
+four text JSON scalars, three typed float8 scalars and three timestamp scalars.
+Actual scalar JSON serialization handles NULL, signed zero, NaN/infinities,
+Unicode/escaping and timestamp range. Tombstones null only category, supplier,
+primary-image version and primary-image update timestamp, as the unchanged DTO
+builder does. Numeric and timestamp memoization is statement-local with unique
+keys; unsafe rows use the original whole DTO. The checkpoint separately checks
+its existing runtime predicate and keeps the entire original product SELECT on
+drift. No preflight values are reused across checkpoint statements.
+
+Local validation command (synthetic disposable clone only):
+
+```sh
+node scripts/testing/wechat-010-bounded-product-bytes.mjs
+```
+
+Local12+184+365 pgTAP checks and exact migration guard cases passed. The first
+harness attempt exceeded its process limit and its cleanup masked the initial
+exception; both evidence and the subsequent explicit primary/cleanup reporting
+are retained privately. Later original153 and candidate checkpoint attempts
+exceeded8s in the unchanged event phase. They are FAIL evidence, not acceptance
+of this candidate. Observed concurrent emulator load was separately stopped;
+it is not asserted as the sole cause.
+
+The functional continuation may use120s solely for a local original/candidate
+oracle, preserving the8s failures and marking budget acceptance false. The
+public candidate runner continues to require8s for the candidate. Individual
+SQL clock intervals are separate from process-inclusive elapsed times; fresh
+connections do not establish same-backend warm measurements. The same-backend
+generic series and private read-only diagnostic state their own limits.
+
+The completed functional continuation passed720product per-row/aggregate vectors
+at each of four extra_float_digits settings,360price aggregate vectors and288
+bound vectors at each setting,15preflight fallback/first-violation cases,90scope/
+NULL/cap cases, all-unique products/prices, two row-cap-before-compressed-History/
+invalid-payload cases, two missing-product-column empty-scope cases, both DTO-shape
+drift fallbacks, complete checkpoint JSON and six pooled calls per implementation.
+Existing function OIDs/full metadata/ACL, other functions and data/events remained
+identical; rollback/reapply passed. The full and all-unique oracle calls used120s
+for semantic validation only; this does not replace the preserved8s failures.
+
+At06:43:45UTC the coordinator ran the twice-reviewed copied-body diagnostic once
+on TEST in REPEATABLE READ READ ONLY followed by ROLLBACK. Both preflight and
+product references (after both timed rounds), and the two complete round values,
+were identical:61598rows,29701203payload bytes, zero violations. Nine-phase elapsed
+was5716.469/3711.593ms; preflight2101.607/600.177, products967.498/951.839,
+prices1554.265/1452.291 and events610.439/326.383ms. This is copied diagnostic code,
+not the authenticated RPC: auth/scope fences and final assembly are excluded and
+planning context differs. Earlier153two-round numbers are historical comparisons,
+not a controlled AB pair. No authenticated8s acceptance is inferred.
+
+The synthetic fixture's2074events also differ in producer/entity shape from the
+TEST inventory; equal totals alone are not a representative performance model.
+Private failed and successful functional logs, the preserved clone and TEST
+read-only receipts remain available for review. Node22 verification passed (lint, types, security and production build). Two
+immutable artifact reviews are pending. No remote action is delegated to this writer, and
+no application/deployment or native recovery success is claimed.
+
 ## TASK-159 REVIEW — TEST153 applied; authentic recovery pending, 2026-10-02 UTC
 
 PR127 source head `a8a693ab` passed database/pgTAP, Verify and Cloudflare checks
