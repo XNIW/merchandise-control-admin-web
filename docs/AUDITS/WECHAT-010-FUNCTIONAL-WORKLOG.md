@@ -541,6 +541,92 @@ and new exact-head CI before merge. No local build/PG workload is repeated durin
 reserved native host slot. Registry152 authentic FAIL is retained; registry153
 recovery remains NOT_RUN until final main CI and the separate authentic gate.
 
+
+### 2026-10-02 — registry153 cold-cost diagnosis and bounded candidate preparation
+
+PR127 is integrated at `e0089365`, with exact-head and postmerge CI/Cloudflare
+checks passing. TEST registry153 is applied and metadata/data postchecks pass.
+The subsequent authentic iOS attempt completed one checkpoint HTTP200 but its
+next checkpoint timed out HTTP500/57014 before activation. Prepared recovery
+state is preserved; no terminal recovery or DONE acceptance is claimed.
+
+The coordinator's read-only two-round diagnostics return identical preflight
+JSON but expose substantial first-execution cost in product/price counts and
+metadata-bound scans. JIT counters are zero; serial planning alone does not
+remove that cost. These diagnostics do not impersonate authentication and do
+not reproduce the complete authenticated RPC deadline.
+
+The sole Admin writer now prepares a bounded candidate: combine each product/
+price capped count with metadata-only upper bounds, with the original count
+branch on contract drift; calculate exact product scalar JSON bytes separately
+inside preflight and the product aggregate. Preserve all six capped counts,
+first-violation/prefix-byte ordering, compression and TOAST guards, original
+fallback loops, DTO/hash/order, scope, ACL, fences and the8s runtime deadline.
+No values or byte totals are shared across checkpoint statements. Existing
+private dependency/type guards remain the trust boundary; no new framework,
+index, grant, data rewrite or remote application is authorized to this writer.
+
+This is candidate preparation, not a demonstrated performance fix. Required
+validation includes adversarial/resource/drift/full-JSON equivalence, cold and
+warm complete-pipeline measurements, and two immutable-artifact reviews before
+integration. Local runtime/build checks are NOT_RUN during the separately
+coordinated native host window; no claim is inferred from source preparation.
+
+### 2026-10-02 UTC — bounded product candidate validation in progress
+
+Migration9a09b810 remains unchanged. Local12+184+365 pgTAP and migration guards
+passed. The first harness timeout/cleanup error and subsequent original153 and
+candidate8s failures in the unchanged event phase are preserved. Concurrent
+emulator load was observed and then normally stopped by its coordinator; causal
+attribution remains limited. Functional-only120s oracle work is explicitly
+separate from8s acceptance. No source commit, remote apply or runtime acceptance
+is inferred; the disposable clone will be retained for further diagnosis.
+
+### 2026-10-02 UTC — bounded product functional evidence and TEST diagnostic
+
+The functional-only continuation completed successfully with source9a09b810
+unchanged. Per-row/aggregate vectors, full JSON, all-unique values, scope/caps/
+first-violation, drift, metadata/ACL/data and rollback passed. Its120s oracle calls
+are explicitly not8s acceptance; earlier8s failures remain preserved. The clone
+is retained privately for diagnosis. The coordinator's twice-reviewed TEST
+READONLY/ROLLBACK copied diagnostic returned exact reference/round equality at
+5716.469/3711.593ms, excluding authentication/fences/final assembly. Event shapes
+are not assumed representative merely from equal total counts. Source checks
+and final review are pending; no remote apply or genuine recovery success.
+
+At06:49UTC pinned Node22 verify completed with exit0: lint, type generation/check,
+security scan and production build passed. The seven-file candidate is prepared
+for immutable review. TEST153 stays applied; earlier8s FAIL evidence remains
+unaltered and no remote application or authenticated recovery acceptance is
+claimed. No local PG/build workload remains; the isolated synthetic clone is
+retained for read-only diagnosis.
+
+### 2026-10-02 15:09 UTC — TEST154 apply and source-version reconciliation
+
+PR128 candidate head `2e7237f4` passed exact-head database/pgTAP, Verify and
+Cloudflare build checks after the independent immutable-artifact reviews.
+The coordinator applied the reviewed SQL once to TEST at15:09:09 UTC, advancing
+registry153 to154 with service version `20261002150909`. The15:09:43 private
+`bounded-product-bytes-postcheck.json` records POSTCHECK_PASS: all153 previous
+registry entries are unchanged; only the two expected routine bodies changed.
+The existing private helper, existing OIDs/full metadata/ACL, all other functions,
+triggers, scoped data/events, image versions and physical History remain unchanged.
+
+The source filename `20261002054522` is aligned to `20261002150909` in this same
+open PR, with SQL SHA256
+`9a09b8106aa8dbb3f86365ef964cc0e6a204fc8e38440b660716ebb179f04e27`
+unchanged. The local runner changes only its migration path. This receipt delta
+adds no SQL behavior, data mutation or deployment; no local PG/build/global
+verification is repeated for the filename and documentation changes. Final-head
+CI and metadata review precede any merge; the PR is not yet integrated.
+
+Registry153's authentic iOS first-checkpoint HTTP200 followed by HTTP500/57014,
+and the local8s failures, remain preserved evidence. The120s functional oracle
+and copied read-only diagnostic establish their stated equivalence only.
+Authenticated recovery on154 is pending; no terminal recovery,8s runtime PASS or
+DONE is claimed. Earlier06/07UTC preparation and validation entries below are
+historical and do not describe the15:09 applied state.
+
 ### 2026-10-02 UTC — bounded fractional-stock editor fix started
 
 The coordinator reproduced a name-only save blocked by native number validation
@@ -572,3 +658,24 @@ The browser regression has no app/backend connection and is not an authenticated
 save or post-deployment acceptance. Source work is isolated from open PR128;
 its separate TEST154 receipt remains there. No migration, data rewrite or deployment
 was performed by this writer. This five-file patch awaits independent review.
+
+### Source integration review — 2026-10-03 Santiago (2026-10-04 UTC)
+
+PR128 is being reconciled with latest main `553c4568`, which includes the
+fractional-stock editor fix from PR129. The three documentation conflicts retain
+both the bounded-product/TEST154 receipts and the fractional-stock history below.
+The reviewed migration remains byte-for-byte SHA256
+`9a09b8106aa8dbb3f86365ef964cc0e6a204fc8e38440b660716ebb179f04e27`;
+no SQL, dependency, authorization or runtime behavior is changed by this resolution.
+Earlier CI results qualify their recorded heads only. Focused compatibility review
+and CI on the new integration head are pending; PR128 remains unmerged.
+
+PR130's identity-case delta remains separate and based on PR128 until the reviewed
+PR128 integration is merged. This source operation does not reapply registry155,
+deploy a Worker, execute the frozen price proposal or establish live acceptance.
+The coordinator closed diagnostic STEP1 as INCONCLUSIVE /
+NOT_EXECUTED_AFTER_ORDINARY_RECOVERY_COMPLETION: ordinary recovery completion does
+not establish the cause or resolution of the historical timeout. Authentic final
+recovery, cross-client convergence, performance and phone acceptance remain open.
+TASK-159/WECHAT-010 is not DONE. Earlier dated sections are historical receipts,
+not fresh runtime or deployment evidence.
