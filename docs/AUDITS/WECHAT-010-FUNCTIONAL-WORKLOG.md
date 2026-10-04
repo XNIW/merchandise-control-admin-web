@@ -626,3 +626,56 @@ and copied read-only diagnostic establish their stated equivalence only.
 Authenticated recovery on154 is pending; no terminal recovery,8s runtime PASS or
 DONE is claimed. Earlier06/07UTC preparation and validation entries below are
 historical and do not describe the15:09 applied state.
+
+### 2026-10-02 UTC — bounded fractional-stock editor fix started
+
+The coordinator reproduced a name-only save blocked by native number validation
+when the existing stock quantity was1.25. The input imposes integer steps while
+the unchanged server contract accepts finite nonnegative quantities. This bounded
+fix changes only that input step, retaining min0/type number and all server,
+price, revision and authorization behavior. An isolated browser regression must
+prove fractional name-only submission without changing stock and preserve negative
+quantity rejection. Source work is isolated from open PR128; no migration, data
+rewrite, deployment or authentic post-fix acceptance is part of this change.
+
+### 2026-10-02 UTC — fractional-stock editor validation completed
+
+The coordinator reproduced a name-only save blocked by native number validation
+when the existing stock quantity was1.25. The input imposed integer steps while
+the unchanged server contract accepts finite nonnegative quantities. The sole
+application change is stockQuantity step1→any, retaining min0/type number and
+all server, price, revision and authorization behavior.
+
+An isolated Chromium regression renders the actual overview form and performs
+ordinary native submissions:1.25,0.001 and1.234567 were rejected before the fix
+and pass afterward with every non-name FormData value unchanged. Negative stock
+still prevents submission. All4 browser cases and5 existing form tests pass;
+pinned Node22 verify passes lint, types, security scan and production build.
+The first local build rejected an external node_modules symlink; after copying
+the same dependencies into this worktree, verify passed without a source workaround.
+
+The browser regression has no app/backend connection and is not an authenticated
+save or post-deployment acceptance. Source work is isolated from open PR128;
+its separate TEST154 receipt remains there. No migration, data rewrite or deployment
+was performed by this writer. This five-file patch awaits independent review.
+
+### Source integration review — 2026-10-03 Santiago (2026-10-04 UTC)
+
+PR128 is being reconciled with latest main `553c4568`, which includes the
+fractional-stock editor fix from PR129. The three documentation conflicts retain
+both the bounded-product/TEST154 receipts and the fractional-stock history below.
+The reviewed migration remains byte-for-byte SHA256
+`9a09b8106aa8dbb3f86365ef964cc0e6a204fc8e38440b660716ebb179f04e27`;
+no SQL, dependency, authorization or runtime behavior is changed by this resolution.
+Earlier CI results qualify their recorded heads only. Focused compatibility review
+and CI on the new integration head are pending; PR128 remains unmerged.
+
+PR130's identity-case delta remains separate and based on PR128 until the reviewed
+PR128 integration is merged. This source operation does not reapply registry155,
+deploy a Worker, execute the frozen price proposal or establish live acceptance.
+The coordinator closed diagnostic STEP1 as INCONCLUSIVE /
+NOT_EXECUTED_AFTER_ORDINARY_RECOVERY_COMPLETION: ordinary recovery completion does
+not establish the cause or resolution of the historical timeout. Authentic final
+recovery, cross-client convergence, performance and phone acceptance remain open.
+TASK-159/WECHAT-010 is not DONE. Earlier dated sections are historical receipts,
+not fresh runtime or deployment evidence.
