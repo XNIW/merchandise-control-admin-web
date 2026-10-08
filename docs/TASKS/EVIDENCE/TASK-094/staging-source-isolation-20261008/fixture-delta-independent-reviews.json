@@ -1,0 +1,40 @@
+{
+  "observedUTC": "2026-10-08T21:38:07.709296+00:00",
+  "actor": "Codex /root records independent immutable fixture delta approvals",
+  "finalSourceFreezeSha256": "eed798d012dc4e1e6802e419186e8b1c4da74eda6a5def3c7d6aee48369b4f84",
+  "reviews": [
+    {
+      "reviewer": "/root/import_receipt_http_review",
+      "observedUTC": "2026-10-08T21:27:08Z",
+      "result": "APPROVED_STATIC_TEST_FIX",
+      "scope": "Three existing stale foundation fixtures, product32pins unchanged at that observation",
+      "findings": []
+    },
+    {
+      "reviewer": "/root/import_receipt_contract_review",
+      "observedUTC": "2026-10-08T21:29:27Z",
+      "result": "APPROVED_STATIC_FIXTURE_REPAIR",
+      "scope": "Exact PR132 image replay pgTAP fixture repair, SQL/runtime unchanged",
+      "findings": []
+    },
+    {
+      "reviewer": "/root/import_receipt_contract_review",
+      "observedUTC": "2026-10-08T21:29:27Z",
+      "result": "APPROVED_SCOPED_SCHEMA_METADATA_COMPATIBILITY",
+      "scope": "Four source predecessor bodies/signatures/ACL match live TEST metadata; 54referenced columns found with compatible types",
+      "metadataReceiptSHA256": "6a366f2b283466e687990afb40231ae853b432da431fff09b70d9b0291011847",
+      "findings": [],
+      "limits": "Fresh predecessor/collision/constraints/index/trigger guards before separately authorized apply; no caller/runtime acceptance"
+    },
+    {
+      "reviewer": "/root/import_receipt_http_review",
+      "observedUTC": "2026-10-08T21:36:00Z",
+      "timestampPrecision": "Reviewer reported minute only",
+      "result": "APPROVED_STATIC_SYNTHETIC_FIXTURE_DELTA",
+      "scope": "Only9syntheticcorrectionJSON identity/canonical hash fields;19rawdeclaredhashoccurrences unchanged;other9JSON/runtimeSQL/scanners unchanged",
+      "findings": []
+    }
+  ],
+  "newFullCI": "PENDING_SUCCESSOR_HEAD",
+  "applyOrDeployOrReadyExecuted": false
+}

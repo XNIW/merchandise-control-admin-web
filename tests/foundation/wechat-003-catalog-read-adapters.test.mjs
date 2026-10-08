@@ -222,6 +222,8 @@ test("WECHAT-003 catalog-history route bounds filters and preserves tenant/curso
         p_entity_id: ENTITY_ID,
         p_entity_type: "product",
         p_from_at: "2026-08-01T00:00:00Z",
+        p_from_date: null,
+        p_to_date: null,
         p_limit: 40,
         p_operation: "updated",
         p_shop_id: SHOP_ID,
@@ -363,7 +365,7 @@ function loadTrustedRpcWithResponse(responseFactory) {
     },
     {
       async fetch(_url, init) {
-        assert.equal(init.redirect, "error");
+        assert.equal(init.redirect, "manual");
         assert.ok(init.signal instanceof AbortSignal);
         return responseFactory();
       },
@@ -413,6 +415,6 @@ test("WECHAT-003 safe read helper rejects invalid JSON without leaking upstream 
   assert.doesNotMatch(JSON.stringify(result), /sensitive upstream detail/);
   const source = read("src/server/auth/wechat-mini-session.ts");
   assert.match(source, /AbortSignal\.timeout\(timeoutMs\)/);
-  assert.match(source, /redirect: "error"/);
+  assert.match(source, /redirect: "manual"/);
   assert.doesNotMatch(source, /response\.json\(\)/);
 });

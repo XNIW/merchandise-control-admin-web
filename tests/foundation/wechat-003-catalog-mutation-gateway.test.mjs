@@ -337,7 +337,7 @@ test("WECHAT-003 gateway verifies the bearer before its trusted RPC", async () =
     "https://project.supabase.co/rest/v1/rpc/wechat_mini_business_v1",
   );
   assert.equal(captured.init.method, "POST");
-  assert.equal(captured.init.redirect, "error");
+  assert.equal(captured.init.redirect, "manual");
   assert.equal(captured.init.cache, "no-store");
   assert.equal(
     captured.init.headers.Authorization,
@@ -641,7 +641,7 @@ test("WECHAT-003 source pins the only PostgREST write lane and guardrail", () =>
   assert.match(gateway, /\.\.\.actor\.proof/);
   assert.match(gateway, /const GATEWAY_TIMEOUT_MS = 8_000/);
   assert.match(gateway, /const RPC_TIMEOUT_MS = 6_000/);
-  assert.match(gateway, /redirect: "error"/);
+  assert.match(gateway, /redirect: "manual"/);
   assert.match(gateway, /apikey: adminConfig\.serviceRoleKey/);
   assert.match(
     gateway,
