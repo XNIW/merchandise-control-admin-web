@@ -563,8 +563,12 @@ export function ShopShell({
     router.push(`${pathname}?${nextSearchParams.toString()}`);
   }
 
-  const scheduleCurrentShopRouteRefresh = useCallback(() => {
-    if (document.visibilityState !== "visible" || activeElementIsFormField()) {
+  const scheduleCurrentShopRouteRefresh = useCallback((pending?: {
+    isCurrent: () => boolean;
+    onRefresh: () => void;
+  }) => {
+    if (!navigator.onLine || document.visibilityState !== "visible" || activeElementIsFormField() ||
+        (pending && !pending.isCurrent())) {
       return;
     }
 
@@ -580,10 +584,19 @@ export function ShopShell({
       window.clearTimeout(focusRefreshTimerRef.current);
     }
 
-    focusRefreshTimerRef.current = window.setTimeout(() => {
+    const refreshTimer = window.setTimeout(() => {
+      if (focusRefreshTimerRef.current !== refreshTimer) {
+        return;
+      }
       focusRefreshTimerRef.current = null;
+      if (!navigator.onLine || document.visibilityState !== "visible" || activeElementIsFormField() ||
+          (pending && !pending.isCurrent())) {
+        return;
+      }
       router.refresh();
+      pending?.onRefresh();
     }, 200);
+    focusRefreshTimerRef.current = refreshTimer;
   }, [router]);
 
   useEffect(() => {
@@ -600,6 +613,10 @@ export function ShopShell({
   }, [pendingNavigation, pendingNavigationTargetReached]);
 
   useEffect(() => {
+    function handleFocus() {
+      scheduleCurrentShopRouteRefresh();
+    }
+
     function handleVisibilityChange() {
       if (document.visibilityState === "visible") {
         scheduleCurrentShopRouteRefresh();
@@ -612,12 +629,12 @@ export function ShopShell({
       }
     }
 
-    window.addEventListener("focus", scheduleCurrentShopRouteRefresh);
+    window.addEventListener("focus", handleFocus);
     window.addEventListener("pageshow", handlePageShow);
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
-      window.removeEventListener("focus", scheduleCurrentShopRouteRefresh);
+      window.removeEventListener("focus", handleFocus);
       window.removeEventListener("pageshow", handlePageShow);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
 
@@ -626,7 +643,7 @@ export function ShopShell({
         focusRefreshTimerRef.current = null;
       }
     };
-  }, [scheduleCurrentShopRouteRefresh]);
+  }, [activeShopId, courierOnly, scheduleCurrentShopRouteRefresh]);
 
   useEffect(() => {
     if (!activeShopId || courierOnly) {
@@ -672,10 +689,17 @@ export function ShopShell({
         }
 
         if (lastMarker === null || payload.eventMarker !== lastMarker) {
-          scheduleCurrentShopRouteRefresh();
+          const marker = payload.eventMarker;
+          scheduleCurrentShopRouteRefresh({
+            isCurrent: () => !stopped,
+            onRefresh: () => {
+              if (!stopped) {
+                lastMarker = marker;
+              }
+            },
+          });
         }
 
-        lastMarker = payload.eventMarker;
         failureCount = 0;
         schedule(3_000);
       } catch {

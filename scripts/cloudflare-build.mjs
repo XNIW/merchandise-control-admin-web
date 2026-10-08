@@ -3,6 +3,7 @@
 import { existsSync, renameSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
+import { withOpenNextRequestUrlPatch } from "./cloudflare-query-compat.mjs";
 
 const root = process.cwd();
 const proxyPath = join(root, "src", "proxy.ts");
@@ -60,7 +61,7 @@ if (shouldRestoreProxy) {
 }
 
 try {
-  const result = runOpenNextBuild();
+  const result = withOpenNextRequestUrlPatch(root, runOpenNextBuild);
 
   if (result.error) {
     throw result.error;
