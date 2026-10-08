@@ -8788,7 +8788,15 @@ export type Database = {
           unit_amount_clp: number
         }[]
       }
-          customer_address_delete_v2: {
+      customer_address_create_v3: {
+        Args: { p_intent_id: string; p_payload: Json }
+        Returns: Json
+      }
+      customer_address_create_reconcile_v3: {
+        Args: { p_intent_id: string }
+        Returns: Json
+      }
+      customer_address_delete_v2: {
         Args: { p_address_id: string; p_expected_version: number }
         Returns: Json
       }

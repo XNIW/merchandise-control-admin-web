@@ -1,5 +1,29 @@
 # TASK-159 — WECHAT-010 controlled Mini staging readiness
 
+## TASK-054 coordinato — creazione indirizzo v3, 8 ottobre 2026
+
+Il mandato Client corrente autorizza il delta aggiuntivo per la creazione con
+risposta persa. Implementate due RPC account-global, ledger privato owner/intento,
+replay atomico e riconciliazione, rifiuto del payload cambiato, tombstone dopo
+cancellazione e sessione Auth corrente obbligatoria. Nessuna modifica alle tre
+migration commerce canoniche o al Worker della lane W.
+
+La concorrenza v2 è stata riprodotta prima del fix: due indirizzi per due richieste
+con lo stesso intento logico. Dopo la patch: un canonical ID/riga, versione
+invariata; 43 nuove + 119 assertion SQL esistenti PASS. La review distinta ha
+richiesto un fix P2 del cast booleano malformato; test rosso, fix minimo e re-review
+con 43/43 rieseguiti autonomamente: APPROVED per source/local. Type probe e security
+scan PASS. Migration `20261008151018`, SHA256
+`b290c6373d2d49a3c9fb4847e5ee8f47f2ce11f4eeeb17da4d3fc4086a615e56`.
+
+CI finale, apply TEST e smoke Client autenticato restano NOT_RUN. Nessun DONE,
+merge, nuova attivazione di task o accettazione runtime. Handoff del delta:
+`CODEX_FIX_COMPLETE_TO_RE_REVIEW`; re-review source/local conclusa, closeout
+integrato ancora aperto. Le altre lane TASK-159 mantengono gli stati precedenti.
+
+[Evidence del delta](EVIDENCE/TASK-159/client-task054-address-intent-v3-20261008.md).
+
+
 ## TASK-159 source integration — PR128 merged, PR130 reconciliation, 2026-10-04 Santiago
 
 The authorized normal merge of PR128 completed at 03:54:17 UTC as main
