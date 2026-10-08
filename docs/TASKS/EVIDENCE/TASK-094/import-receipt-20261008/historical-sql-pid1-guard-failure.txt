@@ -1,0 +1,5 @@
+OWNED_CONTAINER_CLOSED cmc-pos-receipt-b04a079930
+Traceback (most recent call last):
+  File "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/workspaces/admin-pos-import-receipt-20261008/scripts/testing/task-094-pos-import-receipt-local.py", line 98, in <module>
+    raise RuntimeError('Owned PostgreSQL initialization failed')
+RuntimeError: Owned PostgreSQL initialization failed

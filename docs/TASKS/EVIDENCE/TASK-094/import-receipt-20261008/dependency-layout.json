@@ -1,0 +1,12 @@
+{
+  "observedUTC": "2026-10-08T20:33:25.835251+00:00",
+  "scope": "own ignored dependencies only; APFS clone of same-lock dependency cache; no install/source change",
+  "packageLockEqual": true,
+  "copiedDependencyDigests": {
+    ".package-lock.json": "a17d2027ac0a9b53e8e9b8e76ccb0a30163fc586e2fce280c5479668699ef226",
+    "next/package.json": "297079fdc10beaf4f8ea52def582807768f086cc4cff516e1c7e2482c97fa309",
+    "typescript/package.json": "822ef7ca6452205657b6288b066481ecf508bfbf43455d715cf7d3ec457561e6",
+    "@supabase/supabase-js/package.json": "a7230ea98334ad21be2f6aa0cdf0712dbea7507087136406068f11e0e222c2d4"
+  },
+  "nodeModulesInsideProjectRoot": true
+}
