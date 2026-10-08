@@ -1,5 +1,20 @@
 # MerchandiseControl Admin Web - Master Plan
 
+## TASK-094 authorized isolated continuation — 8 October 2026
+
+POS import receipt, explicit identity retirement and linked masked correction are
+in REVIEW in the authorized isolated worktree. Read-only lookup handles original
+and correction-child identities, returns durable RPC ACKs with scoped current
+snapshots, and rederives canonical hashes from immutable originalRequest. Private
+retirement fences reject delayed originals/children; masked correction checks
+current revision and baseSnapshot atomically, preserving newer remote metadata.
+Source-only migrations 20261008194809 and 20261008200355: no TEST apply, deploy,
+cleanup, READY or DONE. Foundation1071 PASS/8 SKIP and synthetic PostgreSQL69 PASS;
+final immutable reviews/build receipt are tracked in the scoped task. Existing
+TASK-054/TASK-159 history and every other worktree remain unchanged.
+[Scoped task](TASKS/TASK-094-pos-catalog-import-receipt-and-retirement.md).
+
+
 ## TASK-054 coordinato — creazione indirizzo v3, 8 ottobre 2026
 
 Il mandato Client corrente autorizza il delta aggiuntivo per la creazione con

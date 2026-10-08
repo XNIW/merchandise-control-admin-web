@@ -143,7 +143,7 @@ type ParsedCatalogImportItem = {
   supplier: string | null;
 };
 
-type ParsedCatalogImportInput = {
+export type ParsedCatalogImportInput = {
   appVersion?: string;
   attemptCount: number;
   batchCreatedAt: string;
@@ -176,7 +176,7 @@ type PosCatalogImportAuthContext = {
   staff: StaffAccountRow;
 };
 
-type AppliedCatalogImport = {
+export type AppliedCatalogImport = {
   acceptedItemCount: number;
   batchId: string;
   duplicateItemCount: number;
@@ -525,7 +525,7 @@ function parseCatalogImportItem(
   };
 }
 
-function parseCatalogImportInput(input: unknown): ParsedCatalogImportInput | null {
+export function parseCatalogImportInput(input: unknown): ParsedCatalogImportInput | null {
   if (!isRecord(input)) {
     return null;
   }
@@ -687,7 +687,7 @@ function isStaffUsable(staff: StaffAccountRow | null) {
   );
 }
 
-async function getSupabaseForPosCatalogImport() {
+export async function getSupabaseForPosCatalogImport() {
   const config = resolveSupabaseAdminConfig();
 
   if (config.status !== "configured") {
@@ -756,14 +756,18 @@ async function auditedFailure(
   return failure(input.code, input.status);
 }
 
-async function validatePosCatalogImportAuth(
+export async function validatePosCatalogImportAuth(
   supabase: SupabaseAdminClient,
   parsed: ParsedCatalogImportInput,
   meta: PosCatalogImportRequestMeta,
+  auditFailures = true,
 ): Promise<
   | { context: PosCatalogImportAuthContext; result?: never }
   | { context?: never; result: PosCatalogImportEndpointResult }
 > {
+  // Read-only receipt lookup uses the same trust fence without audit INSERTs.
+  const authFailure = (input: Parameters<typeof auditedFailure>[1]) =>
+    auditFailures ? auditedFailure(supabase, input) : failure(input.code, input.status);
   const lease = await loadPosRuntimeLease(supabase, {
     posSessionId: parsed.posSessionId,
     shopDeviceId: parsed.shopDeviceId,
@@ -771,7 +775,7 @@ async function validatePosCatalogImportAuth(
 
   if (lease.status === "db_failure") {
     return {
-      result: await auditedFailure(supabase, {
+      result: await authFailure({
         code: "db_failure",
         metadata: requestMetadata(meta),
         status: 500,
@@ -781,7 +785,7 @@ async function validatePosCatalogImportAuth(
 
   if (lease.status === "denied") {
     return {
-      result: await auditedFailure(supabase, {
+      result: await authFailure({
         code: "auth_denied",
         metadata: requestMetadata(meta),
         status: 401,
@@ -799,7 +803,7 @@ async function validatePosCatalogImportAuth(
 
   if (!sessionValid) {
     return {
-      result: await auditedFailure(supabase, {
+      result: await authFailure({
         code: "auth_denied",
         metadata: requestMetadata(meta),
         shopId: session.shop_id,
@@ -823,7 +827,7 @@ async function validatePosCatalogImportAuth(
       scopeResult.data.status !== "device_denied")
   ) {
     return {
-      result: await auditedFailure(supabase, {
+      result: await authFailure({
         code: "db_failure",
         metadata: requestMetadata(meta),
         shopId: session.shop_id,
@@ -867,7 +871,7 @@ async function validatePosCatalogImportAuth(
 
   if (!runtimeValid) {
     return {
-      result: await auditedFailure(supabase, {
+      result: await authFailure({
         code: "auth_denied",
         metadata: {
           ...requestMetadata(meta),
@@ -888,7 +892,7 @@ async function validatePosCatalogImportAuth(
 
   if (!mappingResolved) {
     return {
-      result: await auditedFailure(supabase, {
+      result: await authFailure({
         code: "not_configured",
         metadata: {
           ...requestMetadata(meta),
@@ -984,7 +988,7 @@ function canonicalResponseUuid(value: string) {
     : null;
 }
 
-function parseAppliedCatalogImport(
+export function parseAppliedCatalogImport(
   data: Record<string, unknown>,
   summary: Record<string, unknown>,
   statusValue: string,

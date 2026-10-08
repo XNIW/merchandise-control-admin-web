@@ -1,0 +1,24 @@
+{
+  "observedUTC": "2026-10-08T20:34:22.837135+00:00",
+  "scope": "synthetic canonical wire files; no live data",
+  "files": {
+    "contracts/pos-catalog-import-receipt-v1/accepted.response.json": "ca2111b7032db923c28228977c1ffb6382f547ecbf70d16e69f20227d126789b",
+    "contracts/pos-catalog-import-receipt-v1/conflict.response.json": "41e6130140834f7b5846f579b036807d1c75033c708f7506b00971d935cfac9c",
+    "contracts/pos-catalog-import-receipt-v1/correction-target.accepted.response.json": "cfe5cf650bc49559a3783d2b7237a1a95866cf1c4c02eb15da97b27e6ca3ac5d",
+    "contracts/pos-catalog-import-receipt-v1/correction-target.lookup.request.json": "2af59b9184b81d44e63f7eb60bc9fd9b59b364b0978f9a4af7c663c86c24d87a",
+    "contracts/pos-catalog-import-receipt-v1/correction-target.retire.request.json": "83860d85501a94f8041bd51608b18e9feb5da072cff10389fad6194bc64b3b90",
+    "contracts/pos-catalog-import-receipt-v1/correction.conflict.response.json": "78b0e06decb0cad627b0a174797f0626ae71ad53115a531a86a7cee5b9bd92de",
+    "contracts/pos-catalog-import-receipt-v1/correction.duplicate.response.json": "a839b8eacb881b2b4cae853e581f98a1a3f95eb341b7fded99185c4fbcd2d09a",
+    "contracts/pos-catalog-import-receipt-v1/correction.no-effect.request.json": "2a8c1c26790688f5cf290d90fca57cbe6221e4da7360e720178be63531bb9a91",
+    "contracts/pos-catalog-import-receipt-v1/correction.no-effect.response.json": "68d251af6d0c391f8f10f9eb37d050aca71971b0d81bcbb3a00a292229136e93",
+    "contracts/pos-catalog-import-receipt-v1/correction.request.json": "883cb4730431512ea5ca26e24d7507c7a71800ee112f99c0f5cac718b022dba6",
+    "contracts/pos-catalog-import-receipt-v1/correction.response.json": "d2b488b7fa2e49f407fa18831048bf24cb07d3b05631004375d60fa12220faee",
+    "contracts/pos-catalog-import-receipt-v1/lookup.legacy-int64.request.json": "c6fba1782864c980ef47918b5031a64ad2de6ac6a59fc9f8ff775df948f370bd",
+    "contracts/pos-catalog-import-receipt-v1/lookup.request.json": "ec509e041b211ac881db593c0e6acb95efe291960571833cf1fbb826402ca3b3",
+    "contracts/pos-catalog-import-receipt-v1/not-found.response.json": "44cc7ba0ff25b8bcfaa1d54c2c2ee80ff80ed837571f03aa5194d8d79cf0eddc",
+    "contracts/pos-catalog-import-receipt-v1/retire.accepted.response.json": "c7424784823815c22863274dea73268ce951e449a5a0d1228a4cf283953dba93",
+    "contracts/pos-catalog-import-receipt-v1/retire.request.json": "84a67c7c98c5f763b1169bc14caeb746550c2d2165fdec081648c8469a06ec6e",
+    "contracts/pos-catalog-import-receipt-v1/retired.response.json": "a6bc4b3a4973f26fba2923836f8426fc73f5bb8f221b8a4c5ee1048dcf9e6a60",
+    "contracts/pos-catalog-import-receipt-v1/snapshot-unavailable.response.json": "bf5428e4753ffa4a5bc67d379305dabd318cb3e08416333da0cd007fbdf98cdb"
+  }
+}

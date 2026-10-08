@@ -1,0 +1,13 @@
+psql: error: connection to server on socket "/var/run/postgresql/.s.PGSQL.5432" failed: FATAL:  the database system is shutting down
+
+OWNED_CONTAINER_CLOSED cmc-pos-receipt-c4befe4c34
+Traceback (most recent call last):
+  File "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/workspaces/admin-pos-import-receipt-20261008/scripts/testing/task-094-pos-import-receipt-local.py", line 99, in <module>
+    sql(MIGRATION.read_text())
+  File "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/workspaces/admin-pos-import-receipt-20261008/scripts/testing/task-094-pos-import-receipt-local.py", line 33, in sql
+    return command(['docker', 'exec', '-i', NAME, 'psql', '-X', '-U', 'postgres', '-v', 'ON_ERROR_STOP=1', '-At'], input=query)
+  File "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/workspaces/admin-pos-import-receipt-20261008/scripts/testing/task-094-pos-import-receipt-local.py", line 29, in command
+    completed.check_returncode()
+  File "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/subprocess.py", line 460, in check_returncode
+    raise CalledProcessError(self.returncode, self.args, self.stdout,
+subprocess.CalledProcessError: Command '['docker', 'exec', '-i', 'cmc-pos-receipt-c4befe4c34', 'psql', '-X', '-U', 'postgres', '-v', 'ON_ERROR_STOP=1', '-At']' returned non-zero exit status 2.
