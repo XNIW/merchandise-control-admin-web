@@ -1,0 +1,47 @@
+{
+  "state":"PROPOSED_CLIENT_WIRE_IMPLEMENTATION_IN_PROGRESS_NOT_DEPLOYED",
+  "schemaVersion":"pos-catalog-import-recovery-multipart-v1",
+  "planSchemaVersion":"pos-catalog-import-recovery-plan-v1",
+  "basePath":"/api/pos/catalog/import-recovery/",
+  "method":"POST",
+  "commonRequest":{"schemaVersion":"pos-catalog-import-recovery-multipart-v1","shopCode":"FIXTURE","shopDeviceId":"30000000-0000-4000-8000-000000000094","posSessionId":"40000000-0000-4000-8000-000000000094","deviceToken":"fixture-device","sessionToken":"fixture-session"},
+  "commonSuccess":{"ok":true,"code":"success","schemaVersion":"pos-catalog-import-recovery-multipart-v1","shopId":"10000000-0000-4000-8000-000000000094","shopDeviceId":"30000000-0000-4000-8000-000000000094"},
+  "requests":{
+    "upload":{"uploadId":"01000000-0000-4000-8000-000000000094","mode":"original","totalByteLength":2,"rawSha256":"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a","parts":[{"index":0,"byteLength":2,"sha256":"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"}],"partIndex":0,"contentBase64":"e30="},
+    "finalize":{"uploadId":"01000000-0000-4000-8000-000000000094"},
+    "receipt":{"verifiedOriginalId":"01000000-0000-4000-8000-000000000094"},
+    "retire":{"verifiedOriginalId":"01000000-0000-4000-8000-000000000094"},
+    "plan":{"uploadId":"03000000-0000-4000-8000-000000000094"},
+    "apply":{"planId":"02000000-0000-4000-8000-000000000094","partIndex":0},
+    "receipt-page":{"verifiedOriginalId":"01000000-0000-4000-8000-000000000094","receiptSha256":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","offset":0,"limit":1000},
+    "receipt-page-child":{"planId":"02000000-0000-4000-8000-000000000094","partIndex":0,"receiptSha256":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","offset":0,"limit":1000}
+  },
+  "successFields":{
+    "upload":["status=uploaded","uploadId","partIndex","manifestSha256"],
+    "finalize":["status=verified","verifiedOriginalId=uploadId","originalSchemaVersion","clientImportId","idempotencyKey","payloadHash=client declaration","canonicalPayloadHash=server recomputed","rawSha256","itemCount"],
+    "receipt":["status=accepted|not_found|conflict","verifiedOriginalId","originalSchemaVersion","clientImportId","idempotencyKey","payloadHash=client declaration","canonicalPayloadHash=server recomputed"],
+    "retire":["status=accepted|retired|conflict","verifiedOriginalId","originalSchemaVersion","clientImportId","idempotencyKey","payloadHash=client declaration","canonicalPayloadHash=server recomputed"],
+    "plan":["status=planned","planId","verifiedOriginalId","planCanonicalHash","partCount","itemCount","parts[{index,kind,clientImportId,idempotencyKey,payloadHash=server canonical,declaredPayloadHash=client declaration,createdAt}]"],
+    "apply":["status=accepted|conflict","planId","partIndex","clientImportId","idempotencyKey","payloadHash=client declaration","canonicalPayloadHash=server recomputed","parentStatus=partial|complete","partCount","acceptedPartCount"],
+    "receipt-page":["status=accepted|conflict","receiptSha256","receiptEncoding=postgres-jsonb-text-v1","totalItemCount","offset","limit","complete","receipt","currentProductSnapshots"]
+  },
+  "conditionalResponseFields":{
+    "accepted":["receiptSha256","receiptEncoding=postgres-jsonb-text-v1","totalItemCount","offset","limit","complete","receipt","currentProductSnapshots"],
+    "not_found":{"snapshotOnly":true,"replacementAllowed":false},
+    "retired":{"oldIdentityBlocked":true,"retiredAt":"server UTC timestamp"},
+    "conflict":["reason"]
+  },
+  "planDocument":{
+    "schemaVersion":"pos-catalog-import-recovery-plan-v1","planId":"02000000-0000-4000-8000-000000000094","verifiedOriginalId":"01000000-0000-4000-8000-000000000094","mode":"replacement|correction",
+    "parts":[{"index":0,"request":"complete ordinary request, or correction-v1 with recoveryOf:{verifiedOriginalId} and immutable correction:{clientImportId,idempotencyKey,payloadHash,createdAt,items}"}],
+    "coverageShapes":[
+      {"clientItemId":"row-1","kind":"child","partIndex":0,"childClientItemId":"row-1"},
+      {"clientItemId":"row-2","kind":"accepted_contributor","verifiedContributorId":"04000000-0000-4000-8000-000000000094","contributorClientItemId":"historical-row-2","desiredItem":"exact ordinary business intent row, including omission versus explicit null"},
+      {"clientItemId":"row-3","kind":"original_accepted"}
+    ],
+    "coverageRules":"all original clientItemIds exactly once; all child rows exactly once; original_accepted only correction; contributors require exact immutable request intent and complete durable ACK, never current prices or NoChange"
+  },
+  "limits":{"httpJsonBytes":524288,"rawPartBytes":262144,"uploadParts":128,"uploadTotalBytes":33554432,"originalItems":60000,"ordinaryItems":1000,"planChildren":128,"planTotalItems":60000,"childBusinessRequestBytes":524288,"receiptPageItems":1000,"acceptedContributorHandles":128},
+  "hashSemantics":{"rawSha256":"sha256:<64 lowercase hex> over exact UTF-8 bytes; independent of client business declaration","payloadHash":"opaque bounded historic client declaration; never trusted as canonical proof","canonicalPayloadHash":"server rederives existing ordinary/correction business canonical SHA256 from complete original","manifestSha256":"SHA256 JSON.stringify normalized manifest, server determined","planCanonicalHash":"SHA256 JSON.stringify complete server-normalized plan and all bound proof coverage","receiptSha256":"SHA256 of persisted PostgreSQL jsonb::text full ACK; stable page identity; live snapshots excluded"},
+  "safety":{"handleIsCapability":false,"notFoundAllowsReplacement":false,"finalizeApplies":false,"planApplies":false,"planRetires":false,"replacementRequiresExistingRetirement":true,"correctionRequiresAcceptedOriginal":true,"parentCompleteRequiresEveryDurableChildAck":true,"originalAttemptCount":"omitted|0|positive; negative/fractional/null rejected","ordinaryAttemptCount":"positive only","unsafeJsonInteger":"explicit fail, exact decimal text preserved within existing forensic limits","scope":"current authorized shop/device/owner catalog.import on each transaction and after wait","deployment":"not executed"}
+}
