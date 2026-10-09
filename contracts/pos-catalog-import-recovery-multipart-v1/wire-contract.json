@@ -272,9 +272,12 @@
   "boundedPhases": {
     "state": "PROPOSED_SOURCE_IMPLEMENTATION_PENDING_NOT_DEPLOYED",
     "document": "bounded-phases.proposed.json",
-    "documentSha256": "8edd9afd1b9976091979909dcd52322e1899ce6e110c52a2a0156a8addb4f81c",
+    "documentSha256": "346e2a8e56bf778e0be1ea2875a7c51e2837ff8303c8e73b2319262247b60dbc",
     "legacyLimitsBelow": true,
-    "largeWorkerFullBufferAllowed": false
+    "largeWorkerFullBufferAllowed": false,
+    "goldensDocument": "bounded-phase-goldens.proposed.json",
+    "goldensSha256": "d780846c154321aebe021a8c8292f246349218024ce2af4a9717686f5fd1e411",
+    "planManifestRoot": "New phased plan registration requires verifiedOriginalId; server derives logical recovery root/capacity credit. Legacy full-manifest small path unchanged."
   },
   "childResponses": {
     "selector": {

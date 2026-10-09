@@ -13,7 +13,15 @@
     "maxAncestry": 128,
     "normalizationPageItems": 1000,
     "normalizationPageJsonBytes": 262144,
-    "compatibilityAutoRawBytes": 4194304
+    "compatibilityAutoRawBytes": 4194304,
+    "wholePrivateRpcFrameBytes": 2097152,
+    "headerJsonBytes": 16384,
+    "relatedProjectionPageJsonBytes": 262144,
+    "deviceRetainedUploadCount": 512,
+    "deviceRetainedDeclaredRawBytes": 8589934592,
+    "deviceIncompleteUploadCount": 32,
+    "deviceIncompleteDeclaredRawBytes": 2147483648,
+    "futurePlanReservationBytesPerLogicalRoot": 536870912
   },
   "upload": {
     "manifest": {
@@ -27,7 +35,8 @@
       "partCount": "integer1..2048",
       "manifestSha256": "sha256:HEX of existing manifest JSON.stringify",
       "offset": "integer contiguous descriptor cursor",
-      "parts": "<=256 {index,byteLength,sha256}; whole index order"
+      "parts": "<=256 {index,byteLength,sha256}; whole index order",
+      "verifiedOriginalId": "required only plan: verified ordinary root UUID, scoped/authenticated, matched raw plan root and logical capacity credit"
     },
     "seal": {
       "phase": "seal",
@@ -110,5 +119,16 @@
   "journal": [
     "Client must durably journal immutable staged plan identities before its first plan request. Edited draft requires explicit successor after retiring all unACKed children."
   ],
-  "runtime": "NOT_RUN; phase shape awaiting source/tests/review freeze"
+  "runtime": "NOT_RUN; phase shape awaiting source/tests/review freeze",
+  "quota": {
+    "counting": "ALL retained verified/proof/plan raw included in 8GiB/512 count; incomplete/nonterminal admission separately capped2GiB/32. Exact retry free. No automatic delete/cleanup or completion release of retained storage.",
+    "retirement": "Before original or unACKed planned-child fence, atomically reserve one future-plan512MiB credit per same logical root. Refuse quota before fence. Plan manifest root binding consumes/converts that exact credit only after valid registration; mismatched/partial manifest cannot spend it.",
+    "order": "Quota admission lock precedes root/plan/identity locks; apply does not change quota.",
+    "failure": "typed quota_exceeded, no original/child retirement or economic changes",
+    "meaning": "Ancestry128 structural limit is not a guarantee128maximum-density histories fitfinite storage; capacity refusal before fence remains non-destructive."
+  },
+  "canonicalNotes": [
+    "Whole private RPC frame <=2MiB including headers/proof/root projections; each item fragment/projection <=256KiB and1000, header<=16KiB. No page accumulation in Worker.",
+    "UTF8fatal/BOM behavior aligned: rawSHA unchanged, at most one leading UTF8BOM stripped only in parser view. Unsupported PG JSON unicode null/unpaired surrogates must explicitly fail before retirement."
+  ]
 }
