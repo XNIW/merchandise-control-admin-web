@@ -65,6 +65,14 @@
       "receiptSha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "offset": 0,
       "limit": 1000
+    },
+    "receipt-child": {
+      "planId": "02000000-0000-4000-8000-000000000094",
+      "partIndex": 0
+    },
+    "retire-child": {
+      "planId": "02000000-0000-4000-8000-000000000094",
+      "partIndex": 0
     }
   },
   "successFields": {
@@ -175,7 +183,7 @@
         "clientItemId": "row-1",
         "kind": "child",
         "partIndex": 0,
-        "childClientItemId": "row-1"
+        "childClientItemId": "new-child-row-1"
       },
       {
         "clientItemId": "row-2",
@@ -187,9 +195,31 @@
       {
         "clientItemId": "row-3",
         "kind": "original_accepted"
+      },
+      {
+        "clientItemId": "row-4",
+        "kind": "accepted_plan_part",
+        "contributorPartIndex": 0,
+        "contributorClientItemId": "accepted-child-row-4",
+        "contributorPlanId": "optional ancestor UUID; default supersedes.planId"
       }
     ],
-    "coverageRules": "all original clientItemIds exactly once; all child rows exactly once; original_accepted only correction; contributors require exact immutable request intent and complete durable ACK, never current prices or NoChange"
+    "coverageRules": "all original clientItemIds exactly once; all child rows exactly once; original_accepted only correction; contributors require exact immutable request intent and complete durable ACK, never current prices or NoChange",
+    "supersedes": {
+      "planId": "05000000-0000-4000-8000-000000000094",
+      "retiredChildren": [
+        {
+          "partIndex": 1,
+          "canonicalPayloadHash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      ]
+    },
+    "supersedesRules": "All predecessor unACKed children need exact authoritative retired fences; all prior accepted parts and contributions must carry complete durable immutable proof. Same root/shop/device/mode. One initial plan per root identity/canonical hash and one successor per predecessor. Old partial plan is immutable. Maximum 128 generations.",
+    "identityRules": {
+      "replacement": "coverage.clientItemId is immutable original/root ID; childClientItemId explicitly selects a row in the new child and can differ. Exact root coverage plus one-to-one child membership required. Corrected barcode/metadata are permitted by ordinary validation and current catalog.import.",
+      "correction": "existing correction item IDs and authoritative product mapping remain linked to original receipt root; no new field semantics.",
+      "acceptedPlanPart": "contributorClientItemId is actual immutable accepted ancestor CHILD ID. Server resolves original root ID from stored ancestor coverage; IDs need not be equal. Full ACK/status/hash/mapping proof mandatory; skipped own-row membership has null product and cannot prove economics."
+    }
   },
   "limits": {
     "httpJsonBytes": 524288,
@@ -202,7 +232,8 @@
     "planTotalItems": 60000,
     "childBusinessRequestBytes": 524288,
     "receiptPageItems": 1000,
-    "acceptedContributorHandles": 128
+    "acceptedContributorHandles": 128,
+    "recoveryGenerations": 128
   },
   "hashSemantics": {
     "rawSha256": "sha256:<64 lowercase hex> over exact UTF-8 bytes; independent of client business declaration",
@@ -227,7 +258,9 @@
     "scope": "current authorized shop/device/owner catalog.import on each transaction and after wait",
     "deployment": "not executed",
     "neverSentOffline": "local ordinary parts, no recovery network or retirement required",
-    "acceptedPageSummary": "original full immutable ACK counts, not page counts"
+    "acceptedPageSummary": "original full immutable ACK counts, not page counts",
+    "planPartReceiptRetireSelector": "XOR verifiedOriginalId OR planId+partIndex; part identity and original resolved from private immutable plan",
+    "acceptedPageComplete": "true iff offset+limit>=totalItemCount; client still proves full contiguous coverage, not one page"
   },
   "persistedOriginalFormats": {
     "ordinary": "exact saved PayloadJson; payloadHash and attemptCount may be omitted; declaration separate upload metadata",
@@ -235,5 +268,96 @@
     "originalKind": "ordinary|correction required only upload mode=original",
     "declaredPayloadHash": "required mode original; present raw identity declaration must match; root recoveryOf.payloadHash distinct from child declaration",
     "rawMutation": false
+  },
+  "boundedPhases": {
+    "state": "PROPOSED_SOURCE_IMPLEMENTATION_PENDING_NOT_DEPLOYED",
+    "document": "bounded-phases.proposed.json",
+    "documentSha256": "8edd9afd1b9976091979909dcd52322e1899ce6e110c52a2a0156a8addb4f81c",
+    "legacyLimitsBelow": true,
+    "largeWorkerFullBufferAllowed": false
+  },
+  "childResponses": {
+    "selector": {
+      "planId": "UUID",
+      "partIndex": "integer"
+    },
+    "knownChildFields": [
+      "planId",
+      "partIndex",
+      "originalSchemaVersion=pos-catalog-import-v1|pos-catalog-import-correction-v1",
+      "clientImportId=frozen child identity",
+      "idempotencyKey=frozen child identity",
+      "payloadHash=frozen child client declaration",
+      "canonicalPayloadHash=frozen child server canonical"
+    ],
+    "receiptStatuses": [
+      "accepted",
+      "not_found",
+      "conflict"
+    ],
+    "retireStatuses": [
+      "accepted",
+      "retired",
+      "conflict"
+    ],
+    "accepted": "First receipt/retire child page contains its complete <=1000-row ACK, fully validated in DB; do not assume receipt-page works until private part ACK exists. Explicit retire adopts an externally committed exact child ACK into its missing private part ACK with no economic replay. Receipt does not adopt/write.",
+    "retired": "oldIdentityBlocked=true and retiredAt server UTC. This fences this child only and does not complete/retire the whole plan.",
+    "paging": "First child receipt/retire page is complete because child<=1000. Separate receipt-page requires private part ACK, obtained by ordinary B apply or explicit retire accepted adoption if external standard apply won. It returns conflict part_not_accepted without that adoption. Stable receipt hash/summary and complete range checks remain required.",
+    "unknownPlanOrPart": "HTTP404 failure no identity binding can be asserted; known-child conflicts may report reason and binding per source gate",
+    "stalePreparedPlan": "Re-register exact same saved upload/plan bytes and same IDs after lost response, then explicitly retire every unaccepted staged child (ACK wins => carry), then immutable successor supersedes. Never rewrite prepared bytes/intent or infer the group completed from one part.",
+    "actionMetadata": {
+      "receiptChild": {
+        "present": [
+          "originalSchemaVersion",
+          "planId",
+          "partIndex",
+          "clientImportId",
+          "idempotencyKey",
+          "payloadHash",
+          "canonicalPayloadHash"
+        ],
+        "absent": [
+          "verifiedOriginalId",
+          "parentStatus",
+          "partCount",
+          "acceptedPartCount"
+        ]
+      },
+      "retireChild": {
+        "present": [
+          "originalSchemaVersion",
+          "planId",
+          "partIndex",
+          "clientImportId",
+          "idempotencyKey",
+          "payloadHash",
+          "canonicalPayloadHash"
+        ],
+        "absent": [
+          "verifiedOriginalId",
+          "parentStatus",
+          "partCount",
+          "acceptedPartCount"
+        ]
+      },
+      "receiptPageChild": {
+        "present": [
+          "planId",
+          "partIndex",
+          "clientImportId",
+          "idempotencyKey",
+          "payloadHash",
+          "canonicalPayloadHash",
+          "parentStatus",
+          "partCount",
+          "acceptedPartCount"
+        ],
+        "absent": [
+          "originalSchemaVersion",
+          "verifiedOriginalId"
+        ]
+      },
+      "missingFieldRule": "Absent metadata is null in client acquisition records; no parent inference."
+    }
   }
 }
