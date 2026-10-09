@@ -14,12 +14,18 @@ function load(scenario={}) {
  const supabase={rpc:async(name,args)=>{calls.push({name,args}); if(name==='pos_catalog_import_scope_v1')return {data:{status:'ok',ownerUserId:ids.owner},error:null}; return {data:scenario.result?.(args)??{ok:true,status:'not_found',shopId:ids.shop,shopDeviceId:ids.device,clientImportId:args.p_client_import_id,idempotencyKey:args.p_idempotency_key,payloadHash:args.p_payload_hash},error:scenario.error??null};}};
  const mocks={'server-only':{}, '@/lib/supabase/admin':{resolveSupabaseAdminConfig:()=>({status:'configured'}),createSupabaseAdminClient:()=>supabase}, './runtime-boundary':{loadPosRuntimeLease:async(_,args)=>{calls.push({name:'lease',args});return scenario.denied?{status:'denied'}:lease;},writePosRuntimeAudit:async()=>{calls.push({name:'AUDIT_WRITE'});return true;}}, './tokens':{verifyPosSecret:(value,hash)=>value===(hash==='session'?request.sessionToken:request.deviceToken)}};
  function module(path) {if(cache.has(path))return cache.get(path);const file=readFileSync(path,'utf8');const output=ts.transpileModule(file,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}}).outputText;const m={exports:{}};cache.set(path,m.exports);new Script(output,{filename:path}).runInContext(createContext({exports:m.exports,module:m,require:(id)=>{if(id in mocks)return mocks[id];if(id.startsWith('@/'))return module(resolve('src',id.slice(2)+'.ts'));if(id.startsWith('.'))return module(resolve(dirname(path),id+'.ts'));return requireReal(id);},Date,Map,Set,Buffer,process,console}));return m.exports;}
- return {service:module(resolve('src/server/pos-auth/catalog-import-receipt.ts')),correctionService:module(resolve('src/server/pos-auth/catalog-import-correction.ts')),calls};
+ return {service:module(resolve('src/server/pos-auth/catalog-import-receipt.ts')),correctionService:module(resolve('src/server/pos-auth/catalog-import-correction.ts')),ordinaryService:module(resolve('src/server/pos-auth/catalog-import-sync.ts')),calls};
 }
 function persistedAck(){return {ok:true,batchId:ids.batch,status:'accepted',items:[{clientItemId:'receipt-fixture-row-1',barcode:'RECEIPT-FIXTURE-1',remoteProductId:ids.product,remotePriceId:ids.retail,priceType:'retail',status:'accepted'}],remoteProductIds:[{clientItemId:'receipt-fixture-row-1',barcode:'RECEIPT-FIXTURE-1',remoteProductId:ids.product}],remotePriceIds:[{clientItemId:'receipt-fixture-row-1',barcode:'RECEIPT-FIXTURE-1',remoteProductId:ids.product,remotePriceId:ids.purchase,priceType:'purchase'},{clientItemId:'receipt-fixture-row-1',barcode:'RECEIPT-FIXTURE-1',remoteProductId:ids.product,remotePriceId:ids.retail,priceType:'retail'}],summary:{acceptedItemCount:1,duplicateItemCount:0,productCount:1}};}
 const snapshots=()=>[{clientItemId:'receipt-fixture-row-1',remoteProductId:ids.product,snapshotStatus:'available',baseRevision:'2026-10-08T19:55:00.000001Z',retailPrice:1200,purchasePrice:900,stockQuantity:1.25}];
 const binding=args=>({ok:true,shopId:ids.shop,shopDeviceId:ids.device,clientImportId:args.p_client_import_id,idempotencyKey:args.p_idempotency_key,payloadHash:args.p_payload_hash});
 test('receipt recalculates legacy canonical hash while preserving the raw Win7 hash',()=>{const {service}=load();const parsed=service.parsePosCatalogImportReceipt(request);assert.ok(parsed);assert.match(parsed.payloadHash,/^sha256:[a-f0-9]{64}$/);assert.equal(parsed.declaredPayloadHash,request.payloadHash);assert.notEqual(parsed.payloadHash,request.payloadHash);});
+test('saved original PayloadJson omits attempt and declared hash without being rewritten',async()=>{
+ const input=structuredClone(request);delete input.originalRequest.batch.attemptCount;delete input.originalRequest.payloadHash;
+ const bytes=JSON.stringify(input.originalRequest);const {service}=load();const parsed=service.parsePosCatalogImportReceipt(input);
+ assert.ok(parsed);assert.equal(parsed.attemptCount,0);assert.equal(parsed.payloadHash,service.parsePosCatalogImportReceipt(request).payloadHash);
+ assert.equal((await service.handlePosCatalogImportReceipt(input)).body.status,'not_found');assert.equal(JSON.stringify(input.originalRequest),bytes);
+});
 test('request rejects mismatched outer IDs/hash and altered inner schema',()=>{for(const key of ['clientImportId','idempotencyKey','payloadHash']){const {service}=load();assert.equal(service.parsePosCatalogImportReceipt({...request,[key]:'changed-fixture-value'}),null);}assert.equal(load().service.parsePosCatalogImportReceipt({...request,originalRequest:{...request.originalRequest,schemaVersion:'changed'}}),null);});
 test('old nested trust does not authorize or invalidate current outer trust',async()=>{const {service}=load();const changed={...request,originalRequest:{...request.originalRequest,deviceToken:'old',sessionToken:'old',shopDeviceId:request.shopDeviceId,posSessionId:'old'}};const result=await service.handlePosCatalogImportReceipt(changed);assert.equal(result.status,200);const denied=await service.handlePosCatalogImportReceipt({...changed,sessionToken:'wrong-current'});assert.equal(denied.status,401);});
 test('not_found is a noncommittable snapshot and lookup never calls apply or audit',async()=>{const {service,calls}=load();const result=await service.handlePosCatalogImportReceipt(request);assert.equal(result.body.status,'not_found');assert.equal(result.body.snapshotOnly,true);assert.equal(result.body.replacementAllowed,false);assert.ok(!calls.some(x=>/apply|AUDIT/.test(x.name)));});
@@ -40,6 +46,32 @@ test('retired response must explicitly prove its durable old-identity fence',asy
 });
 
 const correctionRequest=JSON.parse(readFileSync('contracts/pos-catalog-import-receipt-v1/correction.request.json'));
+test('all five forensic recovery surfaces accept omitted/zero/positive attempts and reject invalid counters',async()=>{
+ for(const count of [undefined,0,1,7]) {
+   const ordinary=structuredClone(request);const correction=structuredClone(correctionRequest);
+   if(count===undefined){delete ordinary.originalRequest.batch.attemptCount;delete correction.recoveryOf.originalRequest.batch.attemptCount;}
+   else {ordinary.originalRequest.batch.attemptCount=count;correction.recoveryOf.originalRequest.batch.attemptCount=count;}
+   const {service,correctionService,ordinaryService}=load();const canonical=service.parsePosCatalogImportReceipt(request).payloadHash;
+   assert.equal(Boolean(ordinaryService.parseCatalogImportInput({...ordinary.originalRequest,deviceToken:ordinary.deviceToken,sessionToken:ordinary.sessionToken,posSessionId:ordinary.posSessionId,shopDeviceId:ordinary.shopDeviceId})),count>0);
+   assert.equal(service.parsePosCatalogImportReceipt(ordinary).payloadHash,canonical);
+   assert.equal(service.parsePosCatalogImportReceipt({...ordinary,schemaVersion:'pos-catalog-import-retirement-v1'},true).payloadHash,canonical);
+   assert.ok(correctionService.parsePosCatalogImportCorrection(correction));
+   for(const retirement of [false,true]) {
+     const child={...ordinary,schemaVersion:retirement?'pos-catalog-import-retirement-v1':ordinary.schemaVersion,
+       clientImportId:correction.correction.clientImportId,idempotencyKey:correction.correction.idempotencyKey,payloadHash:correction.correction.payloadHash,originalRequest:correction};
+     assert.ok(service.parsePosCatalogImportReceipt(child,retirement));
+     const {service:childService}=load({result:args=>({...binding(args),status:retirement?'retired':'not_found',...(retirement?{oldIdentityBlocked:true,retiredAt:'2026-10-08T20:00:00Z'}:{})})});
+     assert.equal((await childService.handlePosCatalogImportReceipt(child,{},retirement)).status,200);
+   }
+ }
+ for(const count of [-1,0.5,null,'invalid']) {const input=structuredClone(request);input.originalRequest.batch.attemptCount=count;
+   const {service,calls}=load();assert.equal(service.parsePosCatalogImportReceipt(input),null);assert.equal((await service.handlePosCatalogImportReceipt(input)).status,400);assert.equal(calls.length,0);}
+});
+test('saved correction wrapper ignores its local originalReceipt as authority and preserves bytes',()=>{
+ const {service}=load();const input=correctionLookup();input.originalRequest={originalReceipt:{ok:true,status:'accepted',forged:true},request:input.originalRequest};
+ const bytes=JSON.stringify(input.originalRequest);const parsed=service.parsePosCatalogImportReceipt(input);assert.ok(parsed.correctionTarget);
+ assert.equal(JSON.stringify(input.originalRequest),bytes);
+});
 function correctionAck(){const ack=persistedAck();ack.items[0].unchangedFields=[];ack.items[0].authoritativeRevision='2026-10-08T20:00:00.000001Z';ack.remoteProductIds[0].authoritativeRevision=ack.items[0].authoritativeRevision;return ack;}
 test('correction accepts only masked prices and relative quantities with new identities',()=>{
  const {correctionService}=load();assert.ok(correctionService.parsePosCatalogImportCorrection(correctionRequest));

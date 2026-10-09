@@ -17,6 +17,7 @@ appear in URL parameters or response payloads.
   "posSessionId":"40000000-0000-4000-8000-000000000094",
   "deviceToken":"fixture-device","sessionToken":"fixture-session",
   "uploadId":"01000000-0000-4000-8000-000000000094","mode":"original",
+  "originalKind":"ordinary","declaredPayloadHash":"client-declared-hash",
   "totalByteLength":1234,"rawSha256":"sha256:<64 lowercase hex>",
   "parts":[{"index":0,"byteLength":1234,"sha256":"sha256:<64 lowercase hex>"}],
   "partIndex":0,"contentBase64":"<exact original UTF-8 bytes encoded as standard base64>"
@@ -29,6 +30,17 @@ parts, each 1–262144 raw bytes, sum at most 33554432 bytes. The entire HTTP re
 remains at most 524288 bytes. A part's decoded bytes and SHA256 must match its
 manifest entry. Different bytes, manifest, mode or full hash under an existing
 uploadId conflict. Accepted upload writes only private recovery provenance.
+
+For mode original, `originalKind:"ordinary"|"correction"` and
+`declaredPayloadHash` are required immutable manifest metadata. Raw upload is
+the exact saved ordinary PayloadJson, which can omit payloadHash, or the exact
+correction request / `{originalReceipt,request}` saved wrapper. Only `request`
+is parsed from that wrapper; originalReceipt is never remote authority. A
+transient parser view supplies missing declared hashes from outbox metadata,
+including nested recoveryOf.originalRequest from recoveryOf.payloadHash. Any
+declared hash already present must match its proper identity. Raw bytes never
+change, and child declaration is never substituted for the root declaration.
+For mode plan, originalKind/declaredPayloadHash are omitted.
 
 Finalize body adds only `uploadId`. The server rebuilds every part in index order,
 verifies all bytes and the full raw SHA256, decodes strict UTF-8, rejects unsupported
@@ -118,3 +130,14 @@ durable ACK hash.
 
 Source preparation only: no shared TEST DDL, Worker deployment, cleanup, READY,
 runId or performance acceptance is authorized by this contract document.
+
+Every accepted page's receipt.summary is the original full immutable ACK
+summary, never counts for that page. The client checks the same server-provided
+receiptSha256 on every page and verifies complete offset/item/map coverage; it
+does not try to reproduce PostgreSQL jsonb text serialization. The server
+validates the complete ACK inside the database before exposing any page.
+
+New never-sent/offline imports continue to split locally into ordinary requests
+under the existing 1000-row/512KiB limits, without recovery network calls or
+retirement. A server replacement plan and its existing retirement prerequisite
+apply only to an uncertain previously identified original.
