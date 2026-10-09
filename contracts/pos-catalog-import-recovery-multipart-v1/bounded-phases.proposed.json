@@ -1,0 +1,114 @@
+{
+  "state": "PROPOSED_SOURCE_IMPLEMENTATION_NOT_DEPLOYED",
+  "schemaVersion": "pos-catalog-import-recovery-multipart-v1",
+  "actionsUnchanged": true,
+  "limits": {
+    "httpBodyBytes": 524288,
+    "chunkBytes": 262144,
+    "rawTotalBytes": 536870912,
+    "maxChunks": 2048,
+    "manifestPageDescriptors": 256,
+    "maxOriginalRows": 60000,
+    "maxPlanChildren": 1024,
+    "maxAncestry": 128,
+    "normalizationPageItems": 1000,
+    "normalizationPageJsonBytes": 262144,
+    "compatibilityAutoRawBytes": 4194304
+  },
+  "upload": {
+    "manifest": {
+      "phase": "manifest",
+      "uploadId": "UUID",
+      "mode": "original|plan",
+      "originalKind": "ordinary|correction only original",
+      "declaredPayloadHash": "immutable external outbox declaration only original",
+      "totalByteLength": "integer",
+      "rawSha256": "sha256:HEX",
+      "partCount": "integer1..2048",
+      "manifestSha256": "sha256:HEX of existing manifest JSON.stringify",
+      "offset": "integer contiguous descriptor cursor",
+      "parts": "<=256 {index,byteLength,sha256}; whole index order"
+    },
+    "seal": {
+      "phase": "seal",
+      "uploadId": "UUID",
+      "manifestSha256": "sha256:HEX"
+    },
+    "bytes": {
+      "phase": "bytes",
+      "uploadId": "UUID",
+      "manifestSha256": "sha256:HEX",
+      "partIndex": "integer",
+      "sha256": "sha256:HEX of part",
+      "contentBase64": "exact <=256KiB raw bytes"
+    },
+    "notes": [
+      "Manifest registration/seal precedes bytes. Retry exact immutable page allowed; mismatch conflicts. DB rechecks descriptor counts/sum/full manifest hash and complete original raw hash.",
+      "Legacy full manifest+bytes supported only within original small bounds, never transfers >4MiB upload to Worker."
+    ]
+  },
+  "finalize": {
+    "prepare": {
+      "phase": "prepare",
+      "uploadId": "UUID"
+    },
+    "normalize": {
+      "phase": "normalize",
+      "uploadId": "UUID",
+      "cursor": "server-returned exact integer offset",
+      "rawSha256": "prepare returned sha256:HEX"
+    },
+    "complete": {
+      "phase": "complete",
+      "uploadId": "UUID",
+      "rawSha256": "prepare returned sha256:HEX"
+    },
+    "response": {
+      "status": "normalizing|verified|conflict",
+      "nextCursor": "integer|null",
+      "totalItemCount": "integer",
+      "rawSha256": "immutable raw hash",
+      "phase": "items|correction|complete"
+    },
+    "canonicalNotes": [
+      "Private DB parses entire exact raw original. Worker only receives bounded DB-derived header/item pages. Original saved JSON and outbox declaration remain unchanged.",
+      "Official forensic parser normalizes every item. Ordered exact JSON.stringify normalized item fragments plus official header canonical prefix/suffix produce full server hash identical to existing ordinary parser; no caller declared hash is trusted.",
+      "Global IDs, identity trim collisions, write-barcode uniqueness and full count are checked before verified. Correction nested root is independently normalized/proved; wrapper originalReceipt remains local untrusted evidence."
+    ]
+  },
+  "plan": {
+    "prepare": {
+      "phase": "prepare",
+      "uploadId": "UUID"
+    },
+    "normalize": {
+      "phase": "normalize",
+      "uploadId": "UUID",
+      "stage": "children|coverage",
+      "cursor": "server-returned exact integer",
+      "rawSha256": "prepare returned sha256:HEX"
+    },
+    "complete": {
+      "phase": "complete",
+      "uploadId": "UUID",
+      "rawSha256": "prepare returned sha256:HEX"
+    },
+    "response": {
+      "status": "normalizing|planned|conflict",
+      "nextCursor": "integer|null",
+      "stage": "children|coverage|complete"
+    },
+    "notes": [
+      "Server reads bounded child requests or coverage pages from exact raw plan stored in DB. Original root selection is <=1000 relevant rows; no full original Worker hydration.",
+      "Each child retains original ordinary<=1000 and full HTTP512KiB including current trust; correction CAS/fields rules unchanged. Global root\u2194child bijection and economic collisions validated in DB complete.",
+      "Planning does not retire identities. Supported product capacity is certified before original retirement; explicit retirement, immutable linear ancestry and ALL predecessor unACKed child fences remain mandatory."
+    ]
+  },
+  "offline": [
+    "New/never_sent imports may split locally and remain offline; no upload/proof/retire is imposed."
+  ],
+  "journal": [
+    "Client must durably journal immutable staged plan identities before its first plan request. Edited draft requires explicit successor after retiring all unACKed children."
+  ],
+  "runtime": "NOT_RUN; phase shape awaiting source/tests/review freeze"
+}
