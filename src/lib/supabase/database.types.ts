@@ -3864,6 +3864,18 @@ export type Database = {
         }
         Returns: Json
       }
+      pos_catalog_import_recovery_v1: {
+        Args: {
+          p_shop_id: string
+          p_shop_device_id: string
+          p_staff_id: string
+          p_pos_session_id: string
+          p_owner_user_id: string
+          p_action: string
+          p_payload: Json
+        }
+        Returns: Json
+      }
       pos_catalog_import_receipt_v1: {
         Args: {
           p_shop_id: string

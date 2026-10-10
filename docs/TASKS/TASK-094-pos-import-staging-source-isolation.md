@@ -1,5 +1,50 @@
 # TASK-094 — candidato staging U2 isolato dalla sorgente servita
 
+## Continuazione autorizzata post-PR122 — 10 ottobre 2026
+
+Fase: EXECUTION. Candidato workingtree sul precedente af365f0d. Si trasferisce
+soltanto il delta protocollo da main62f513 a2bcee6e8: parser forensic attempt0/
+omesso, upload immutabile a fasi, verifica hash server, retirement esplicito,
+piani con parti bounded, ACK completi e successione autorevole. Gli endpoint
+ordinary mantengono attempt positivo,1000 righe e512KiB HTTP. Il controllo
+quote/root/identity e la normalizzazione paginata appartengono al nuovo protocollo.
+
+I cinque file serviti e i nove golden brevi preesistenti sono byte-identici al
+precedente RC; security-checks e database.types conservano la base del RC e
+ricevono soltanto tre route e dodici dichiarazioni RPC. Nessun after-sales,
+reviews, indirizzo commerce o migrazione native storica viene importato dal main.
+La sorgente f401 resta attestazione post hoc dell'albero, non commit compilato
+originale. Il diff protocollo è verificato; review e CI del candidato finale
+devono qualificare il suo specifico SHA, senza riattribuire gate main54a.
+
+Le prove sorgente main54a comprendono CI/Cloudflare PASS (deploy/E2E skipped),
+115 richieste C# con handler/SQL economica su quattro DB freschi e il pilot
+dense5000 di210 chiamate/10ACK. L'owner Asus riferisce reingest1158/8 PASS,
+pubblicato7ae17532. Outer authentication e schema dependency sono sintetici;
+non sono prove di caller live. Il pilot dense5000 è distinto dalla cattura e
+replay del servizio C# completo. Dense59999 e risorse upper restano in qualifica.
+I precedenti FAIL e DB conservati non sono rimossi o riapplicati.
+
+Proposta DDL selettiva, senza esecuzione: le due SQL originali invarianti
+20261008194809 e20261008200355, poi20261009004800 multipart SHA256
+c827afcaeae4fc4270b0b0d5078c4d7ce7084ff9d315bde4492f46982d3a80cf.
+Il successore2bcee6e8 contiene il fix mirato e88 per il timeout110s reale nel
+controllo finale59999: proiezioni materializzate strette, stesse tre verifiche.
+SHA attuale della terza DDL:
+e88d17783f89fc307bb2f62c1d2e5d6fb645fa6d3c3b3a4b7d723b50d94f9aca.
+La review statica dell'equivalenza passa; replay/risorse/gate nuovi sono pending.
+Registry155 e deployment22107a6f sono osservazioni storiche, da rinfrescare
+nelle precondizioni della proposta finale. Nessun all-migrations.
+
+Shared TEST DDL, Worker/secret staging, cleanup, READY e produzione richiedono
+le autorizzazioni specifiche ancora mancanti. Il dispatch Cloudflare proposto
+deve identificare ref pulita/SHA/albero, secret TASK150, configuration probe,
+eventuale smoke GET e rollback; non viene eseguito da questo candidato.
+Metriche finali e universo ARTICOLI con ownership/bootstrap restano separati,
+activeQaRuns/qaScopeClean null. Nessun DONE o blocco POS dipendente dal mobile.
+
+## Storico della preparazione — 8 ottobre 2026
+
 Fase: EXECUTION. Mandato esplicito dell'8 ottobre 2026: preparare un candidato
 pulito dal commit post hoc f401fc3d6c2a63d2676877a772fc6299b7401f26, albero
 1f0679b261dde089800a3bdef7888c1f7a7b8014 equivalente alla sorgente effettivamente

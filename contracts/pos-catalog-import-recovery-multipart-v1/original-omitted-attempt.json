@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "pos-catalog-import-v1",
+  "source": "supplier_excel",
+  "appVersion": "1.0-fixture",
+  "payloadHash": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "batch": {
+    "clientImportId": "multi-original",
+    "idempotencyKey": "multi-original-key",
+    "createdAt": "2026-10-08T18:00:00.000Z",
+    "sourceFileName": "fixture.xlsx",
+    "previewFingerprint": "receipt-fixture-preview"
+  },
+  "summary": {
+    "newProducts": 1,
+    "updatedProducts": 0,
+    "noChangeRows": 0,
+    "skippedRows": 0,
+    "warningCount": 0
+  },
+  "items": [
+    {
+      "clientItemId": "row-1",
+      "rowNumber": 1,
+      "barcode": "RECEIPT-FIXTURE-1",
+      "productName": "Receipt fixture",
+      "changeKind": "new",
+      "retailPrice": 1200,
+      "purchasePrice": 900,
+      "quantity": 1.25
+    }
+  ]
+}
