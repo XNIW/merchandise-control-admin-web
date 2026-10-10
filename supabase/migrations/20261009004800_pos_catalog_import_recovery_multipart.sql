@@ -1049,7 +1049,9 @@ begin
          where shop_id=p_shop_id and shop_device_id=p_shop_device_id and upload_id=v_id and domain='root' and group_index=0
            and exists(select 1 from jsonb_array_elements(v_items) selected where selected->>'clientItemId'=root.client_item_id);
        v_root:=v_doc.root_normalized||jsonb_build_object('items',v_selected);
-       select coalesce(jsonb_agg((child.child-'items')||jsonb_build_object('items',chosen.items) order by child.part_index),'[]'::jsonb) into v_children
+       -- Coverage needs only selected immutable child rows. Its projection must
+       -- not repeat the complete ordinary child through normalized.items.
+       select coalesce(jsonb_agg(((child.child-'items')#-'{normalized,items}')||jsonb_build_object('items',chosen.items) order by child.part_index),'[]'::jsonb) into v_children
          from app_private.pos_import_recovery_child_headers child cross join lateral (
            select jsonb_agg(n.row_json order by n.ordinal) items from app_private.pos_import_recovery_normal_rows n
            where n.shop_id=p_shop_id and n.shop_device_id=p_shop_device_id and n.upload_id=v_id and n.domain='child' and n.group_index=child.part_index

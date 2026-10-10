@@ -67,3 +67,20 @@ test('bounded frame rejects whole RPC/header excess and does not interpolate lit
  const template=paging.canonicalTemplate(literal,[literal.items,literal.normalized.items],hash);const final=template.map(piece=>typeof piece==='string'?piece:piece.slot==='hash'?JSON.stringify('new-hash'):'[1,2]').join('');
  assert.deepEqual(JSON.parse(final),{...literal,payloadHash:'new-hash',items:[1,2],normalized:{payloadHash:'new-hash',items:[1,2]}});
 });
+test('coverage validates selected dense child rows without repeating its full normalized items',()=>{
+ const rootRaw=rawOriginal(1000);rootRaw.items=rootRaw.items.map(({clientItemId,barcode,rowNumber})=>({clientItemId,barcode,rowNumber,productName:'D'.repeat(120),changeKind:'new',retailPrice:1}));
+ const original=contract.parseLargeOriginal(rootRaw,trust);assert.ok(original);const root=contract.businessOriginal(original);
+ const childRequest=structuredClone(rootRaw);childRequest.batch={...childRequest.batch,attemptCount:1,clientImportId:'dense-child',idempotencyKey:'dense-child-idem'};childRequest.payloadHash='dense-child-declaration';
+ const coverage=root.items.map(item=>({clientItemId:item.clientItemId,kind:'child',partIndex:0,childClientItemId:item.clientItemId}));
+ const header={schemaVersion:contract.PLAN_SCHEMA,planId,verifiedOriginalId:originalId,mode:'replacement'};
+ const full=contract.parseRecoveryPlan({...header,parts:[{index:0,request:childRequest}],coverage},original,originalId,trust);assert.ok(full);
+ const child=full.parts[0];const frozen=JSON.stringify(child);assert.ok(Buffer.byteLength(JSON.stringify(child.normalized.items),'utf8')>paging.MAX_PAGE_JSON_BYTES);
+ const selected=child.items.slice(0,1);const {items:_fullItems,...childHeader}=child;void _fullItems;
+ const {items:_normalizedItems,...normalizedHeader}=child.normalized;void _normalizedItems;
+ const projected={...childHeader,normalized:normalizedHeader,items:selected};
+ const packet={header,root:{...root,items:root.items.slice(0,1)},items:coverage.slice(0,1),children:[projected]};
+ assert.ok(Buffer.byteLength(JSON.stringify(packet.children),'utf8')<paging.MAX_PAGE_JSON_BYTES);
+ const page=paging.normalizeCoveragePage(packet,trust,new Map(),new Map());assert.ok(page);assert.equal(JSON.stringify(page.items),JSON.stringify(coverage.slice(0,1)));
+ assert.equal(JSON.stringify(child),frozen);assert.equal(child.normalized.items.length,1000);
+ assert.equal(paging.normalizeCoveragePage({...packet,items:[{...coverage[0],childClientItemId:'unrelated-child-row'}]},trust,new Map(),new Map()),null);
+});
