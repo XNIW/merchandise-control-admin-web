@@ -141,3 +141,84 @@ New never-sent/offline imports continue to split locally into ordinary requests
 under the existing 1000-row/512KiB limits, without recovery network calls or
 retirement. A server replacement plan and its existing retirement prerequisite
 apply only to an uncertain previously identified original.
+
+## Explicit successor after a failed child
+
+Receipt and retire additionally accept `planId` + `partIndex` instead of
+`verifiedOriginalId` (exclusive selectors). The server loads the bounded frozen
+child and root, applies the same identity locks, and returns the plan/part,
+clientImportId, idempotencyKey, declared payloadHash and server canonicalPayloadHash.
+No saved request must be expanded or rewritten to retire a revision-conflict child.
+
+A successor plan adds `supersedes:{planId,retiredChildren:[{partIndex,
+canonicalPayloadHash}]}`. Every predecessor child without a durable ACK must
+already have its exact authoritative retirement fence. If apply won, its ACK
+must be carried instead. Every accepted predecessor part is covered with
+`{clientItemId,kind:"accepted_plan_part",contributorPartIndex,
+contributorClientItemId}`. Optional `contributorPlanId` defaults to the immediate
+predecessor and may reference only its verified linear same-root ancestor chain.
+This permits further retries to retain earlier ACKs without repeating price or
+quantity effects. Stored exact row/mask/relative quantity and complete durable
+ACK/receipt hash are the proof; a changed desired intent cannot borrow it.
+Previously carried contributor coverage must remain identical. Every root row
+still occurs exactly once. The server rejects competing initial plans across
+duplicate verified handles of one root identity/canonical hash, and rejects two
+successors of a predecessor. Maximum 128 generations. Root serialization precedes
+plan and identity locks. The old partial plan stays immutable; only the successor
+can become complete after all of its new child ACKs and carried proofs exist.
+
+Every accepted page includes offset/limit/complete. `complete` means the returned
+range reaches the final item (`offset+limit>=totalItemCount`), not that a single
+page proves all preceding items. Summary and receipt SHA remain the entire durable
+ACK's values; full reconstruction requires every contiguous page and unique maps.
+
+An `accepted_plan_part` can carry a skipped row only as membership of the exact
+immutable ancestor child and its fully validated durable ACK. The server binds
+`contributorItemStatus` and `contributorRemoteProductId:null` for that row; this
+does not prove applied prices, quantity or product mapping. New/updated ordinary
+rows and correction rows require the actual durable product mapping. An unrelated
+NoChange contributor cannot prove economic intent.
+
+## Bounded source candidate — qualification pending
+
+The implemented phased candidate keeps ordinary import at 1000 rows and 512KiB.
+It separates raw uploads (512MiB/2048 chunks), logical children (0–1024) and
+ancestry (128 generations). Manifest descriptor pages contain at most256 entries;
+private item/proof projections are at most256KiB, whole normalization frames2MiB
+and scalar headers16KiB. The Worker parses server-selected pages with the official
+parser, global row ordinals and complete server canonical hashes; it never loads
+an entire upper-size original or plan. Proposed phased wire/goldens remain linked
+from wire-contract.json until the exact source and resource gates are qualified.
+
+Per device, retained declared raw bytes/slots include completed and failed audit
+artifacts (8GiB/512); active artifacts and reserved capacity are additionally
+bounded at2GiB/32. This is a raw admission budget, not a physical-storage estimate:
+normalized rows/canonical fragments have separate bounded derivation overhead.
+Before an initial identity fence, reserve two future valid-plan credits plus one
+separate512MiB staging allowance and slot. Only that staging allowance can be
+claimed at manifest registration. Complete whole-plan proof converts one future
+credit and restores staging atomically; raw is counted once. A failed artifact
+retains its raw debit and may restore staging only after an atomic quota check.
+This finite budget does not promise unlimited invalid retries. A retired original
+stays unresolved/open until authoritative full leaf closure; only that closure
+releases unused promises, while all raw audit bytes/rows remain. A fully verified
+successor may close the predecessor artifact's active admission without rewriting
+its immutable partial logical status. Current scoped trust is required throughout.
+The existing public retirement alias shares this capacity check for known verified
+or planned multipart identities; unknown ordinary identities keep their behavior.
+
+The compatibility full-manifest path is limited to4MiB per raw document. An old
+unbound mode-plan upload that cannot fit beside protected root capacity returns
+HTTP409 `phased_upload_required` before admission. Reuse the immutable raw bytes
+and upload identity through phased registration with `verifiedOriginalId`;
+recompute only the manifest envelope/hash that now binds that root. No saved JSON,
+raw SHA, child identity or business canonical hash is rewritten. A refused ordinary
+original remains `quota_exceeded`. Existing small packets retain their old format
+when capacity is available. A zero-new-child successor still has at least one raw
+upload chunk and full original coverage; its planned response is `parts:[]`,
+`partCount:0`, `itemCount:0`, `parentStatus:"complete"`, after authoritative proof.
+It does not synthesize ACKs or complete/rewrite an immutable predecessor.
+
+Lost child retirement responses use the exact retry rule and captured synthetic
+frames in [child-retirement-lost-response](child-retirement-lost-response/README.md).
+A read-only `conflict/identity_retired` response grants no replacement permission.
