@@ -42,7 +42,7 @@ export async function handlePosCatalogImportReceipt(
   if (data.ok !== true) {
     const code = data.code;
     return failure(typeof code === "string" ? code : "db_failure",
-      code === "auth_denied" ? 401 : code === "scope_changed" ? 409 : code === "not_configured" ? 503 : 500);
+      code === "auth_denied" ? 401 : code === "scope_changed" || code === "quota_exceeded" || code === "identity_conflict" ? 409 : code === "not_configured" ? 503 : 500);
   }
   const status = data.status;
   if (!(status === "accepted" || status === "conflict" || (retirement ? status === "retired" : status === "not_found")) ||
