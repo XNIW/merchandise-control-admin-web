@@ -1113,12 +1113,24 @@ begin
      if v_kind='root' then
        -- Global validation supplements page-local official parsing. No page can
        -- certify an original if an ID or trimmed identity collides elsewhere.
-       if exists(select 1 from app_private.pos_import_recovery_normal_rows where shop_id=p_shop_id and shop_device_id=p_shop_device_id and upload_id=v_id and domain='root' group by client_item_id having count(*)<>1)
-         or exists(select 1 from app_private.pos_import_recovery_normal_rows where shop_id=p_shop_id and shop_device_id=p_shop_device_id and upload_id=v_id and domain='root' and row_json->>'changeKind' in('new','updated') group by row_json->>'barcode' having count(*)<>1)
-         or exists(select 1 from app_private.pos_import_recovery_normal_rows normalized join app_private.pos_import_recovery_raw_rows raw using(shop_id,shop_device_id,upload_id,domain,group_index,ordinal)
-           cross join(values('barcode','barcode'),('itemNumber','item_number')) fields(field,alias)
-           where normalized.shop_id=p_shop_id and normalized.shop_device_id=p_shop_device_id and normalized.upload_id=v_id and normalized.domain='root' and coalesce(normalized.row_json->>fields.field,'')<>''
-           group by fields.field,normalized.row_json->>fields.field having count(distinct coalesce(raw.row_json->>fields.field,raw.row_json->>fields.alias,''))>1)
+       -- Project scalar identities once before grouping: full row_json values
+       -- must not be carried through the global identity sort/join at 60000 rows.
+       if (with normalized as materialized (
+         select group_index,ordinal,client_item_id,row_json->>'changeKind' kind,
+           row_json->>'barcode' barcode,row_json->>'itemNumber' item_number
+         from app_private.pos_import_recovery_normal_rows
+         where shop_id=p_shop_id and shop_device_id=p_shop_device_id and upload_id=v_id and domain='root'
+       ), raw as materialized (
+         select group_index,ordinal,coalesce(row_json->>'barcode','') barcode,
+           coalesce(row_json->>'itemNumber',row_json->>'item_number','') item_number
+         from app_private.pos_import_recovery_raw_rows
+         where shop_id=p_shop_id and shop_device_id=p_shop_device_id and upload_id=v_id and domain='root'
+       ) select exists(select 1 from normalized group by client_item_id having count(*)<>1)
+         or exists(select 1 from normalized where kind in('new','updated') group by barcode having count(*)<>1)
+         or exists(select 1 from normalized join raw using(group_index,ordinal)
+           cross join lateral(values('barcode',normalized.barcode,raw.barcode),('itemNumber',normalized.item_number,raw.item_number)) fields(field,normalized_value,raw_value)
+           where coalesce(fields.normalized_value,'')<>''
+           group by fields.field,fields.normalized_value having count(distinct fields.raw_value)>1))
          then raise exception 'global original identity collision' using errcode='22023';end if;
        if (select count(*) from app_private.pos_import_recovery_normal_rows where shop_id=p_shop_id and shop_device_id=p_shop_device_id and upload_id=v_id and domain='root' and row_json->>'changeKind'='new')>(p_payload->'normalizedHeader'->'summary'->>'newProducts')::integer
          or (select count(*) from app_private.pos_import_recovery_normal_rows where shop_id=p_shop_id and shop_device_id=p_shop_device_id and upload_id=v_id and domain='root' and row_json->>'changeKind'='updated')>(p_payload->'normalizedHeader'->'summary'->>'updatedProducts')::integer
