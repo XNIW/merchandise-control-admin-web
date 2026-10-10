@@ -118,7 +118,7 @@
       "planCanonicalHash",
       "partCount",
       "itemCount",
-      "parts[{index,kind,clientImportId,idempotencyKey,payloadHash=server canonical,declaredPayloadHash=client declaration,createdAt}]"
+      "parts[{index,kind,clientImportId,idempotencyKey,payloadHash=server canonical,declaredPayloadHash=client declaration,createdAt,itemCount=authoritative length of persisted child.items}]"
     ],
     "apply": [
       "status=accepted|conflict",

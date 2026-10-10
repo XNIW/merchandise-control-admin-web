@@ -582,7 +582,7 @@ begin
    end loop;
    return v_binding||jsonb_build_object('status','planned','planId',v_id,'verifiedOriginalId',v_original_id,'planCanonicalHash',v_plan.plan_hash,
      'parentStatus',case when v_plan.part_count=(select count(*) from app_private.pos_catalog_import_recovery_plan_parts where shop_id=p_shop_id and shop_device_id=p_shop_device_id and plan_id=v_id and ack_response is not null) then 'complete' else 'partial' end,
-     'partCount',v_plan.part_count,'itemCount',v_plan.item_count,'parts',(select coalesce(jsonb_agg(child-'items'-'summary'-'normalized' order by part_index),'[]'::jsonb)
+     'partCount',v_plan.part_count,'itemCount',v_plan.item_count,'parts',(select coalesce(jsonb_agg((child-'items'-'summary'-'normalized')||jsonb_build_object('itemCount',jsonb_array_length(child->'items')) order by part_index),'[]'::jsonb)
        from app_private.pos_catalog_import_recovery_plan_parts where shop_id=p_shop_id and shop_device_id=p_shop_device_id and plan_id=v_id));
  end if;
 
@@ -1285,7 +1285,13 @@ returns jsonb language plpgsql volatile security definer set search_path=public,
 declare v_auth text;v_result jsonb;v_upload app_private.pos_catalog_import_recovery_uploads%rowtype;v_root_key text;v_total bigint;v_root jsonb;v_precheck jsonb;v_already boolean:=false;
 begin
  if p_action in('manifest','seal','bytes','prepare-original','prepare-plan','read-normalize-page','store-normalize-page','complete-original','complete-plan','read-selected-original','fail-normalization') then
-   return app_private.pos_import_recovery_phased_v1(p_shop_id,p_shop_device_id,p_staff_id,p_pos_session_id,p_owner_user_id,p_action,p_payload);end if;
+   v_result:=app_private.pos_import_recovery_phased_v1(p_shop_id,p_shop_device_id,p_staff_id,p_pos_session_id,p_owner_user_id,p_action,p_payload);
+   -- Older cached phased results may lack this metadata. Derive it from scoped
+   -- immutable children without rewriting the cache, intent, ACK or plan hash.
+   if v_result->>'ok'='true' and v_result->>'status'='planned' then
+     return v_result||jsonb_build_object('parts',(select coalesce(jsonb_agg((child-'items'-'summary'-'normalized')||jsonb_build_object('itemCount',jsonb_array_length(child->'items')) order by part_index),'[]'::jsonb)
+       from app_private.pos_catalog_import_recovery_plan_parts where shop_id=p_shop_id and shop_device_id=p_shop_device_id and plan_id=(v_result->>'planId')::uuid));end if;
+   return v_result;end if;
  if p_action in('upload','retire','plan','apply') then
    perform pg_advisory_xact_lock(hashtext('pos-import-recovery-quota'),hashtext(p_shop_id::text||':'||p_shop_device_id::text));end if;
  v_auth:=app_private.pos_catalog_import_receipt_authorize_v1(p_shop_id,p_shop_device_id,p_staff_id,p_pos_session_id,p_owner_user_id);
