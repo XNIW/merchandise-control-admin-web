@@ -238,3 +238,13 @@ test('huge finite correction snapshot remains resolvable while its unsafe origin
  assert.equal(denied.status,400);assert.equal(denied.body.code,'original_numeric_precision_unsupported');assert.equal(calls.length,0);
  }
 });
+
+
+test('multipart retirement alias preserves typed quota and identity refusals without inferring a fence',async()=>{
+ for(const code of ['quota_exceeded','identity_conflict']){
+  const {service,calls}=load({result:()=>({ok:false,code})});const result=await service.handlePosCatalogImportReceipt({...request,schemaVersion:'pos-catalog-import-retirement-v1'},{},true);
+  assert.equal(result.status,409);assert.equal(result.body.code,code);assert.equal(result.body.oldIdentityBlocked,undefined);
+  assert.equal(calls.filter(call=>call.name==='pos_catalog_import_retire_v1').length,1);assert.ok(!calls.some(call=>/apply|AUDIT/.test(call.name)));
+ }
+ const unknown=await load({result:()=>({ok:false,code:'unexpected_backend_error'})}).service.handlePosCatalogImportReceipt({...request,schemaVersion:'pos-catalog-import-retirement-v1'},{},true);assert.equal(unknown.status,500);
+});

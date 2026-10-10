@@ -561,7 +561,7 @@ begin
    v_count:=0;
    for v_child in select value from jsonb_array_elements(v_expected->'parts') loop
      if (v_child->>'index')::integer<>v_count or jsonb_typeof(v_child->'items') is distinct from 'array'
-       or jsonb_array_length(v_child->'items') not between 1 and 1000 or pg_column_size(v_child->'items')>524288 then
+       or jsonb_array_length(v_child->'items') not between 1 and 1000 or pg_column_size(v_child->'items')>2097152 then
        return jsonb_build_object('ok',false,'code','validation_failed');end if;v_count:=v_count+1;
    end loop;
    perform pg_advisory_xact_lock(hashtext('pos-import-plan:'||p_shop_id::text||':'||p_shop_device_id::text),hashtext(v_id::text));
@@ -911,7 +911,7 @@ begin
        else
          if v_request->>'schemaVersion'<>'pos-catalog-import-correction-v1' or jsonb_typeof(v_request->'correction'->'items') is distinct from 'array'
            or jsonb_array_length(v_request->'correction'->'items') not between 1 and 1000 then return jsonb_build_object('ok',false,'code','validation_failed');end if;
-         v_header:=jsonb_set(v_request,'{correction}',v_request->'correction'-'items');
+         v_header:=jsonb_set(v_request,'{correction}',(v_request->'correction')-'items');
          if v_request->'recoveryOf'?'verifiedOriginalId' then
            select * into v_original from app_private.pos_catalog_import_recovery_uploads where shop_id=p_shop_id and shop_device_id=p_shop_device_id
              and upload_id=(v_request->'recoveryOf'->>'verifiedOriginalId')::uuid and verified_at is not null and original_schema='pos-catalog-import-v1';
@@ -920,13 +920,13 @@ begin
          else
            v_root:=v_request->'recoveryOf'->'originalRequest';v_count:=jsonb_array_length(v_root->'items');v_kind:='items';
            if app_private.pos_import_recovery_json_precision_v1(v_root) then return jsonb_build_object('ok',false,'code','original_bytes_or_numeric_precision_unsupported');end if;
-           v_header:=jsonb_set(v_header,'{recoveryOf}',v_header->'recoveryOf'-'originalRequest');
+           v_header:=jsonb_set(v_header,'{recoveryOf}',(v_header->'recoveryOf')-'originalRequest');
          end if;
        end if;
        if jsonb_typeof(v_root->'items') is distinct from 'array' or v_count not between 1 and 60000 or octet_length((v_root-'items'-'rawItems')::text)>16384
          or octet_length(v_header::text)>16384 then return jsonb_build_object('ok',false,'code','validation_failed');end if;
-       insert into app_private.pos_import_recovery_documents(shop_id,shop_device_id,upload_id,mode,raw_hash,phase,header,root_header,root_normalized,root_hash,root_declared,root_count)
-         values(p_shop_id,p_shop_device_id,v_id,'original',v_upload.raw_hash,v_kind,v_header,v_root-'items'-'rawItems',
+       insert into app_private.pos_import_recovery_documents(shop_id,shop_device_id,upload_id,mode,raw_hash,phase,cursor,header,root_header,root_normalized,root_hash,root_declared,root_count)
+         values(p_shop_id,p_shop_device_id,v_id,'original',v_upload.raw_hash,v_kind,case when v_kind='correction' then 1000000 else 0 end,v_header,v_root-'items'-'rawItems',
            case when v_kind='correction' then v_root-'items'-'rawItems' end,case when v_kind='correction' then v_root->>'payloadHash' end,
            case when v_upload.manifest->>'originalKind'='ordinary' then v_upload.manifest->>'declaredPayloadHash' else v_request->'recoveryOf'->>'payloadHash' end,v_count);
        if v_kind='items' then insert into app_private.pos_import_recovery_raw_rows(shop_id,shop_device_id,upload_id,domain,group_index,ordinal,row_json) select p_shop_id,p_shop_device_id,v_id,'root',0,ordinal-1,item
@@ -961,11 +961,11 @@ begin
          from jsonb_array_elements(v_json->'supersedes'->'retiredChildren') with ordinality source(item,ordinal);end if;
        for v_row in select item,ordinal from jsonb_array_elements(v_json->'parts') with ordinality source(item,ordinal) loop
          v_entry:=v_row.item;v_index:=v_row.ordinal-1;v_request:=v_entry->'request';
-         if (v_entry-'index'-'request')<>'{}'::jsonb or (v_entry->>'index')::integer<>v_index or jsonb_typeof(v_request) is distinct from 'object' or octet_length(v_request::text)>524288
+         if (v_entry-'index'-'request')<>'{}'::jsonb or (v_entry->>'index')::integer<>v_index or jsonb_typeof(v_request) is distinct from 'object' or octet_length(v_request::text)>2097152
            then raise exception 'invalid child' using errcode='22023';end if;
          v_items:=case when v_json->>'mode'='replacement' then v_request->'items' else v_request->'correction'->'items' end;
          if jsonb_typeof(v_items) is distinct from 'array' or jsonb_array_length(v_items) not between 1 and 1000 then raise exception 'invalid child items' using errcode='22023';end if;
-         v_request:=case when v_json->>'mode'='replacement' then v_request-'items' else jsonb_set(v_request,'{correction}',v_request->'correction'-'items') end;
+         v_request:=case when v_json->>'mode'='replacement' then v_request-'items' else jsonb_set(v_request,'{correction}',(v_request->'correction')-'items') end;
          if octet_length(v_request::text)>16384 then raise exception 'invalid child header' using errcode='22023';end if;
          insert into app_private.pos_import_recovery_child_headers(shop_id,shop_device_id,upload_id,part_index,raw_header,item_count) values(p_shop_id,p_shop_device_id,v_id,v_index,v_request,jsonb_array_length(v_items));
          insert into app_private.pos_import_recovery_raw_rows(shop_id,shop_device_id,upload_id,domain,group_index,ordinal,row_json) select p_shop_id,p_shop_device_id,v_id,'child',v_index,ordinal-1,item from jsonb_array_elements(v_items) with ordinality source(item,ordinal);
@@ -979,6 +979,15 @@ begin
      select * into v_doc from app_private.pos_import_recovery_documents where shop_id=p_shop_id and shop_device_id=p_shop_device_id and upload_id=v_id;
    end if;
    if v_doc.result is not null then return v_doc.result;end if;
+   -- A pre-fix prepared known-root correction could expose cursor0 without
+   -- storing any correction page. Its ordinary retry derives the phase origin
+   -- under this upload lock; no caller cursor override or raw rewrite occurs.
+   if p_action='prepare-original' and v_doc.mode='original' and v_doc.phase='correction' and v_doc.cursor=0 and v_doc.state='prepared'
+     and v_doc.header->'recoveryOf'?'verifiedOriginalId' and not exists(select 1 from app_private.pos_import_recovery_page_acks
+       where shop_id=p_shop_id and shop_device_id=p_shop_device_id and upload_id=v_id and phase='correction') then
+     update app_private.pos_import_recovery_documents set cursor=1000000 where shop_id=p_shop_id and shop_device_id=p_shop_device_id and upload_id=v_id;
+     v_doc.cursor:=1000000;
+   end if;
    return v_binding||jsonb_build_object('status','normalizing','uploadId',v_id,'rawSha256',v_doc.raw_hash,
      case when v_doc.mode='original' then 'phase' else 'stage' end,v_doc.phase,'nextCursor',case when v_doc.phase='complete' then null else v_doc.cursor end,
      'totalItemCount',case when v_doc.phase='correction' then (select count(*) from app_private.pos_import_recovery_raw_rows where shop_id=p_shop_id and shop_device_id=p_shop_device_id and upload_id=v_id and domain='correction') else v_doc.root_count end,
@@ -1070,7 +1079,7 @@ begin
    if (select count(*) from app_private.pos_import_recovery_raw_rows where shop_id=p_shop_id and shop_device_id=p_shop_device_id and upload_id=v_id and domain=v_kind and group_index=v_group and ordinal>=v_offset and ordinal<v_offset+v_count)<>v_count
      or jsonb_typeof(p_payload->'canonicalRows') is distinct from 'array' or jsonb_array_length(p_payload->'canonicalRows')<>v_count then return jsonb_build_object('ok',false,'code','validation_failed');end if;
    for v_row in select row_json,ordinal from jsonb_array_elements(p_payload->'items') with ordinality source(row_json,ordinal) loop
-     v_fragment:=p_payload->'canonicalRows'->>(v_row.ordinal-1);
+     v_fragment:=p_payload->'canonicalRows'->>((v_row.ordinal-1)::integer);
      if v_fragment::jsonb is distinct from v_row.row_json then raise exception 'invalid canonical fragment' using errcode='22023';end if;
      insert into app_private.pos_import_recovery_normal_rows values(p_shop_id,p_shop_device_id,v_id,v_kind,v_group,v_offset+v_row.ordinal-1,v_row.row_json,v_fragment,default);
    end loop;
@@ -1085,7 +1094,7 @@ begin
        update app_private.pos_import_recovery_raw_rows set http_bytes=(p_payload->'rawRowByteLengths'->>(ordinal-v_offset))::integer where shop_id=p_shop_id and shop_device_id=p_shop_device_id and upload_id=v_id and domain='child' and group_index=v_group and ordinal>=v_offset and ordinal<v_offset+v_count;
        select * into v_child from app_private.pos_import_recovery_child_headers where shop_id=p_shop_id and shop_device_id=p_shop_device_id and upload_id=v_id and part_index=v_group;
        v_normal:=p_payload->'childHeader';v_normal:=v_normal-'payloadHash';
-       if v_normal->>'kind'='ordinary' then v_normal:=jsonb_set(v_normal,'{normalized}',v_normal->'normalized'-'payloadHash');end if;
+       if v_normal->>'kind'='ordinary' then v_normal:=jsonb_set(v_normal,'{normalized}',(v_normal->'normalized')-'payloadHash');end if;
        if v_child.normalized_header is not null and (v_child.normalized_header is distinct from v_normal or v_child.canonical_prefix is distinct from p_payload->>'canonicalPrefix'
          or v_child.canonical_suffix is distinct from p_payload->>'canonicalSuffix' or v_child.plan_template is distinct from p_payload->'planTemplate') then
          raise exception 'child header changed' using errcode='22023';end if;
@@ -1240,7 +1249,9 @@ begin
        where shop_id=p_shop_id and shop_device_id=p_shop_device_id and root_key=v_root_key and credits>0
          and (staging_upload_id is null or staging_upload_id=v_id);
      update app_private.pos_import_recovery_admissions set terminal=(v_result->>'parentStatus'='complete'),plan_id=(v_result->>'planId')::uuid where shop_id=p_shop_id and shop_device_id=p_shop_device_id and upload_id=v_id;
-     if v_result->>'parentStatus'='complete' then
+     if v_result->>'parentStatus'='complete' and not exists(select 1 from app_private.pos_catalog_import_recovery_plans successor
+       where successor.shop_id=p_shop_id and successor.shop_device_id=p_shop_device_id and successor.predecessor_plan_id=(v_result->>'planId')::uuid) then
+       -- A historical complete ancestor ACK is not closure of a newer leaf.
        -- Authoritative full leaf closure (also zero new children) releases only
        -- unused promises. Audit rows/total bytes are never refunded or deleted.
        update app_private.pos_import_recovery_capacity set credits=0,
@@ -1320,6 +1331,9 @@ begin
        where shop_id=p_shop_id and shop_device_id=p_shop_device_id and client_import_id=v_precheck->>'clientImportId'
          and idempotency_key=v_precheck->>'idempotencyKey' and payload_hash=v_precheck->>'canonicalPayloadHash'))) then
      return app_private.pos_catalog_import_recovery_small_v1(p_shop_id,p_shop_device_id,p_staff_id,p_pos_session_id,p_owner_user_id,'retire',p_payload);end if;
+   -- Absence must be authoritative after all blocking authorization checks.
+   -- Failed auth/hash/conflict inspection cannot debit replacement capacity.
+   if v_precheck->>'ok' is distinct from 'true' or v_precheck->>'status' is distinct from 'not_found' then return v_precheck;end if;
    if not app_private.pos_import_recovery_reserve_v1(p_shop_id,p_shop_device_id,v_root) then
      return jsonb_build_object('ok',false,'code','quota_exceeded');end if;
  end if;
@@ -1333,7 +1347,8 @@ begin
    update app_private.pos_import_recovery_capacity set credits=credits-1,staging_reserved=true,staging_upload_id=null
      where shop_id=p_shop_id and shop_device_id=p_shop_device_id and root_key=v_root_key and credits>0 and staging_upload_id is null;
  end if;
- if v_result->>'ok'='true' and v_result->>'parentStatus'='complete' and p_action in('apply','plan') then
+ if v_result->>'ok'='true' and v_result->>'parentStatus'='complete' and p_action in('apply','plan') and not exists(select 1 from app_private.pos_catalog_import_recovery_plans successor
+   where successor.shop_id=p_shop_id and successor.shop_device_id=p_shop_device_id and successor.predecessor_plan_id=coalesce(v_result->>'planId',p_payload->>'planId')::uuid) then
    select original_client_import_id||':'||original_idempotency_key||':'||original_canonical_hash into v_root_key from app_private.pos_catalog_import_recovery_plans
      where shop_id=p_shop_id and shop_device_id=p_shop_device_id and plan_id=coalesce(v_result->>'planId',p_payload->>'planId')::uuid;
    update app_private.pos_import_recovery_admissions admission set terminal=true where admission.shop_id=p_shop_id and admission.shop_device_id=p_shop_device_id and
@@ -1363,15 +1378,19 @@ begin
  v_auth:=app_private.pos_catalog_import_receipt_authorize_v1(p_shop_id,p_shop_device_id,p_staff_id,p_pos_session_id,p_owner_user_id);
  if v_auth<>'ok' then return jsonb_build_object('ok',false,'code',v_auth);end if;
  for v_row in
-   select root.normalized_request,root.original_schema,root.client_import_id,root.idempotency_key,root.canonical_hash
+   select root.normalized_request,root.original_schema,root.client_import_id,root.idempotency_key,root.canonical_hash,
+       part.child->>'clientImportId' selected_client_import_id,part.child->>'idempotencyKey' selected_idempotency_key,part.child->>'payloadHash' selected_payload_hash
      from app_private.pos_catalog_import_recovery_plan_parts part join app_private.pos_catalog_import_recovery_plans plan using(shop_id,shop_device_id,plan_id)
      join app_private.pos_catalog_import_recovery_uploads root on root.shop_id=plan.shop_id and root.shop_device_id=plan.shop_device_id and root.upload_id=plan.original_id
-     where part.shop_id=p_shop_id and part.shop_device_id=p_shop_device_id and part.child->>'clientImportId'=p_client_import_id
-       and part.child->>'idempotencyKey'=p_idempotency_key and part.child->>'payloadHash'=p_payload_hash
+     where part.shop_id=p_shop_id and part.shop_device_id=p_shop_device_id and (part.child->>'clientImportId'=p_client_import_id or part.child->>'idempotencyKey'=p_idempotency_key)
    union all
-   select normalized_request,original_schema,client_import_id,idempotency_key,canonical_hash from app_private.pos_catalog_import_recovery_uploads
-     where shop_id=p_shop_id and shop_device_id=p_shop_device_id and verified_at is not null and client_import_id=p_client_import_id and idempotency_key=p_idempotency_key and canonical_hash=p_payload_hash
+   select normalized_request,original_schema,client_import_id,idempotency_key,canonical_hash,client_import_id,idempotency_key,canonical_hash from app_private.pos_catalog_import_recovery_uploads
+     where shop_id=p_shop_id and shop_device_id=p_shop_device_id and verified_at is not null and (client_import_id=p_client_import_id or idempotency_key=p_idempotency_key)
  loop
+   -- All apply paths fence either identity key. A mismatching alias must not
+   -- masquerade as an unknown A-only identity and retire a known B child.
+   if v_row.selected_client_import_id is distinct from p_client_import_id or v_row.selected_idempotency_key is distinct from p_idempotency_key
+     or v_row.selected_payload_hash is distinct from p_payload_hash then return jsonb_build_object('ok',false,'code','identity_conflict');end if;
    v_candidate:=case when v_row.original_schema='pos-catalog-import-correction-v1' then coalesce(v_row.normalized_request->'authoritativeRoot',v_row.normalized_request->'original')
      else jsonb_build_object('clientImportId',v_row.client_import_id,'idempotencyKey',v_row.idempotency_key,'canonicalPayloadHash',v_row.canonical_hash) end;
    if coalesce(v_candidate->>'clientImportId','')='' or coalesce(v_candidate->>'idempotencyKey','')='' or coalesce(v_candidate->>'canonicalPayloadHash',v_candidate->>'payloadHash','')!~'^sha256:[0-9a-f]{64}$' then

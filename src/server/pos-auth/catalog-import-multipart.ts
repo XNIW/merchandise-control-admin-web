@@ -8,7 +8,7 @@ import { businessOriginal, hydrateOriginal, isHash, isUuid, MULTIPART_SCHEMA, pa
 export const RECOVERY_ACTIONS=["upload","finalize","receipt","retire","plan","apply","receipt-page"] as const;
 export type RecoveryAction=typeof RECOVERY_ACTIONS[number];
 function failure(code:string,status=400) { return {status,body:{ok:false,code,message:"POS multipart recovery request failed."}}; }
-function errorStatus(code:unknown) {return code==="auth_denied"?401:code==="scope_changed"||code==="conflict"||code==="quota_exceeded"||code==="phased_upload_required"?409:code==="not_configured"?503:code==="not_found"?404:code==="validation_failed"||code==="projection_too_large"||code==="original_bytes_or_unicode_unsupported"||code==="original_bytes_or_numeric_precision_unsupported"?400:500;}
+function errorStatus(code:unknown) {return code==="auth_denied"?401:code==="scope_changed"||code==="identity_conflict"||code==="conflict"||code==="quota_exceeded"||code==="phased_upload_required"?409:code==="not_configured"?503:code==="not_found"?404:code==="validation_failed"||code==="projection_too_large"||code==="original_bytes_or_unicode_unsupported"||code==="original_bytes_or_numeric_precision_unsupported"?400:500;}
 
 export async function handlePosCatalogImportMultipart(action:RecoveryAction,input:unknown,meta:PosCatalogImportRequestMeta={}) {
   const trust=parseRecoveryTrust(input);

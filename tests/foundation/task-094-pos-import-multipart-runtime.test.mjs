@@ -14,8 +14,8 @@ function load(scenario={}) {
  const lease={status:'ok',session:{pos_session_id:ids.session,shop_id:ids.shop,shop_device_id:ids.device,staff_id:ids.staff,status:'active',expires_at:future,issued_at:'2026-01-01T00:00:00Z',session_token_hash:'session',pos_device_credential_id:ids.credential,staff_credential_version:1}, credential:{pos_device_credential_id:ids.credential,shop_id:ids.shop,shop_device_id:ids.device,staff_id:ids.staff,status:'active',expires_at:future,token_hash:'device',staff_credential_version:1},device:{status:'active'},staff:{staff_id:ids.staff,shop_id:ids.shop,status:'active',credential_status:'active',credential_version:1,must_change_credential:false,locked_until:null,session_invalidated_at:null},shop:{shop_id:ids.shop,shop_status:'active',shop_code:'FIXTURE'}};
  const supabase={rpc:async(name,args)=>{calls.push({name,args}); if(name==='pos_catalog_import_scope_v1')return {data:{status:'ok',ownerUserId:ids.owner},error:null}; return {data:scenario.result?.(name,args)??{ok:true,status:'not_found',shopId:ids.shop,shopDeviceId:ids.device,clientImportId:args.p_client_import_id,idempotencyKey:args.p_idempotency_key,payloadHash:args.p_payload_hash},error:scenario.error??null};}};
  const mocks={'server-only':{}, '@/lib/supabase/admin':{resolveSupabaseAdminConfig:()=>({status:'configured'}),createSupabaseAdminClient:()=>supabase}, './runtime-boundary':{loadPosRuntimeLease:async(_,args)=>{calls.push({name:'lease',args});return scenario.denied?{status:'denied'}:lease;},writePosRuntimeAudit:async()=>{calls.push({name:'AUDIT_WRITE'});return true;}}, './tokens':{verifyPosSecret:(value,hash)=>value===(hash==='session'?request.sessionToken:request.deviceToken)}};
- function module(path) {if(cache.has(path))return cache.get(path);const file=readFileSync(path,'utf8');const output=ts.transpileModule(file,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}}).outputText;const m={exports:{}};cache.set(path,m.exports);new Script(output,{filename:path}).runInContext(createContext({exports:m.exports,module:m,require:(id)=>{if(id in mocks)return mocks[id];if(id.startsWith('@/'))return module(resolve('src',id.slice(2)+'.ts'));if(id.startsWith('.'))return module(resolve(dirname(path),id+'.ts'));return requireReal(id);},Date,Map,Set,Buffer,process,console}));return m.exports;}
- return {service:module(resolve('src/server/pos-auth/catalog-import-multipart.ts')),contract:module(resolve('src/server/pos-auth/catalog-import-multipart-contract.ts')),calls};
+ function module(path) {if(cache.has(path))return cache.get(path);const file=readFileSync(path,'utf8');const output=ts.transpileModule(file,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}}).outputText;const m={exports:{}};cache.set(path,m.exports);new Script(output,{filename:path}).runInContext(createContext({exports:m.exports,module:m,require:(id)=>{if(id in mocks)return mocks[id];if(id.startsWith('@/'))return module(resolve('src',id.slice(2)+'.ts'));if(id.startsWith('.'))return module(resolve(dirname(path),id+'.ts'));return requireReal(id);},Date,Map,Set,Buffer,Request,Response,TextDecoder,Uint8Array,URL,process,console}));return m.exports;}
+ return {service:module(resolve('src/server/pos-auth/catalog-import-multipart.ts')),contract:module(resolve('src/server/pos-auth/catalog-import-multipart-contract.ts')),loadModule:module,calls};
 }
 const MULTI='pos-catalog-import-recovery-multipart-v1';
 const originalId='01000000-0000-4000-8000-000000000094';const planId='02000000-0000-4000-8000-000000000094';
@@ -23,7 +23,7 @@ const outer={schemaVersion:MULTI,shopCode:request.shopCode,shopDeviceId:request.
 const binding={ok:true,shopId:ids.shop,shopDeviceId:ids.device};
 test('accepted multipart original/retire returns SQL validated page with no whole-ACK prefetch',async()=>{
  for(const action of ['receipt','retire']) {const page={...binding,status:'accepted',verifiedOriginalId:originalId,receiptSha256:'sha256:'+'a'.repeat(64),totalItemCount:5000,offset:0,limit:1000,complete:false,receipt:{summary:{acceptedItemCount:5000,duplicateItemCount:0,productCount:5000},items:[{clientItemId:'row-0'}],remoteProductIds:[],remotePriceIds:[]}};
- const {service,calls}=load({result:(name,args)=>name==='pos_catalog_import_recovery_v1'?page:undefined});const result=await service.handlePosCatalogImportMultipart(action,{...outer,verifiedOriginalId:originalId});
+ const {service,calls}=load({result:(name)=>name==='pos_catalog_import_recovery_v1'?page:undefined});const result=await service.handlePosCatalogImportMultipart(action,{...outer,verifiedOriginalId:originalId});
  assert.equal(result.status,200);assert.deepEqual(result.body.receipt,page.receipt);assert.equal(result.body.complete,false);
  const recover=calls.filter(call=>call.name==='pos_catalog_import_recovery_v1');assert.equal(recover.length,1);assert.equal(recover[0].args.p_action,action);
  assert.ok(!recover.some(call=>['read-original','read-receipt'].includes(call.args.p_action)));}
@@ -88,4 +88,30 @@ test('root-capacity fallback changes only the plan manifest envelope and preserv
  const header={mode:'plan',verifiedOriginalId:originalId,totalByteLength:bytes.length,rawSha256:hash(bytes)};const phased=await service.handlePosCatalogImportMultipart('upload',{...outer,...header,phase:'manifest',uploadId:planId,partCount:1,offset:0,parts:[descriptor],manifestSha256:hash(JSON.stringify({...header,parts:[descriptor]}))});assert.equal(phased.status,200);
  const original=await service.handlePosCatalogImportMultipart('upload',{...old,mode:'original',originalKind:'ordinary',declaredPayloadHash:'fixture-original-hash'});assert.equal(original.status,409);assert.equal(original.body.code,'quota_exceeded');
  const operations=calls.filter(call=>call.name==='pos_catalog_import_recovery_v1');assert.deepEqual(operations.map(call=>call.args.p_action),['upload','manifest','upload']);assert.equal(operations[0].args.p_payload.manifest.rawSha256,operations[1].args.p_payload.header.rawSha256);assert.equal(operations[0].args.p_payload.uploadId,operations[1].args.p_payload.uploadId);assert.equal(operations[0].args.p_payload.contentBase64,bytes.toString('base64'));
+});
+
+
+test('only seven literal recovery actions dispatch; unknown paths and oversized bodies cannot reach authorized RPC',async()=>{
+ const denied=load({denied:true});const deniedRoute=denied.loadModule(resolve('src/app/api/pos/catalog/import-recovery/[action]/route.ts'));
+ const post=(body,action)=>deniedRoute.POST(new Request('https://example.invalid/api/pos/catalog/import-recovery/'+action,{method:'POST',headers:{'content-type':'application/json'},body}),{params:Promise.resolve({action})});
+ for(const action of ['cleanup','retire-all','manifest','constructor','apply/../retire']){
+   const result=await post(JSON.stringify({...outer,verifiedOriginalId:originalId}),action);assert.equal(result.status,404);assert.equal((await result.json()).code,'not_found');
+ }
+ assert.equal(denied.calls.length,0);
+ for(const action of denied.service.RECOVERY_ACTIONS){const result=await post(JSON.stringify({...outer,verifiedOriginalId:originalId}),action);assert.equal(result.status,401);}
+ assert.ok(!denied.calls.some(call=>call.name==='pos_catalog_import_recovery_v1'));
+ const allowed=load();const route=allowed.loadModule(resolve('src/app/api/pos/catalog/import-recovery/[action]/route.ts'));
+ const base=JSON.stringify({...outer,verifiedOriginalId:originalId,padding:''});const body=JSON.stringify({...outer,verifiedOriginalId:originalId,padding:'x'.repeat(524288-Buffer.byteLength(base))});assert.equal(Buffer.byteLength(body),524288);
+ const requestFor=body=>new Request('https://example.invalid/api/pos/catalog/import-recovery/receipt',{method:'POST',headers:{'content-type':'application/json'},body});
+ const limit=await route.POST(requestFor(body),{params:Promise.resolve({action:'receipt'})});assert.equal(limit.status,200);assert.equal(limit.headers.get('cache-control'),'no-store');
+ const before=allowed.calls.length;const over=await route.POST(requestFor(body+' '),{params:Promise.resolve({action:'receipt'})});assert.equal(over.status,400);assert.equal(allowed.calls.length,before);
+ for(const method of ['GET','HEAD','PUT','PATCH','DELETE','OPTIONS']){const result=await route[method](new Request('https://example.invalid'));assert.equal(result.status,405);assert.equal(result.headers.get('allow'),'POST');}
+});
+
+
+test('multipart service returns typed identity and quota refusals without a retirement proof',async()=>{
+ for(const code of ['quota_exceeded','identity_conflict']){
+  const {service,calls}=load({result:()=>({ok:false,code})});const result=await service.handlePosCatalogImportMultipart('retire',{...outer,planId,partIndex:2});assert.equal(result.status,409);assert.equal(result.body.code,code);assert.equal(result.body.oldIdentityBlocked,undefined);
+  const operation=calls.filter(call=>call.name==='pos_catalog_import_recovery_v1');assert.equal(operation.length,1);assert.equal(operation[0].args.p_action,'retire');
+ }
 });

@@ -207,6 +207,14 @@ its immutable partial logical status. Current scoped trust is required throughou
 The existing public retirement alias shares this capacity check for known verified
 or planned multipart identities; unknown ordinary identities keep their behavior.
 
+The2MiB normalization frame and256KiB projections above apply to the new phased
+path. Compatibility exceptions are finite and explicit: an old read-upload
+may return up to4MiB raw bytes encoded as base64 (approximately5.34MiB plus
+metadata), and read-original permits at most16MiB of normalized JSONB text.
+They are not upper-size Worker qualification; larger documents require phases.
+The SQL preliminary physical child guard is2MiB, independently of the unchanged
+official exact512KiB complete HTTP-body check and1000-row limit.
+
 The compatibility full-manifest path is limited to4MiB per raw document. An old
 unbound mode-plan upload that cannot fit beside protected root capacity returns
 HTTP409 `phased_upload_required` before admission. Reuse the immutable raw bytes

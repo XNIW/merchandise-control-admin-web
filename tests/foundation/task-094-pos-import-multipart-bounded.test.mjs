@@ -17,7 +17,6 @@ function module(path) {
 }
 const contract=module(resolve('src/server/pos-auth/catalog-import-multipart-contract.ts'));
 const paging=module(resolve('src/server/pos-auth/catalog-import-multipart-paging.ts'));
-const recovery=module(resolve('src/server/pos-auth/catalog-import-recovery-contract.ts'));
 const currentEnvelope={...request,schemaVersion:contract.MULTIPART_SCHEMA};
 const trust=contract.parseRecoveryTrust(currentEnvelope);
 const originalId='01000000-0000-4000-8000-000000000094';
@@ -27,11 +26,6 @@ function rawOriginal(count=1) {
  value.summary={newProducts:count,updatedProducts:0,noChangeRows:0,skippedRows:0,warningCount:0};
  value.items=Array.from({length:count},(_,index)=>({...value.items[0],clientItemId:`row-${index}`,barcode:`MULTI-${index}`,rowNumber:index+1}));
  return value;
-}
-function uploaded(value,mode='original',size=262144) {
- const raw=Buffer.from(typeof value==='string'?value:JSON.stringify(value));const parts=[];
- for(let at=0;at<raw.length;at+=size){const bytes=raw.subarray(at,at+size);parts.push({index:parts.length,byteLength:bytes.length,sha256:contract.sha256(bytes),contentBase64:bytes.toString('base64')});}
- return {manifest:{mode,...(mode==='original'?{originalKind:'ordinary',declaredPayloadHash:request.payloadHash}:{}),totalByteLength:raw.length,rawSha256:contract.sha256(raw),parts:parts.map(({index,byteLength,sha256})=>({index,byteLength,sha256}))},parts};
 }
 test('manifest paging preserves existing JSON.stringify byte order and immutable metadata',()=>{
  const parts=Array.from({length:2048},(_,index)=>({index,byteLength:262144,sha256:contract.sha256(`chunk-${index}`)}));
