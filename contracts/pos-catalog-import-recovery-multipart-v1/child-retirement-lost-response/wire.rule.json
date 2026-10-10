@@ -1,0 +1,162 @@
+{
+  "documentSchema": "pos-catalog-import-child-retirement-lost-response-rule-v1",
+  "observedUTC": "2026-10-10T00:10:41.652781+00:00",
+  "status": "DOCUMENTED_EXISTING_FROZEN_BEHAVIOR",
+  "responseSchemaVersion": "pos-catalog-import-recovery-multipart-v1",
+  "requestSelector": {
+    "required": [
+      "schemaVersion",
+      "planId",
+      "partIndex"
+    ],
+    "exclusiveOf": [
+      "verifiedOriginalId"
+    ],
+    "outerTrust": "Current standard POS trust and catalog.import permission are required on every call; selector is not a capability.",
+    "templateFile": "child.selector.request.json",
+    "templateIsCompleteHttpRequest": false
+  },
+  "routes": {
+    "receipt": {
+      "method": "POST",
+      "path": "/api/pos/catalog/import-recovery/receipt",
+      "readOnly": true
+    },
+    "retire": {
+      "method": "POST",
+      "path": "/api/pos/catalog/import-recovery/retire",
+      "explicitMutation": "Private identity fence or adoption of the exact existing durable ACK; never economic reapply."
+    }
+  },
+  "journalRule": [
+    "Persist the immutable explicit retirement intent and its planId/partIndex before dispatch.",
+    "If the response is lost or dispatch is uncertain, keep that journal and retry the same explicit retire with current outer trust.",
+    "A read-only receipt returning conflict/identity_retired does not contain the full fence proof. Do not synthesize retiredAt or oldIdentityBlocked, and do not replace from not_found or a generic conflict.",
+    "Treat only the exact scoped retired response with oldIdentityBlocked=true and persisted retiredAt as the retirement fence; reconcile accepted with its authoritative durable ACK if apply won.",
+    "The retry keeps the existing identity and timestamp. Do not invent a new child under the same plan, delete uncertain prepared intent, or mark a partial parent complete."
+  ],
+  "identityBinding": [
+    "shopId",
+    "shopDeviceId",
+    "planId",
+    "partIndex",
+    "originalSchemaVersion",
+    "clientImportId",
+    "idempotencyKey",
+    "payloadHash",
+    "canonicalPayloadHash"
+  ],
+  "hashSemantics": {
+    "payloadHash": "Immutable client declaration stored in the plan child; not substituted for server verification.",
+    "canonicalPayloadHash": "Server-verified canonical business hash.",
+    "responseByteHashes": "SHA256 of the captured JSON fixture wrapper, including its original whitespace. They are not economic receipt hashes."
+  },
+  "capturedSequence": [
+    {
+      "step": 0,
+      "action": "retire",
+      "httpStatus": 200,
+      "bodyStatus": "retired",
+      "responseFile": "first-retire.response.json",
+      "delivery": "Deliberately withheld from the synthetic client; not an observed network failure."
+    },
+    {
+      "step": 1,
+      "action": "receipt",
+      "httpStatus": 200,
+      "bodyStatus": "conflict",
+      "reason": "identity_retired",
+      "responseFile": "receipt-conflict.response.json",
+      "absentFields": [
+        "retiredAt",
+        "oldIdentityBlocked",
+        "verifiedOriginalId",
+        "parentStatus"
+      ]
+    },
+    {
+      "step": 2,
+      "action": "retire",
+      "httpStatus": 200,
+      "bodyStatus": "retired",
+      "responseFile": "exact-retry.response.json",
+      "byteIdenticalTo": "first-retire.response.json",
+      "oldIdentityBlocked": true,
+      "retiredAt": "2026-10-10T00:00:56.190895+00:00"
+    }
+  ],
+  "scope": {
+    "captureActor": "/root/interop_finish",
+    "database": "pos_interop_current_mr9_skipped",
+    "model": "Actual frozen handler and SQL RPC with synthetic outer trust/dependencies in an isolated database.",
+    "liveAuthentication": "NOT_RUN",
+    "actualNetworkLoss": "NOT_RUN",
+    "deployedTestAcceptance": "NOT_RUN",
+    "allMultipartOrUpperSizeAcceptance": "NOT_ATTESTED_BY_THIS_DELTA"
+  },
+  "caseReport": {
+    "locator": "postgres-interop/current-mr9-skipped/lost-retirement-response-final/multipart-real-db-receipt.json",
+    "sha256": "560c812c85a80069f0ec0d5d88b6de67e44b9f4f34ed73395b34cec75e55e1f3",
+    "startedUTC": "2026-10-10T00:07:56.500Z",
+    "endedUTC": "2026-10-10T00:07:56.692Z",
+    "result": "PASS_PLANNED_CHILD_RETIREMENT_LOST_REPLY_EXACT_RETRY",
+    "checks": 24
+  },
+  "sourceGuards": [
+    {
+      "file": "supabase/migrations/20261008194809_pos_catalog_import_receipt_and_retirement.sql",
+      "lines": [
+        98,
+        104,
+        133,
+        154
+      ],
+      "behavior": "Exact fence receipt -> conflict/identity_retired; explicit retry selects the existing scoped retired_at before returning retired."
+    },
+    {
+      "file": "supabase/migrations/20261009004800_pos_catalog_import_recovery_multipart.sql",
+      "staticSnapshotSha256": "bf274d3254701d7343c98ba4666b6863b3153f8a4389ef1a0af04827811e68e0",
+      "lines": [
+        339,
+        397
+      ],
+      "behavior": "Scoped immutable child selector, root and plan locks, reauthorization after wait, separate receipt/retire dispatch, child identity/hash binding; only explicit accepted retire can adopt the ACK."
+    }
+  ],
+  "captureSourcePins": [
+    {
+      "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/admin-loader-snapshot-4b7965d9/src/server/pos-auth/catalog-import-multipart.ts",
+      "sha256": "sha256:08c6759eaa54c4a7b8aa622c0bb2e40c377112ba60e9ff582a0b733fa1d8b16c"
+    },
+    {
+      "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/admin-loader-snapshot-4b7965d9/src/server/pos-auth/catalog-import-multipart-contract.ts",
+      "sha256": "sha256:3fd82ff2eda5db9366d70f2b98246f79ea20ff180a15c73f16e7e6da32619451"
+    },
+    {
+      "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/admin-loader-snapshot-4b7965d9/src/server/pos-auth/catalog-import-sync.ts",
+      "sha256": "sha256:8b3a4bb399be190d9918e89e1d6e9be3917430d690f72ba1019dc7d4ac2ab42b"
+    },
+    {
+      "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/admin-loader-snapshot-4b7965d9/src/server/pos-auth/catalog-import-recovery-contract.ts",
+      "sha256": "sha256:f58433d0dc8ad7fbee8f63cc5f606f8ab6458ec4ef1459b92f2a2a7d2bc4732a"
+    },
+    {
+      "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/admin-loader-snapshot-4b7965d9/supabase/migrations/20261009004800_pos_catalog_import_recovery_multipart.sql",
+      "sha256": "sha256:4b7965d9045cc7601f8da95eba43d80f9c1d7e0b925df45e700f73f0f1245c52"
+    }
+  ],
+  "sourcePinLimit": "The capture sourcePins identify the immutable TS loader and its SQL4b file; that file is not an execution/load receipt. The same isolated database post-capture function-source fingerprint matches frozenbf. Preserve the observation time and distinction from the original load provenance.",
+  "postCaptureFunctionFingerprint": {
+    "locator": "postgres-interop/current-mr9-skipped/lost-retirement-response-final/actual-function-fingerprint.json",
+    "sha256": "977648236b84371ede16275b220c702eaa4bf91b04ca94162a5c83e44de71b5e",
+    "observedUTC": "2026-10-10T00:09:29.181184+00:00",
+    "actor": "/root/interop_finish",
+    "database": "pos_interop_current_mr9_skipped",
+    "functionSourceSha256": "669c5710735e7abc85b1d1dcacce3df32330d1441f1daa38622c142be627526b",
+    "expectedDeltaSha256": "b7074a62a60966d3aedeea756a75d39f9d01c65e3dddb3e98ce2e090506df265",
+    "fullFrozenSqlSha256": "bf274d3254701d7343c98ba4666b6863b3153f8a4389ef1a0af04827811e68e0",
+    "matches": true,
+    "postCaptureOnly": true,
+    "scope": "Read-only pg_proc source fingerprint after the captures, not the original load receipt or deploy/build provenance."
+  }
+}

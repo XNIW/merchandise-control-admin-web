@@ -356,6 +356,8 @@ select is(
   'personal_account', 'Mini wrapper forces personal-account actor kind'
 );
 
+create temporary table replay_footprint as select (select count(*) from public.audit_logs) as audit_count, (select count(*) from public.sync_events) as sync_count;
+
 insert into image_intent_results values (
   'terminal_replay', public.product_image_create_intent_wechat_v1(
     '00000000-0000-4000-8000-000000000401',
@@ -368,11 +370,39 @@ insert into image_intent_results values (
   )
 );
 select ok(
-  (select result->>'code' = 'invalid_state'
-      and not (result->>'replayed')::boolean
+  (select result->>'code' = 'checksum_noop'
+      and result->>'status' = 'noop' and (result->>'replayed')::boolean
     from image_intent_results where result_key = 'terminal_replay'),
-  'terminal image intent cannot mint a fresh upload capability on replay'
+  'lost finalize reply replays current ready version as noop without upload'
 );
+select ok((select count(*) from public.audit_logs) = (select audit_count from replay_footprint)
+  and (select count(*) from public.sync_events) = (select sync_count from replay_footprint),
+  'ready intent replay creates no duplicate audit or sync event');
+update public.inventory_products set primary_image_version_id = null
+where id = '20000000-0000-4000-8000-000000000401';
+select is(public.product_image_create_intent_wechat_v1(
+    '00000000-0000-4000-8000-000000000401',
+    '10000000-0000-4000-8000-000000000401',
+    '20000000-0000-4000-8000-000000000401',
+    repeat('a', 64), 700000, 1600, 1200,
+    repeat('b', 64), 90000, 384, 288,
+    '50000000-0000-4000-8000-000000000401',
+    '51000000-0000-4000-8000-000000000401'
+  )->>'code', 'invalid_state', 'ready non-current image cannot be republished by replay');
+update public.inventory_products set primary_image_version_id = (select (result->>'version_id')::uuid from image_intent_results where result_key = 'first'), deleted_at = clock_timestamp()
+where id = '20000000-0000-4000-8000-000000000401';
+select is(public.product_image_create_intent_wechat_v1(
+    '00000000-0000-4000-8000-000000000401',
+    '10000000-0000-4000-8000-000000000401',
+    '20000000-0000-4000-8000-000000000401',
+    repeat('a', 64), 700000, 1600, 1200,
+    repeat('b', 64), 90000, 384, 288,
+    '50000000-0000-4000-8000-000000000401',
+    '51000000-0000-4000-8000-000000000401'
+  )->>'code', 'invalid_state', 'archived product cannot publish replayed image');
+update public.inventory_products set deleted_at = null
+where id = '20000000-0000-4000-8000-000000000401';
+
 select is(
   (select count(*)::integer from public.inventory_product_image_versions
     where product_id = '20000000-0000-4000-8000-000000000401'),

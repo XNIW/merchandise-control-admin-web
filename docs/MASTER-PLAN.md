@@ -1,5 +1,22 @@
 # MerchandiseControl Admin Web - Master Plan
 
+## TASK-094 — continuazione protocollo multipart isolato, 10 ottobre 2026
+
+EXECUTION. Il delta da main62f513 a002934d3 è applicato nel solo candidato RC
+af365f0d derivato dall'albero servito equivalente post hoc f401fc3d, più il solo
+fix guardia identità e88 del successore2bcee6e8. I cinque
+fix serviti, nove golden sintetici brevi e due DDL precedenti restano identici;
+nessuna migrazione o sorgente commerce viene aggiunta. Review e gate propri
+restano distinti; upper qualification aperta. Nessun apply/deploy/READY.
+[Task isolato](TASKS/TASK-094-pos-import-staging-source-isolation.md).
+
+## TASK-094 — isolamento sorgente staging U2, 8 ottobre 2026
+
+EXECUTION nel solo worktree dedicato. Candidato dalla sorgente servita equivalente
+post hoc f401fc3d, con soli delta U2 della PR132; niente nuove funzioni commerce.
+Review/gate della nuova base da acquisire; apply/deploy/READY NON_ESEGUITI.
+[Task isolato](TASKS/TASK-094-pos-import-staging-source-isolation.md).
+
 ## Current staging release — WECHAT-010
 
 `TASK-159`, `REVIEW`. This release retains deployed baseline `a787331a` and

@@ -1,0 +1,13 @@
+{
+  "ok": true,
+  "code": "success",
+  "schemaVersion": "pos-catalog-import-correction-v1",
+  "status": "conflict",
+  "shopId": "10000000-0000-4000-8000-000000000094",
+  "shopDeviceId": "30000000-0000-4000-8000-000000000094",
+  "clientImportId": "receipt-fixture-correction-1",
+  "idempotencyKey": "correction-idem-1",
+  "payloadHash": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+  "canonicalPayloadHash": "sha256:3316daaff1fa2b14af2e86205cd3e6da45d57b290186a577f376f92d1afedf13",
+  "reason": "revision_conflict"
+}

@@ -143,7 +143,7 @@ type ParsedCatalogImportItem = {
   supplier: string | null;
 };
 
-type ParsedCatalogImportInput = {
+export type ParsedCatalogImportInput = {
   appVersion?: string;
   attemptCount: number;
   batchCreatedAt: string;
@@ -176,7 +176,7 @@ type PosCatalogImportAuthContext = {
   staff: StaffAccountRow;
 };
 
-type AppliedCatalogImport = {
+export type AppliedCatalogImport = {
   acceptedItemCount: number;
   batchId: string;
   duplicateItemCount: number;
@@ -525,7 +525,18 @@ function parseCatalogImportItem(
   };
 }
 
-function parseCatalogImportInput(input: unknown): ParsedCatalogImportInput | null {
+export function parseCatalogImportInput(input: unknown): ParsedCatalogImportInput | null {
+  return parseCatalogImportInputInternal(input, false, MAX_IMPORT_ITEMS);
+}
+
+// Saved originals can precede their first send. Only recovery uses this parser;
+// the ordinary endpoint keeps its positive-attempt and 1000-item limits.
+export function parseForensicCatalogImportInput(input: unknown, maxItems = MAX_IMPORT_ITEMS): ParsedCatalogImportInput | null {
+  if (!Number.isInteger(maxItems) || maxItems < 1 || maxItems > 60000) return null;
+  return parseCatalogImportInputInternal(input, true, maxItems);
+}
+
+function parseCatalogImportInputInternal(input: unknown, forensic: boolean, maxItems: number): ParsedCatalogImportInput | null {
   if (!isRecord(input)) {
     return null;
   }
@@ -548,6 +559,7 @@ function parseCatalogImportInput(input: unknown): ParsedCatalogImportInput | nul
     120,
   );
   const attemptCount = integerField(batch, "attemptCount", "attempt_count") ?? 0;
+  const attemptPresent = Object.hasOwn(batch, "attemptCount") || Object.hasOwn(batch, "attempt_count");
   const deviceToken = stringField(input, "deviceToken", "device_token");
   const sessionToken = stringField(input, "sessionToken", "session_token");
   const posSessionId = stringField(input, "posSessionId", "pos_session_id");
@@ -562,7 +574,7 @@ function parseCatalogImportInput(input: unknown): ParsedCatalogImportInput | nul
     !batchCreatedAt ||
     !clientImportId ||
     !idempotencyKey ||
-    attemptCount <= 0 ||
+    (forensic ? attemptCount < 0 || (attemptPresent && integerField(batch, "attemptCount", "attempt_count") === null) : attemptCount <= 0) ||
     !sourceFileNameIsSafe(sourceFileName) ||
     !UUID_PATTERN.test(posSessionId) ||
     !UUID_PATTERN.test(shopDeviceId) ||
@@ -571,7 +583,7 @@ function parseCatalogImportInput(input: unknown): ParsedCatalogImportInput | nul
     sessionToken.length === 0 ||
     sessionToken.length > MAX_POS_SECRET_LENGTH ||
     itemsInput.length === 0 ||
-    itemsInput.length > MAX_IMPORT_ITEMS
+    itemsInput.length > maxItems
   ) {
     return null;
   }
@@ -687,7 +699,7 @@ function isStaffUsable(staff: StaffAccountRow | null) {
   );
 }
 
-async function getSupabaseForPosCatalogImport() {
+export async function getSupabaseForPosCatalogImport() {
   const config = resolveSupabaseAdminConfig();
 
   if (config.status !== "configured") {
@@ -756,14 +768,18 @@ async function auditedFailure(
   return failure(input.code, input.status);
 }
 
-async function validatePosCatalogImportAuth(
+export async function validatePosCatalogImportAuth(
   supabase: SupabaseAdminClient,
-  parsed: ParsedCatalogImportInput,
+  parsed: Pick<ParsedCatalogImportInput, "posSessionId" | "shopDeviceId" | "sessionToken" | "deviceToken" | "shopCode" | "appVersion">,
   meta: PosCatalogImportRequestMeta,
+  auditFailures = true,
 ): Promise<
   | { context: PosCatalogImportAuthContext; result?: never }
   | { context?: never; result: PosCatalogImportEndpointResult }
 > {
+  // Read-only receipt lookup uses the same trust fence without audit INSERTs.
+  const authFailure = (input: Parameters<typeof auditedFailure>[1]) =>
+    auditFailures ? auditedFailure(supabase, input) : failure(input.code, input.status);
   const lease = await loadPosRuntimeLease(supabase, {
     posSessionId: parsed.posSessionId,
     shopDeviceId: parsed.shopDeviceId,
@@ -771,7 +787,7 @@ async function validatePosCatalogImportAuth(
 
   if (lease.status === "db_failure") {
     return {
-      result: await auditedFailure(supabase, {
+      result: await authFailure({
         code: "db_failure",
         metadata: requestMetadata(meta),
         status: 500,
@@ -781,7 +797,7 @@ async function validatePosCatalogImportAuth(
 
   if (lease.status === "denied") {
     return {
-      result: await auditedFailure(supabase, {
+      result: await authFailure({
         code: "auth_denied",
         metadata: requestMetadata(meta),
         status: 401,
@@ -799,7 +815,7 @@ async function validatePosCatalogImportAuth(
 
   if (!sessionValid) {
     return {
-      result: await auditedFailure(supabase, {
+      result: await authFailure({
         code: "auth_denied",
         metadata: requestMetadata(meta),
         shopId: session.shop_id,
@@ -823,7 +839,7 @@ async function validatePosCatalogImportAuth(
       scopeResult.data.status !== "device_denied")
   ) {
     return {
-      result: await auditedFailure(supabase, {
+      result: await authFailure({
         code: "db_failure",
         metadata: requestMetadata(meta),
         shopId: session.shop_id,
@@ -867,7 +883,7 @@ async function validatePosCatalogImportAuth(
 
   if (!runtimeValid) {
     return {
-      result: await auditedFailure(supabase, {
+      result: await authFailure({
         code: "auth_denied",
         metadata: {
           ...requestMetadata(meta),
@@ -888,7 +904,7 @@ async function validatePosCatalogImportAuth(
 
   if (!mappingResolved) {
     return {
-      result: await auditedFailure(supabase, {
+      result: await authFailure({
         code: "not_configured",
         metadata: {
           ...requestMetadata(meta),
@@ -984,7 +1000,7 @@ function canonicalResponseUuid(value: string) {
     : null;
 }
 
-function parseAppliedCatalogImport(
+export function parseAppliedCatalogImport(
   data: Record<string, unknown>,
   summary: Record<string, unknown>,
   statusValue: string,

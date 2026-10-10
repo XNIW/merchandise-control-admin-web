@@ -1,0 +1,253 @@
+{
+  "state": "PROPOSED_EXACT_SYNTHETIC_WIRE_NOT_DEPLOYED",
+  "canonicalManifest": {
+    "ordinary": {
+      "file": "manifest-ordinary-canonical.json",
+      "sha256": "sha256:1a5797ea47b9983d42fe8190529448f6bfef339d1a322932f9e6703739b2842d",
+      "utf8ByteLength": 476
+    },
+    "plan": {
+      "file": "manifest-plan-canonical.json",
+      "sha256": "sha256:7f7573514b6aec5b207db3fe8b029d4d77c488a1678a6e961c03baa90a13e853",
+      "utf8ByteLength": 301
+    },
+    "order": [
+      "mode",
+      "originalKind only original",
+      "declaredPayloadHash only original",
+      "verifiedOriginalId only plan",
+      "totalByteLength",
+      "rawSha256",
+      "parts"
+    ],
+    "nullPolicy": "Forbidden metadata omitted for plan, never null. Plan verifiedOriginalId required and scoped; originalKind/declaration required original and no verifiedOriginalId. Descriptor field order index,byteLength,sha256. No pretty whitespace/trailing newline in hash."
+  },
+  "manifestRequests": [
+    {
+      "schemaVersion": "pos-catalog-import-recovery-multipart-v1",
+      "shopCode": "FIXTURE",
+      "shopDeviceId": "30000000-0000-4000-8000-000000000094",
+      "posSessionId": "40000000-0000-4000-8000-000000000094",
+      "deviceToken": "fixture-device",
+      "sessionToken": "fixture-session",
+      "phase": "manifest",
+      "uploadId": "01000000-0000-4000-8000-000000000094",
+      "mode": "original",
+      "originalKind": "ordinary",
+      "declaredPayloadHash": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      "totalByteLength": 831,
+      "rawSha256": "sha256:6497a7a9715db26009d6cc130a7db24c4cf2d1cbb0ec7f3a790bb6993814f225",
+      "partCount": 2,
+      "manifestSha256": "sha256:1a5797ea47b9983d42fe8190529448f6bfef339d1a322932f9e6703739b2842d",
+      "offset": 0,
+      "parts": [
+        {
+          "index": 0,
+          "byteLength": 415,
+          "sha256": "sha256:8ab2fd893f3248b5e510a0fc8cbb01460d5eeb481a4ae2cf20877686c7a248db"
+        }
+      ]
+    },
+    {
+      "schemaVersion": "pos-catalog-import-recovery-multipart-v1",
+      "shopCode": "FIXTURE",
+      "shopDeviceId": "30000000-0000-4000-8000-000000000094",
+      "posSessionId": "40000000-0000-4000-8000-000000000094",
+      "deviceToken": "fixture-device",
+      "sessionToken": "fixture-session",
+      "phase": "manifest",
+      "uploadId": "01000000-0000-4000-8000-000000000094",
+      "mode": "original",
+      "originalKind": "ordinary",
+      "declaredPayloadHash": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      "totalByteLength": 831,
+      "rawSha256": "sha256:6497a7a9715db26009d6cc130a7db24c4cf2d1cbb0ec7f3a790bb6993814f225",
+      "partCount": 2,
+      "manifestSha256": "sha256:1a5797ea47b9983d42fe8190529448f6bfef339d1a322932f9e6703739b2842d",
+      "offset": 1,
+      "parts": [
+        {
+          "index": 1,
+          "byteLength": 416,
+          "sha256": "sha256:060b76eb5f624dfa529dc891a624dfad0948386f69028e8d31ddf437262fc16d"
+        }
+      ]
+    }
+  ],
+  "manifestResponses": [
+    {
+      "ok": true,
+      "code": "success",
+      "schemaVersion": "pos-catalog-import-recovery-multipart-v1",
+      "shopId": "10000000-0000-4000-8000-000000000094",
+      "shopDeviceId": "30000000-0000-4000-8000-000000000094",
+      "status": "registering",
+      "uploadId": "01000000-0000-4000-8000-000000000094",
+      "manifestSha256": "sha256:1a5797ea47b9983d42fe8190529448f6bfef339d1a322932f9e6703739b2842d",
+      "nextOffset": 1,
+      "partCount": 2,
+      "complete": false
+    },
+    {
+      "ok": true,
+      "code": "success",
+      "schemaVersion": "pos-catalog-import-recovery-multipart-v1",
+      "shopId": "10000000-0000-4000-8000-000000000094",
+      "shopDeviceId": "30000000-0000-4000-8000-000000000094",
+      "status": "registering",
+      "uploadId": "01000000-0000-4000-8000-000000000094",
+      "manifestSha256": "sha256:1a5797ea47b9983d42fe8190529448f6bfef339d1a322932f9e6703739b2842d",
+      "nextOffset": 2,
+      "partCount": 2,
+      "complete": true
+    }
+  ],
+  "manifestSealRequest": {
+    "schemaVersion": "pos-catalog-import-recovery-multipart-v1",
+    "shopCode": "FIXTURE",
+    "shopDeviceId": "30000000-0000-4000-8000-000000000094",
+    "posSessionId": "40000000-0000-4000-8000-000000000094",
+    "deviceToken": "fixture-device",
+    "sessionToken": "fixture-session",
+    "phase": "seal",
+    "uploadId": "01000000-0000-4000-8000-000000000094",
+    "manifestSha256": "sha256:1a5797ea47b9983d42fe8190529448f6bfef339d1a322932f9e6703739b2842d"
+  },
+  "manifestSealResponse": {
+    "ok": true,
+    "code": "success",
+    "schemaVersion": "pos-catalog-import-recovery-multipart-v1",
+    "shopId": "10000000-0000-4000-8000-000000000094",
+    "shopDeviceId": "30000000-0000-4000-8000-000000000094",
+    "status": "registered",
+    "uploadId": "01000000-0000-4000-8000-000000000094",
+    "manifestSha256": "sha256:1a5797ea47b9983d42fe8190529448f6bfef339d1a322932f9e6703739b2842d",
+    "partCount": 2,
+    "totalByteLength": 831,
+    "rawSha256": "sha256:6497a7a9715db26009d6cc130a7db24c4cf2d1cbb0ec7f3a790bb6993814f225"
+  },
+  "finalizePrepareResponse": {
+    "ok": true,
+    "code": "success",
+    "schemaVersion": "pos-catalog-import-recovery-multipart-v1",
+    "shopId": "10000000-0000-4000-8000-000000000094",
+    "shopDeviceId": "30000000-0000-4000-8000-000000000094",
+    "status": "normalizing",
+    "uploadId": "01000000-0000-4000-8000-000000000094",
+    "phase": "items",
+    "nextCursor": 0,
+    "totalItemCount": 1,
+    "rawSha256": "sha256:6497a7a9715db26009d6cc130a7db24c4cf2d1cbb0ec7f3a790bb6993814f225"
+  },
+  "finalizeNormalizeResponse": {
+    "ok": true,
+    "code": "success",
+    "schemaVersion": "pos-catalog-import-recovery-multipart-v1",
+    "shopId": "10000000-0000-4000-8000-000000000094",
+    "shopDeviceId": "30000000-0000-4000-8000-000000000094",
+    "status": "normalizing",
+    "uploadId": "01000000-0000-4000-8000-000000000094",
+    "phase": "complete",
+    "nextCursor": null,
+    "totalItemCount": 1,
+    "rawSha256": "sha256:6497a7a9715db26009d6cc130a7db24c4cf2d1cbb0ec7f3a790bb6993814f225"
+  },
+  "planPrepareResponse": {
+    "ok": true,
+    "code": "success",
+    "schemaVersion": "pos-catalog-import-recovery-multipart-v1",
+    "shopId": "10000000-0000-4000-8000-000000000094",
+    "shopDeviceId": "30000000-0000-4000-8000-000000000094",
+    "status": "normalizing",
+    "uploadId": "03000000-0000-4000-8000-000000000094",
+    "stage": "children",
+    "nextCursor": 0,
+    "partCount": 5,
+    "totalCoverageCount": 5000,
+    "rawSha256": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+  },
+  "planChildrenFinishedResponse": {
+    "ok": true,
+    "code": "success",
+    "schemaVersion": "pos-catalog-import-recovery-multipart-v1",
+    "shopId": "10000000-0000-4000-8000-000000000094",
+    "shopDeviceId": "30000000-0000-4000-8000-000000000094",
+    "status": "normalizing",
+    "uploadId": "03000000-0000-4000-8000-000000000094",
+    "stage": "coverage",
+    "nextCursor": 0,
+    "partCount": 5,
+    "totalCoverageCount": 5000,
+    "rawSha256": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+  },
+  "planCoverageFinishedResponse": {
+    "ok": true,
+    "code": "success",
+    "schemaVersion": "pos-catalog-import-recovery-multipart-v1",
+    "shopId": "10000000-0000-4000-8000-000000000094",
+    "shopDeviceId": "30000000-0000-4000-8000-000000000094",
+    "status": "normalizing",
+    "uploadId": "03000000-0000-4000-8000-000000000094",
+    "stage": "complete",
+    "nextCursor": null,
+    "partCount": 5,
+    "totalCoverageCount": 5000,
+    "rawSha256": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+  },
+  "retryRules": [
+    "Registration pages contiguous offset; exact already-stored page replay succeeds identically, offset skip conflicts.",
+    "seal allowed only every descriptor+count+sum+canonical manifest digest proved; same seal replay succeeds.",
+    "bytes allowed only sealed same manifest; exact index+SHA+bytes replay succeeds; conflict otherwise.",
+    "prepare may repeat and returns stored current stage/cursor; never resets/discards completed normalization.",
+    "normalize exact server cursor/raw SHA; exact completed page replay returns its stored acknowledgment, skipped/mismatched cursor conflicts.",
+    "complete only after every page and global verification; exact repeat returns same canonical identity.",
+    "A lost response never causes fresh upload/root/plan/child identities. Auth is current on every call."
+  ],
+  "limitsScope": "All examples refer to proposed phased implementation. Current published small path has its separate immutable MR10/MR11 evidence. No final runtime acceptance.",
+  "planManifestHeader": {
+    "mode": "plan",
+    "verifiedOriginalId": "01000000-0000-4000-8000-000000000094",
+    "totalByteLength": 2,
+    "rawSha256": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+    "partCount": 1,
+    "manifestSha256": "sha256:7f7573514b6aec5b207db3fe8b029d4d77c488a1678a6e961c03baa90a13e853"
+  },
+  "quotaFailure": {
+    "ok": false,
+    "code": "quota_exceeded",
+    "message": "POS multipart recovery request failed.",
+    "httpStatus": 409,
+    "retirementOrEconomicMutation": false
+  },
+  "boundFrame": {
+    "wholePrivateRpcFrameBytes": 2097152,
+    "headerBytes": 16384,
+    "itemOrRelatedProjectionPageBytes": 262144
+  },
+  "planStageExampleNotes": "The plan manifest uses the synthetic two-byte placeholder {} only to pin manifest JSON order and hashing. It is not a valid recovery plan, cannot finalize, and cannot produce the illustrative five-part/5000-row stage responses. Those responses illustrate wire shape only and have no runtime qualification.",
+  "bytesRequest": {
+    "schemaVersion": "pos-catalog-import-recovery-multipart-v1",
+    "shopCode": "FIXTURE",
+    "shopDeviceId": "30000000-0000-4000-8000-000000000094",
+    "posSessionId": "40000000-0000-4000-8000-000000000094",
+    "deviceToken": "fixture-device",
+    "sessionToken": "fixture-session",
+    "phase": "bytes",
+    "uploadId": "01000000-0000-4000-8000-000000000094",
+    "manifestSha256": "sha256:1a5797ea47b9983d42fe8190529448f6bfef339d1a322932f9e6703739b2842d",
+    "partIndex": 0,
+    "sha256": "sha256:8ab2fd893f3248b5e510a0fc8cbb01460d5eeb481a4ae2cf20877686c7a248db",
+    "contentBase64": "ewogICJzY2hlbWFWZXJzaW9uIjogInBvcy1jYXRhbG9nLWltcG9ydC12MSIsCiAgInNvdXJjZSI6ICJzdXBwbGllcl9leGNlbCIsCiAgImFwcFZlcnNpb24iOiAiMS4wLWZpeHR1cmUiLAogICJwYXlsb2FkSGFzaCI6ICIwMTIzNDU2Nzg5YWJjZGVmMDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWYwMTIzNDU2Nzg5YWJjZGVmIiwKICAiYmF0Y2giOiB7CiAgICAiY2xpZW50SW1wb3J0SWQiOiAibXVsdGktb3JpZ2luYWwiLAogICAgImlkZW1wb3RlbmN5S2V5IjogIm11bHRpLW9yaWdpbmFsLWtleSIsCiAgICAiY3JlYXRlZEF0IjogIjIwMjYtMTAtMDhUMTg6MDA6MDAuMDAwWiIsCiAgICAic291cmNlRmlsZU5hbWUiOiAiZml4dHVyZS54bHN4IiwKICAgICJwcmV2aWV3RmluZ2VycHJpbnQiOiAicmVjZWlwdC1maXh0dXJlLQ=="
+  },
+  "bytesResponse": {
+    "ok": true,
+    "code": "success",
+    "schemaVersion": "pos-catalog-import-recovery-multipart-v1",
+    "shopId": "10000000-0000-4000-8000-000000000094",
+    "shopDeviceId": "30000000-0000-4000-8000-000000000094",
+    "status": "uploaded",
+    "uploadId": "01000000-0000-4000-8000-000000000094",
+    "partIndex": 0,
+    "manifestSha256": "sha256:1a5797ea47b9983d42fe8190529448f6bfef339d1a322932f9e6703739b2842d"
+  }
+}

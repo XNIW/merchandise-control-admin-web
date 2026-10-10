@@ -1,0 +1,40 @@
+{
+  "observedUTC": "2026-10-08T21:18:39.072063+00:00",
+  "actor": "Codex /root records independent source-only reviews",
+  "sourceFreezeSha256": "2b1f1d56089775673721a216216687abf522f752c2c95960c1232d8381b20d1e",
+  "reviews": [
+    {
+      "reviewer": "/root/import_receipt_http_review",
+      "observedUTC": "2026-10-08T21:15:21Z",
+      "result": "APPROVED_STATIC_STAGING_SOURCE_COMPATIBILITY",
+      "findings": [],
+      "verifiedPins": 32,
+      "resolvedRuntimeImportFiles": 16,
+      "limits": [
+        "No build/test/network/DDL/deploy executed.",
+        "Original compiled commit unknown.",
+        "Full CI of isolated source required."
+      ]
+    },
+    {
+      "reviewer": "/root/import_receipt_contract_review",
+      "observedUTC": "2026-10-08T21:15:39Z",
+      "result": "APPROVED_STATIC_SOURCE_COMPATIBILITY",
+      "findings": [],
+      "verifiedPins": 32,
+      "verifiedDependencyFiles": 21,
+      "limits": [
+        "Prior 69-test SQL model reusable only within unchanged synthetic limits.",
+        "No applied TEST schema or authenticated caller inferred.",
+        "Full CI of isolated source required."
+      ]
+    }
+  ],
+  "rootReadback": {
+    "all32PinsMatch": true,
+    "sameU2DeltaInBothContextFiles": true,
+    "trackedProductChangesOutsideFrozenPaths": [],
+    "mainOrPrimaryUpdated": false
+  },
+  "applyOrDeployExecuted": false
+}

@@ -3846,6 +3846,62 @@ export type Database = {
         }
         Returns: Json
       }
+      pos_catalog_import_correct_v1: {
+        Args: {
+          p_shop_id: string
+          p_shop_device_id: string
+          p_staff_id: string
+          p_pos_session_id: string
+          p_owner_user_id: string
+          p_original_client_import_id: string
+          p_original_idempotency_key: string
+          p_original_payload_hash: string
+          p_client_import_id: string
+          p_idempotency_key: string
+          p_payload_hash: string
+          p_created_at: string
+          p_items: Json
+        }
+        Returns: Json
+      }
+      pos_catalog_import_recovery_v1: {
+        Args: {
+          p_shop_id: string
+          p_shop_device_id: string
+          p_staff_id: string
+          p_pos_session_id: string
+          p_owner_user_id: string
+          p_action: string
+          p_payload: Json
+        }
+        Returns: Json
+      }
+      pos_catalog_import_receipt_v1: {
+        Args: {
+          p_shop_id: string
+          p_shop_device_id: string
+          p_staff_id: string
+          p_pos_session_id: string
+          p_owner_user_id: string
+          p_client_import_id: string
+          p_idempotency_key: string
+          p_payload_hash: string
+        }
+        Returns: Json
+      }
+      pos_catalog_import_retire_v1: {
+        Args: {
+          p_shop_id: string
+          p_shop_device_id: string
+          p_staff_id: string
+          p_pos_session_id: string
+          p_owner_user_id: string
+          p_client_import_id: string
+          p_idempotency_key: string
+          p_payload_hash: string
+        }
+        Returns: Json
+      }
       pos_catalog_import_apply_v2: {
         Args: {
           p_batch_created_at: string

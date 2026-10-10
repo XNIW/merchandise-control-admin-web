@@ -529,6 +529,7 @@ test("WECHAT-003 Mini image intent keeps the RPC receiver bound and sends the ex
     async rpc(name, params) {
       assert.equal(this, admin);
       calls.push({ name, params });
+      if (name === "product_image_revalidate_access_v1") return { data: true, error: null };
       return {
         data: {
           code: "success",
@@ -587,7 +588,8 @@ test("WECHAT-003 Mini image intent keeps the RPC receiver bound and sends the ex
 
   assert.equal(result.status, 200);
   assert.equal(result.body.status, "noop");
-  assert.equal(calls.length, 1);
+  assert.equal(calls.length, 2);
+  assert.equal(calls[1].name, "product_image_revalidate_access_v1");
   assert.equal(calls[0].name, "product_image_create_intent_wechat_v1");
   assert.equal(calls[0].params.p_actor_profile_id, PROFILE_ID);
   assert.equal(calls[0].params.p_shop_id, SHOP_ID);
