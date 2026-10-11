@@ -1,0 +1,62 @@
+{
+  "schemaVersion": "synthetic-child-retirement-fixture-byte-manifest-v1",
+  "generatedUTC": "2026-10-10T00:11:24.070463+00:00",
+  "actor": "/root/child_wire_review",
+  "scope": "Documentation only; existing isolated captures copied byte-exact. No new handler, DB, build, test or live call.",
+  "files": [
+    {
+      "file": "README.md",
+      "bytes": 4921,
+      "sha256": "792d591fc7fc9c41e3f1033f47c8bff82a28cbfd041b146161baf7cc3f96b960"
+    },
+    {
+      "file": "child.selector.request.json",
+      "bytes": 136,
+      "sha256": "324e379ba91ba74e36b40a80913d0a0241ce4d90654d6aa36b065e90fe8f3746"
+    },
+    {
+      "file": "exact-retry.response.json",
+      "bytes": 748,
+      "sha256": "a0076ebab55515b6ae1e80e112642142fae667a3e4d4511d2b83be1be5443746"
+    },
+    {
+      "file": "first-retire.response.json",
+      "bytes": 748,
+      "sha256": "a0076ebab55515b6ae1e80e112642142fae667a3e4d4511d2b83be1be5443746"
+    },
+    {
+      "file": "receipt-conflict.response.json",
+      "bytes": 704,
+      "sha256": "dc235a14c3661d9a61dd9062208101dee945894083a8dba828c9179a73064d6c"
+    },
+    {
+      "file": "wire.rule.json",
+      "bytes": 8004,
+      "sha256": "d36d48bce663fbfd25e1ce435a664207c29d6a5faef60bf8fa18531721350f66"
+    }
+  ],
+  "captureSources": [
+    {
+      "target": "first-retire.response.json",
+      "source": "postgres-interop/current-mr9-skipped/lost-retirement-response/first-retire-response-held-from-synthetic-client.response.json",
+      "sha256": "a0076ebab55515b6ae1e80e112642142fae667a3e4d4511d2b83be1be5443746"
+    },
+    {
+      "target": "receipt-conflict.response.json",
+      "source": "postgres-interop/current-mr9-skipped/lost-retirement-response/receipt-after-withheld-retirement-response.response.json",
+      "sha256": "dc235a14c3661d9a61dd9062208101dee945894083a8dba828c9179a73064d6c"
+    },
+    {
+      "target": "exact-retry.response.json",
+      "source": "postgres-interop/current-mr9-skipped/lost-retirement-response-resume/same-explicit-retire-retry.response.json",
+      "sha256": "a0076ebab55515b6ae1e80e112642142fae667a3e4d4511d2b83be1be5443746"
+    }
+  ],
+  "sourceRequestByteHash": "d0a2131f5d7c67a4115d5bbdb826be4bb1b49d09fb3e74264c8f98e51b9e4751",
+  "selectorIsDerivedWithoutTrust": true,
+  "postCaptureFunctionFingerprint": {
+    "source": "postgres-interop/current-mr9-skipped/lost-retirement-response-final/actual-function-fingerprint.json",
+    "sha256": "977648236b84371ede16275b220c702eaa4bf91b04ca94162a5c83e44de71b5e",
+    "observedUTC": "2026-10-10T00:09:29.181184+00:00"
+  }
+}

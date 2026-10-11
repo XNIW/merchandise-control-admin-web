@@ -1,0 +1,383 @@
+{
+  "state": "SOURCE_CANDIDATE_DB_AND_RESOURCE_QUALIFICATION_PENDING_NOT_DEPLOYED",
+  "schemaVersion": "pos-catalog-import-recovery-multipart-v1",
+  "planSchemaVersion": "pos-catalog-import-recovery-plan-v1",
+  "basePath": "/api/pos/catalog/import-recovery/",
+  "method": "POST",
+  "commonRequest": {
+    "schemaVersion": "pos-catalog-import-recovery-multipart-v1",
+    "shopCode": "FIXTURE",
+    "shopDeviceId": "30000000-0000-4000-8000-000000000094",
+    "posSessionId": "40000000-0000-4000-8000-000000000094",
+    "deviceToken": "fixture-device",
+    "sessionToken": "fixture-session"
+  },
+  "commonSuccess": {
+    "ok": true,
+    "code": "success",
+    "schemaVersion": "pos-catalog-import-recovery-multipart-v1",
+    "shopId": "10000000-0000-4000-8000-000000000094",
+    "shopDeviceId": "30000000-0000-4000-8000-000000000094"
+  },
+  "requests": {
+    "upload": {
+      "uploadId": "01000000-0000-4000-8000-000000000094",
+      "mode": "original",
+      "totalByteLength": 2,
+      "rawSha256": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "parts": [
+        {
+          "index": 0,
+          "byteLength": 2,
+          "sha256": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+        }
+      ],
+      "partIndex": 0,
+      "contentBase64": "e30=",
+      "originalKind": "ordinary",
+      "declaredPayloadHash": "client-hash-forensic-1"
+    },
+    "finalize": {
+      "uploadId": "01000000-0000-4000-8000-000000000094"
+    },
+    "receipt": {
+      "verifiedOriginalId": "01000000-0000-4000-8000-000000000094"
+    },
+    "retire": {
+      "verifiedOriginalId": "01000000-0000-4000-8000-000000000094"
+    },
+    "plan": {
+      "uploadId": "03000000-0000-4000-8000-000000000094"
+    },
+    "apply": {
+      "planId": "02000000-0000-4000-8000-000000000094",
+      "partIndex": 0
+    },
+    "receipt-page": {
+      "verifiedOriginalId": "01000000-0000-4000-8000-000000000094",
+      "receiptSha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "offset": 0,
+      "limit": 1000
+    },
+    "receipt-page-child": {
+      "planId": "02000000-0000-4000-8000-000000000094",
+      "partIndex": 0,
+      "receiptSha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "offset": 0,
+      "limit": 1000
+    },
+    "receipt-child": {
+      "planId": "02000000-0000-4000-8000-000000000094",
+      "partIndex": 0
+    },
+    "retire-child": {
+      "planId": "02000000-0000-4000-8000-000000000094",
+      "partIndex": 0
+    }
+  },
+  "successFields": {
+    "upload": [
+      "status=uploaded",
+      "uploadId",
+      "partIndex",
+      "manifestSha256"
+    ],
+    "finalize": [
+      "status=verified",
+      "verifiedOriginalId=uploadId",
+      "originalSchemaVersion",
+      "clientImportId",
+      "idempotencyKey",
+      "payloadHash=client declaration",
+      "canonicalPayloadHash=server recomputed",
+      "rawSha256",
+      "itemCount"
+    ],
+    "receipt": [
+      "status=accepted|not_found|conflict",
+      "verifiedOriginalId",
+      "originalSchemaVersion",
+      "clientImportId",
+      "idempotencyKey",
+      "payloadHash=client declaration",
+      "canonicalPayloadHash=server recomputed"
+    ],
+    "retire": [
+      "status=accepted|retired|conflict",
+      "verifiedOriginalId",
+      "originalSchemaVersion",
+      "clientImportId",
+      "idempotencyKey",
+      "payloadHash=client declaration",
+      "canonicalPayloadHash=server recomputed"
+    ],
+    "plan": [
+      "status=planned",
+      "planId",
+      "verifiedOriginalId",
+      "planCanonicalHash",
+      "partCount",
+      "itemCount",
+      "parts[{index,kind,clientImportId,idempotencyKey,payloadHash=server canonical,declaredPayloadHash=client declaration,createdAt,itemCount=authoritative length of persisted child.items}]"
+    ],
+    "apply": [
+      "status=accepted|conflict",
+      "planId",
+      "partIndex",
+      "clientImportId",
+      "idempotencyKey",
+      "payloadHash=client declaration",
+      "canonicalPayloadHash=server recomputed",
+      "parentStatus=partial|complete",
+      "partCount",
+      "acceptedPartCount"
+    ],
+    "receipt-page": [
+      "status=accepted|conflict",
+      "receiptSha256",
+      "receiptEncoding=postgres-jsonb-text-v1",
+      "totalItemCount",
+      "offset",
+      "limit",
+      "complete",
+      "receipt",
+      "currentProductSnapshots"
+    ]
+  },
+  "conditionalResponseFields": {
+    "accepted": [
+      "receiptSha256",
+      "receiptEncoding=postgres-jsonb-text-v1",
+      "totalItemCount",
+      "offset",
+      "limit",
+      "complete",
+      "receipt",
+      "currentProductSnapshots"
+    ],
+    "not_found": {
+      "snapshotOnly": true,
+      "replacementAllowed": false
+    },
+    "retired": {
+      "oldIdentityBlocked": true,
+      "retiredAt": "server UTC timestamp"
+    },
+    "conflict": [
+      "reason"
+    ]
+  },
+  "planDocument": {
+    "schemaVersion": "pos-catalog-import-recovery-plan-v1",
+    "planId": "02000000-0000-4000-8000-000000000094",
+    "verifiedOriginalId": "01000000-0000-4000-8000-000000000094",
+    "mode": "replacement|correction",
+    "parts": [
+      {
+        "index": 0,
+        "request": "complete ordinary request, or correction-v1 with recoveryOf:{verifiedOriginalId} and immutable correction:{clientImportId,idempotencyKey,payloadHash,createdAt,items}"
+      }
+    ],
+    "coverageShapes": [
+      {
+        "clientItemId": "row-1",
+        "kind": "child",
+        "partIndex": 0,
+        "childClientItemId": "new-child-row-1"
+      },
+      {
+        "clientItemId": "row-2",
+        "kind": "accepted_contributor",
+        "verifiedContributorId": "04000000-0000-4000-8000-000000000094",
+        "contributorClientItemId": "historical-row-2",
+        "desiredItem": "exact ordinary business intent row, including omission versus explicit null"
+      },
+      {
+        "clientItemId": "row-3",
+        "kind": "original_accepted"
+      },
+      {
+        "clientItemId": "row-4",
+        "kind": "accepted_plan_part",
+        "contributorPartIndex": 0,
+        "contributorClientItemId": "accepted-child-row-4",
+        "contributorPlanId": "optional ancestor UUID; default supersedes.planId"
+      }
+    ],
+    "coverageRules": "all original clientItemIds exactly once; all child rows exactly once; original_accepted only correction; contributors require exact immutable request intent and complete durable ACK, never current prices or NoChange",
+    "supersedes": {
+      "planId": "05000000-0000-4000-8000-000000000094",
+      "retiredChildren": [
+        {
+          "partIndex": 1,
+          "canonicalPayloadHash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      ]
+    },
+    "supersedesRules": "All predecessor unACKed children need exact authoritative retired fences; all prior accepted parts and contributions must carry complete durable immutable proof. Same root/shop/device/mode. One initial plan per root identity/canonical hash and one successor per predecessor. Old partial plan is immutable. Maximum 128 generations.",
+    "identityRules": {
+      "replacement": "coverage.clientItemId is immutable original/root ID; childClientItemId explicitly selects a row in the new child and can differ. Exact root coverage plus one-to-one child membership required. Corrected barcode/metadata are permitted by ordinary validation and current catalog.import.",
+      "correction": "existing correction item IDs and authoritative product mapping remain linked to original receipt root; no new field semantics.",
+      "acceptedPlanPart": "contributorClientItemId is actual immutable accepted ancestor CHILD ID. Server resolves original root ID from stored ancestor coverage; IDs need not be equal. Full ACK/status/hash/mapping proof mandatory; skipped own-row membership has null product and cannot prove economics."
+    }
+  },
+  "limits": {
+    "httpJsonBytes": 524288,
+    "rawPartBytes": 262144,
+    "uploadParts": 128,
+    "uploadTotalBytes": 33554432,
+    "originalItems": 60000,
+    "ordinaryItems": 1000,
+    "planChildren": 128,
+    "planTotalItems": 60000,
+    "childBusinessRequestBytes": 524288,
+    "receiptPageItems": 1000,
+    "acceptedContributorHandles": 128,
+    "recoveryGenerations": 128
+  },
+  "hashSemantics": {
+    "rawSha256": "sha256:<64 lowercase hex> over exact UTF-8 bytes; independent of client business declaration",
+    "payloadHash": "opaque bounded historic client declaration; never trusted as canonical proof",
+    "canonicalPayloadHash": "server rederives existing ordinary/correction business canonical SHA256 from complete original",
+    "manifestSha256": "SHA256 JSON.stringify normalized full manifest including originalKind and declaredPayloadHash for original uploads, server determined",
+    "planCanonicalHash": "SHA256 JSON.stringify complete server-normalized plan and all bound proof coverage",
+    "receiptSha256": "Server page identity SHA256 of persisted PostgreSQL jsonb::text full ACK; same on all pages; client verifies stable identity and complete coverage, not PostgreSQL serialization; live snapshots excluded"
+  },
+  "safety": {
+    "handleIsCapability": false,
+    "notFoundAllowsReplacement": false,
+    "finalizeApplies": false,
+    "planApplies": false,
+    "planRetires": false,
+    "replacementRequiresExistingRetirement": true,
+    "correctionRequiresAcceptedOriginal": true,
+    "parentCompleteRequiresEveryDurableChildAck": true,
+    "originalAttemptCount": "omitted|0|positive; negative/fractional/null rejected",
+    "ordinaryAttemptCount": "positive only",
+    "unsafeJsonInteger": "explicit fail, exact decimal text preserved within existing forensic limits",
+    "scope": "current authorized shop/device/owner catalog.import on each transaction and after wait",
+    "deployment": "not executed",
+    "neverSentOffline": "local ordinary parts, no recovery network or retirement required",
+    "acceptedPageSummary": "original full immutable ACK counts, not page counts",
+    "planPartReceiptRetireSelector": "XOR verifiedOriginalId OR planId+partIndex; part identity and original resolved from private immutable plan",
+    "acceptedPageComplete": "true iff offset+limit>=totalItemCount; client still proves full contiguous coverage, not one page"
+  },
+  "persistedOriginalFormats": {
+    "ordinary": "exact saved PayloadJson; payloadHash and attemptCount may be omitted; declaration separate upload metadata",
+    "correction": "exact request OR saved {originalReceipt,request}; only request parsed; saved receipt never authoritative",
+    "originalKind": "ordinary|correction required only upload mode=original",
+    "declaredPayloadHash": "required mode original; present raw identity declaration must match; root recoveryOf.payloadHash distinct from child declaration",
+    "rawMutation": false
+  },
+  "boundedPhases": {
+    "state": "SOURCE_CANDIDATE_DB_AND_RESOURCE_QUALIFICATION_PENDING_NOT_DEPLOYED",
+    "document": "bounded-phases.json",
+    "documentSha256": "0ab1a7331721a8a2476a622c9e62b4f7909755bbc3244e5266254679ac7d9a76",
+    "legacyLimitsBelow": true,
+    "largeWorkerFullBufferAllowed": false,
+    "goldensDocument": "bounded-phase-goldens.json",
+    "goldensSha256": "4b2c3c3e0536ad288ff27cbffa3b3bfe89c45b8a31c96f1cf0a2724ef7508809",
+    "planManifestRoot": "Phased plan manifests require verifiedOriginalId. The server derives the same logical ordinary root and staging claim; future credits are spent only after complete valid plan proof.",
+    "legacyLimitsScope": "The limits block below describes the historic full-manifest parser shape. Current compatibility admission permits raw<=4MiB, or returns phased_upload_required. The new phased candidate overrides aggregate raw/chunks/logical children with512MiB/2048/1024 and retains HTTP512KiB/ordinary1000."
+  },
+  "childResponses": {
+    "selector": {
+      "planId": "UUID",
+      "partIndex": "integer"
+    },
+    "knownChildFields": [
+      "planId",
+      "partIndex",
+      "originalSchemaVersion=pos-catalog-import-v1|pos-catalog-import-correction-v1",
+      "clientImportId=frozen child identity",
+      "idempotencyKey=frozen child identity",
+      "payloadHash=frozen child client declaration",
+      "canonicalPayloadHash=frozen child server canonical"
+    ],
+    "receiptStatuses": [
+      "accepted",
+      "not_found",
+      "conflict"
+    ],
+    "retireStatuses": [
+      "accepted",
+      "retired",
+      "conflict"
+    ],
+    "accepted": "First receipt/retire child page contains its complete <=1000-row ACK, fully validated in DB; do not assume receipt-page works until private part ACK exists. Explicit retire adopts an externally committed exact child ACK into its missing private part ACK with no economic replay. Receipt does not adopt/write.",
+    "retired": "oldIdentityBlocked=true and retiredAt server UTC. This fences this child only and does not complete/retire the whole plan.",
+    "paging": "First child receipt/retire page is complete because child<=1000. Separate receipt-page requires private part ACK, obtained by ordinary B apply or explicit retire accepted adoption if external standard apply won. It returns conflict part_not_accepted without that adoption. Stable receipt hash/summary and complete range checks remain required.",
+    "unknownPlanOrPart": "HTTP404 failure no identity binding can be asserted; known-child conflicts may report reason and binding per source gate",
+    "stalePreparedPlan": "Re-register exact same saved upload/plan bytes and same IDs after lost response, then explicitly retire every unaccepted staged child (ACK wins => carry), then immutable successor supersedes. Never rewrite prepared bytes/intent or infer the group completed from one part.",
+    "actionMetadata": {
+      "receiptChild": {
+        "present": [
+          "originalSchemaVersion",
+          "planId",
+          "partIndex",
+          "clientImportId",
+          "idempotencyKey",
+          "payloadHash",
+          "canonicalPayloadHash"
+        ],
+        "absent": [
+          "verifiedOriginalId",
+          "parentStatus",
+          "partCount",
+          "acceptedPartCount"
+        ]
+      },
+      "retireChild": {
+        "present": [
+          "originalSchemaVersion",
+          "planId",
+          "partIndex",
+          "clientImportId",
+          "idempotencyKey",
+          "payloadHash",
+          "canonicalPayloadHash"
+        ],
+        "absent": [
+          "verifiedOriginalId",
+          "parentStatus",
+          "partCount",
+          "acceptedPartCount"
+        ]
+      },
+      "receiptPageChild": {
+        "present": [
+          "planId",
+          "partIndex",
+          "clientImportId",
+          "idempotencyKey",
+          "payloadHash",
+          "canonicalPayloadHash",
+          "parentStatus",
+          "partCount",
+          "acceptedPartCount"
+        ],
+        "absent": [
+          "originalSchemaVersion",
+          "verifiedOriginalId"
+        ]
+      },
+      "missingFieldRule": "Absent metadata is null in client acquisition records; no parent inference."
+    },
+    "lostRetirementResponseRule": "See ../child-retirement-lost-response/wire.rule.json and its captured immutable raw frames. Conflict/identity_retired is not a retired proof; retry the same explicit retire selector to obtain persisted timestamp and oldIdentityBlocked."
+  },
+  "transportFailureCodes": {
+    "quota_exceeded": {
+      "httpStatus": 409,
+      "newFence": false
+    },
+    "identity_conflict": {
+      "httpStatus": 409,
+      "newFence": false
+    },
+    "phased_upload_required": {
+      "httpStatus": 409,
+      "newFence": false,
+      "retry": "Same immutable raw bytes and upload identity through root-bound phases; no saved intent rewrite."
+    }
+  }
+}

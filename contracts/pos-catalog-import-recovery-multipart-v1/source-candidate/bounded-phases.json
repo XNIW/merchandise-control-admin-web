@@ -1,0 +1,149 @@
+{
+  "state": "SOURCE_CANDIDATE_DB_AND_RESOURCE_QUALIFICATION_PENDING_NOT_DEPLOYED",
+  "schemaVersion": "pos-catalog-import-recovery-multipart-v1",
+  "actionsUnchanged": true,
+  "limits": {
+    "httpBodyBytes": 524288,
+    "chunkBytes": 262144,
+    "rawTotalBytes": 536870912,
+    "maxChunks": 2048,
+    "manifestPageDescriptors": 256,
+    "maxOriginalRows": 60000,
+    "maxPlanChildren": 1024,
+    "maxAncestry": 128,
+    "normalizationPageItems": 1000,
+    "normalizationPageJsonBytes": 262144,
+    "compatibilityAutoRawBytes": 4194304,
+    "wholePrivateRpcFrameBytes": 2097152,
+    "headerJsonBytes": 16384,
+    "relatedProjectionPageJsonBytes": 262144,
+    "deviceRetainedUploadCount": 512,
+    "deviceRetainedDeclaredRawBytes": 8589934592,
+    "deviceIncompleteUploadCount": 32,
+    "deviceIncompleteDeclaredRawBytes": 2147483648,
+    "initialFuturePlanCredits": 2,
+    "futurePlanCreditBytes": 536870912,
+    "stagingAllowanceBytes": 536870912,
+    "validatedHeadFuturePlanCredits": 1
+  },
+  "upload": {
+    "manifest": {
+      "phase": "manifest",
+      "uploadId": "UUID",
+      "mode": "original|plan",
+      "originalKind": "ordinary|correction only original",
+      "declaredPayloadHash": "immutable external outbox declaration only original",
+      "totalByteLength": "integer",
+      "rawSha256": "sha256:HEX",
+      "partCount": "integer1..2048",
+      "manifestSha256": "sha256:HEX of existing manifest JSON.stringify",
+      "offset": "integer contiguous descriptor cursor",
+      "parts": "<=256 {index,byteLength,sha256}; whole index order",
+      "verifiedOriginalId": "required only plan: verified ordinary root UUID, scoped/authenticated, matched raw plan root and logical capacity credit"
+    },
+    "seal": {
+      "phase": "seal",
+      "uploadId": "UUID",
+      "manifestSha256": "sha256:HEX"
+    },
+    "bytes": {
+      "phase": "bytes",
+      "uploadId": "UUID",
+      "manifestSha256": "sha256:HEX",
+      "partIndex": "integer",
+      "sha256": "sha256:HEX of part",
+      "contentBase64": "exact <=256KiB raw bytes"
+    },
+    "notes": [
+      "Manifest registration/seal precedes bytes. Retry exact immutable page allowed; mismatch conflicts. DB rechecks descriptor counts/sum/full manifest hash and complete original raw hash.",
+      "Legacy full manifest+bytes supported only within original small bounds, never transfers >4MiB upload to Worker."
+    ]
+  },
+  "finalize": {
+    "prepare": {
+      "phase": "prepare",
+      "uploadId": "UUID"
+    },
+    "normalize": {
+      "phase": "normalize",
+      "uploadId": "UUID",
+      "cursor": "server-returned exact integer offset",
+      "rawSha256": "prepare returned sha256:HEX"
+    },
+    "complete": {
+      "phase": "complete",
+      "uploadId": "UUID",
+      "rawSha256": "prepare returned sha256:HEX"
+    },
+    "response": {
+      "status": "normalizing|verified|conflict",
+      "nextCursor": "integer|null",
+      "totalItemCount": "integer",
+      "rawSha256": "immutable raw hash",
+      "phase": "items|correction|complete",
+      "cursorRule": "Always follow server nextCursor, never synthesize or override it. Known-root correction begins at opaque cursor1000000; ordinary items begin0, and embedded-root correction transitions to its server-returned correction cursor."
+    },
+    "canonicalNotes": [
+      "Private DB parses entire exact raw original. Worker only receives bounded DB-derived header/item pages. Original saved JSON and outbox declaration remain unchanged.",
+      "Official forensic parser normalizes every item. Ordered exact JSON.stringify normalized item fragments plus official header canonical prefix/suffix produce full server hash identical to existing ordinary parser; no caller declared hash is trusted.",
+      "Global IDs, identity trim collisions, write-barcode uniqueness and full count are checked before verified. Correction nested root is independently normalized/proved; wrapper originalReceipt remains local untrusted evidence."
+    ]
+  },
+  "plan": {
+    "prepare": {
+      "phase": "prepare",
+      "uploadId": "UUID"
+    },
+    "normalize": {
+      "phase": "normalize",
+      "uploadId": "UUID",
+      "stage": "children|coverage",
+      "cursor": "server-returned exact integer",
+      "rawSha256": "prepare returned sha256:HEX"
+    },
+    "complete": {
+      "phase": "complete",
+      "uploadId": "UUID",
+      "rawSha256": "prepare returned sha256:HEX"
+    },
+    "response": {
+      "status": "normalizing|planned|conflict",
+      "nextCursor": "integer|null",
+      "stage": "children|coverage|complete",
+      "zeroNewChildren": "Raw manifest has at least one chunk even if logical parts=[]; prepare starts coverage directly. After full coverage/ACK/retirement/lineage proof, planned parentStatus=complete with partCount0/itemCount0/parts[]; no synthetic ACK or predecessor rewrite."
+    },
+    "notes": [
+      "Server reads bounded child requests or coverage pages from exact raw plan stored in DB. Original root selection is <=1000 relevant rows; no full original Worker hydration.",
+      "Each child retains original ordinary<=1000 and full HTTP512KiB including current trust; correction CAS/fields rules unchanged. Global root\u2194child bijection and economic collisions validated in DB complete.",
+      "Planning does not retire identities. Supported product capacity is certified before original retirement; explicit retirement, immutable linear ancestry and ALL predecessor unACKed child fences remain mandatory."
+    ]
+  },
+  "offline": [
+    "New/never_sent imports may split locally and remain offline; no upload/proof/retire is imposed."
+  ],
+  "journal": [
+    "Client must durably journal immutable staged plan identities before its first plan request. Edited draft requires explicit successor after retiring all unACKed children."
+  ],
+  "runtime": "NOT_QUALIFIED; source and isolated predecessor evidence are distinct from final phased/resource and deployed caller gates.",
+  "quota": {
+    "counting": "ALL retained verified/proof/plan raw included in 8GiB/512 count; incomplete/nonterminal admission separately capped2GiB/32. Exact retry free. No automatic delete/cleanup or completion release of retained storage.",
+    "retirement": "Only authoritative not_found can reserve before a new identity fence. Reserve two future valid-plan 512MiB credits/slots plus one separate 512MiB staging allowance/slot for an initial logical root. With a validated head, reserve one future successor credit plus staging. Accepted or exact already-retired identities reuse their durable proof without a fresh reservation. Known public alias identity overlaps must match the exact tuple/hash before any fence.",
+    "order": "Every quota-changing B operation, including apply/plan closure and the known public retire alias, takes quota admission lock before root/plan/identity locks. Exact retries do not debit again.",
+    "failure": "Typed HTTP409 quota_exceeded or identity_conflict creates no new retirement fence/economic mutation. Failed audit raw remains retained; reopening staging requires atomic capacity validation. Finite storage does not promise unlimited invalid retries.",
+    "meaning": "Ancestry128 structural limit is not a guarantee128maximum-density histories fitfinite storage; capacity refusal before fence remains non-destructive.",
+    "registration": "A root-bound plan manifest may claim only the staging allowance; protected future-plan credits remain unchanged. Whole raw root binding and official complete plan proof convert one credit and restore staging atomically. Raw admission is counted once; a mismatched/partial document does not spend future credits.",
+    "closure": "Only an authoritative complete current leaf releases unused future promises. Historical complete ancestors, unrelated pending/unsealed uploads and partial plans cannot release them. Known validated predecessor artifacts may close their active admission after verified successor proof; immutable logical status and raw audit remain unchanged."
+  },
+  "canonicalNotes": [
+    "Phased whole private normalization RPC frame <=2MiB; each item or related projection <=256KiB/1000, header<=16KiB. No whole upper original/plan or page accumulation in Worker. Compatibility exceptions are listed separately.",
+    "UTF8fatal/BOM behavior aligned: rawSHA unchanged, at most one leading UTF8BOM stripped only in parser view. Unsupported PG JSON unicode null/unpaired surrogates must explicitly fail before retirement."
+  ],
+  "compatibility": {
+    "fullManifestRawBytes": 4194304,
+    "parserManifestParts": 128,
+    "rawBase64RpcBytesApproximate": 5592408,
+    "normalizedReadOriginalJsonbTextBytes": 16777216,
+    "failureWhenPlanProtectedCapacityNeedsRootBinding": "HTTP409 phased_upload_required; repeat exact immutable bytes/upload identity through root-bound phases, changing only envelope manifest hash",
+    "phaseLimitsApplyTo": "The 2MiB whole normalization frame and 256KiB selected projections apply to phases; finite compatibility exceptions above are explicit."
+  }
+}
