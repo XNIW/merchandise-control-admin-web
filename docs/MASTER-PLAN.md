@@ -1,5 +1,19 @@
 # MerchandiseControl Admin Web - Master Plan
 
+## TASK-094 REVIEW — fix circoscritto della normalizzazione, 11 ottobre 2026
+
+La richiesta utente dell'11 ottobre autorizza il FIX necessario nel worktree
+isolato da main15ee1886. Il task attivo resta solo TASK-094. Il delta Admin
+ha preparato una migration forward per il controllo globale di identita durante la
+normalizzazione originale: folding esplicito delle due CTE, stessi predicati,
+scope e failure. La distinta espansione raw/normalized del child e tracciata nel
+task e corretta nella lane POS; il guard SQL512KiB resta invariato qui.
+Nessuna migration storica viene riscritta. Runtime/query/test/build/apply/deploy
+e pubblicazione restano NOT_RUN in questa fase source-only. Il FIX termina con
+handoff verso REVIEW; review indipendente e nuova qualifica sono pending,
+nessun DONE o READY.
+[Scope e procedura](TASKS/TASK-094-pos-catalog-import-receipt-and-retirement.md).
+
 ## TASK-094 authorized isolated continuation — 8 October 2026
 
 POS import receipt, explicit identity retirement and linked masked correction are
