@@ -1,5 +1,21 @@
 # MerchandiseControl Admin Web - Master Plan
 
+## TASK-094 REVIEW — candidata pairing identita, 12 ottobre 2026 UTC
+
+Il coordinatore autorizza la sola preparazione sorgente da main9f8d6a7e nel
+nuovo worktree `admin-post-pr123-identity-pairing-fix-20261012`. Una migration
+forward pinned e018→e638 sostituisce soltanto il terzo EXISTS globale root con
+UNION ALL e GROUP BY(group_index,ordinal), mantenendo scopi, NULL/alias,
+guard/ACL/auth, hash/DML, cap e timeout. Nessun nuovo filtro group_index=0.
+Il pgTAP dedicato confronta query estratta dal prosrc, JOIN precedente ed
+expected indipendenti in17 gruppi/22 vettori su vere staging tables rollback-only,
+senza auth stub. Il massimo59999 REV3 resta FAIL; il piano read-only a2de acquisito
+mostra pairing Nested Loop con scansioni PK soltanto scoped e filtro group/ordinal.
+E un piano stimato postrollback, non il piano storico o tempi di esecuzione:
+efficacia della candidata non provata. Solo parser/static ora; PG/test/build/
+apply/deploy/pubblicazione NOT_RUN. Handoff verso REVIEW, nessun DONE/READY.
+[Scope e criteri](TASKS/TASK-094-pos-catalog-import-receipt-and-retirement.md).
+
 ## TASK-094 REVIEW — fix circoscritto della normalizzazione, 11 ottobre 2026
 
 La richiesta utente dell'11 ottobre autorizza il FIX necessario nel worktree

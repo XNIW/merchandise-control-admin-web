@@ -63,6 +63,78 @@ Next: frozen-source review and normal PR/CI. Applying the two exact migrations a
 deploying exact source require their separate concrete authorization; acceptance
 on the real caller/shop and platform remains NOT_RUN.
 
+## Candidata source-only del 12 ottobre 2026 UTC: pairing delle identita
+
+Stato: CODEX_CANDIDATE_COMPLETE_TO_REVIEW. Il coordinatore autorizza soltanto
+la preparazione sorgente nel nuovo worktree
+`admin-post-pr123-identity-pairing-fix-20261012`, branch
+`codex/admin-post-pr123-identity-pairing-fix-20261012`, da main Admin
+`9f8d6a7e53835b04ed41a1bc4ce568d65b4a8db2`, tree
+`7f992cd0ff4676efce8cf35fac8208dea8bfea88`. Le prove e il checkout e3 precedenti
+restano congelati. Il massimo59999 effettivo REV3 resta FAIL, receipt_unavailable
+sull'ultima normalizzazione originale. Il successivo piano read-only e acquisito;
+questa candidata non ha efficacia prestazionale o qualifica funzionale provata.
+
+Diagnostica a2de, PASS_READ_ONLY_ESTIMATED_PLAN_SCOPE, receipt SHA256
+`671945c33bf243bc465f7894fb38b99349a9a807b34985c8a46d4db20357bd42`:
+`maximum-uniform/V2_REV3_MAXIMUM_PLAN_DIAGNOSTIC_PREPARATION_fba1/runs/a2de0abe9f36421f962a4c533659a88f/`.
+Il corpo effettivo resta e018, prosrc SHA256
+`2cf20cf2c6a518c73a98a3e2db5118e3aca2be65004cb831d6d23aad1eb2d532`.
+`plan-disjunction-3.json`, SHA256
+`a39bb7e780566afec28a8fc0dac721539cc56a82007fb8db13397e10e44d3279`,
+mostra un Nested Loop normalized/raw con group_index+ordinal nel Join Filter:
+entrambi gli Index Scan PK hanno Index Cond soltanto shop/device/upload/domain
+e Plan Rows1. Il secondo Nested Loop applica i VALUES; i primi due guard hanno
+zero Nested Loop. Questo supporta il perimetro della candidata, non il successo
+del fix. EXPLAIN FORMAT JSON senza ANALYZE, su sessione riaperta e stato dopo
+rollback dell'ultima249 righe: non e il piano storico della transazione pending,
+non misura tempi/loop/spill di esecuzione. La durata della richiesta EXPLAIN non
+e latenza SQL. Metadata completo pg_proc immutato, rollback e cleanup/release
+conclusi; nessun runtime o query nuova e eseguito da questa lane sorgente.
+
+La CLI Supabase2.109.0, dopo `migration new --help`, ha creato
+`20261012005020_pos_import_recovery_identity_pairing.sql`. Il forward sostituisce
+solo il terzo EXISTS dell'IF `global original identity collision`: scalari
+normalized/raw con tag di lato, UNION ALL e GROUP BY(group_index,ordinal),
+MAX/FILTER su ciascun lato e HAVING presenza di entrambi. La PK completa e i
+WHERE scoped immutati garantiscono al massimo una riga per lato/chiave; MAX
+preserva anche NULL e i flag escludono gli orfani come l'inner join precedente.
+Il primo guard clientItemId, il secondo barcode new/updated, alias camel/snake,
+LATERAL, filtro nonempty, collation e COUNT DISTINCT restano invariati. Non viene
+aggiunto group_index=0. Auth/lease/fence, hash/cursor/ACK, DML, cap, timeout,
+indici, GUC e dipendenze restano identici.
+
+Guard del corpo normalizzato LF: MD5 `e0189819fb64f62c7cd4e1b0019610bb` prima,
+`e638c34aaa588e2b64f63fa3dc3102b0` dopo; replacement univoco e confronto della
+riga pg_proc completa eccetto prosrc, inclusi OID/owner/ACL/config/flags.
+LF e CRLF vengono riconosciuti senza riscrivere i byte circostanti. Drift o
+postcondition mismatch abortiscono la transazione. Nessuna migration storica
+viene modificata. La spec esterna del replace ha SHA256
+`4918a33f131a476031e784a71ff294cd7fc32379e79a521ca0599356d2e8eb86`.
+
+`supabase/tests/task_094_import_recovery_identity_pairing.sql` prepara22 vettori
+in17 gruppi su vere document/raw/normal staging tables, nella propria transazione
+rollback-only. La query candidata e estratta dal prosrc installato con anchor
+univoci; la baseline JOIN e una copia indipendente dell'espressione e018.
+Entrambe vengono confrontate con expected espliciti, fra loro e con lo snapshot
+completo delle fixture prima/dopo. Copertura: ID e barcode duplicati oltre pagina,
+NULL/empty, new/updated/no_change, alias e precedenza camelCase vuoto, trim/NFC
+preprojected, stesso ordinal fra gruppi, collisione nel gruppo1, orfani e scope
+shop/device/upload/domain estranei. I vettori avversariali sono prove della query,
+non una dichiarazione di ammissione del parser. Nessuno stub auth o grant nuovo.
+Il percorso reale store-normalize-page rimane alla qualifica uniforme dell'owner.
+
+File del delta: nuova migration, nuovo pgTAP, questa scheda e MASTER-PLAN.
+Check autorizzati ora: solo parser/static e git diff --check; risultati concreti
+sono registrati nell'handoff esterno. pgTAP/PG/runtime/build/apply/deploy/push:
+NOT_RUN per lease diagnostica del coordinatore. Il workflow CI esistente applica
+le migration e raccoglie il nuovo file con `supabase test db`, senza nuovi job.
+Su PG isolato occorrono la chain reale installata e pgTAP reale; niente fallback
+auth/TAP stubbato. Review distinta e freeze di source/fixture, valutati insieme
+al piano stimato acquisito, precedono pubblicazione e runtime. Seguono prove catalog pre/post/rollback/drift,
+parita DB, nuova calibrazione5000 e qualifica59999 completa con cap/deadline e
+contatori/economia esattamente una volta invariati. Nessun DONE o READY.
+
 ## Handoff source-only dell'11 ottobre 2026: normalizzazione originale
 
 Stato: CODEX_FIX_COMPLETE_TO_RE_REVIEW. La richiesta utente dell'11 ottobre
