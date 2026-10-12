@@ -10,8 +10,8 @@ select no_plan();
 select is(
   (select md5(replace(prosrc,E'\r\n',E'\n')) from pg_catalog.pg_proc
    where oid='app_private.pos_import_recovery_phased_v1(uuid,uuid,uuid,uuid,uuid,text,jsonb)'::regprocedure),
-  'e638c34aaa588e2b64f63fa3dc3102b0',
-  'installed candidate has the exact prosrc-only pairing body'
+  '0eec947d66bbac2930385977b448a836',
+  'installed body includes identity pairing and the later complete-plan builder'
 );
 
 create temporary table identity_pairing_expressions(origin text primary key,expression text not null);

@@ -63,6 +63,68 @@ Next: frozen-source review and normal PR/CI. Applying the two exact migrations a
 deploying exact source require their separate concrete authorization; acceptance
 on the real caller/shop and platform remains NOT_RUN.
 
+## Continuazione source-only del 12 ottobre 2026 UTC: complete-plan con un builder
+
+Stato: REVIEW, candidata da verificare. Il coordinatore autorizza il FIX soltanto
+nel nuovo worktree `admin-post-pr123-plan-complete-fix-20261012`, branch
+`codex/admin-post-pr123-plan-complete-fix-20261012`, da Admin
+`ae0e8304144bb7b567dc3ed354f3092cd2bdb69d`, tree
+`41f74d9d71d1430f9602351ab3046defc4352854`. Il checkout pairing precedente e la
+primary Admin restano immutati. Il fallimento reale fresh 59999 e5bf resta FAIL:
+complete-plan ha concluso tardi, senza child apply; non viene riqualificato qui.
+
+La diagnostica COPY_PROFILE REV6 sulla copia owned e5bf ha raggiunto gli 11
+marker Phased e 13 SmallV1, confrontato tutta la risposta planned con quella
+cached e chiuso con rollback e catalog/data invariati. La chiamata misurata e
+7587.597 ms; P08, hash e assemblaggio `v_normal`, 1490.084 ms. Queste misure
+calde includono storage gia planned e ON CONFLICT, non il percorso fresh e5bf
+da 11493.906 ms; il costo residuo non viene attribuito a un singolo operatore.
+Validation raw: `05-profile-validation.json`, SHA256
+`2e1180f283a7aaba5ecc2cc19eaaf267296b92d2efd007498d51acc9ae45ba75`, nel run
+`maximum-uniform/V3_REV2_MAXIMUM_e5bf_COPY_PROFILE_PREPARATION/revisions/rev6-qualified-reset-plpgsql-load/runs/863eb4b85cb9444fa34a075f56921b67/`.
+Il successo diagnostico non prova miglioramento della candidata o accettazione
+del massimo. Nuove calibrazione 5000 e qualifica 59999 restano necessarie.
+
+La CLI Supabase 2.109.0 ha generato, senza DB/apply,
+`20261012055628_pos_import_recovery_plan_single_builder.sql`. Il forward modifica
+soltanto il builder complete-plan `v_normal` in Phased. Per header JSON oggetto,
+`jsonb_each` conserva i campi sconosciuti ed esclude le quattro chiavi sostituite;
+UNION ALL con VALUES aggiunge parts, coverage, planCanonicalHash e itemCount.
+Un unico `jsonb_object_agg`, senza ORDER BY, costruisce il risultato con chiavi
+uniche e stessa precedenza RHS. Coverage conserva il coalesce a []; COUNT usa
+gli stessi shop/device/upload/domain e include ogni group_index come prima.
+Per SQL NULL, JSON null, scalari e array il fallback e l'esatta espressione
+precedente. Ordine degli array e valori null restano invariati. Hash UTF8 e
+prefisso canonico, P05, tutto SmallV1, prova raw, guard, risultato ed errori,
+auth, cap, timeout, GUC, indici e dipendenze restano invariati.
+
+Pin del prosrc normalizzato LF prima: MD5
+`e638c34aaa588e2b64f63fa3dc3102b0`, SHA256
+`821d34d4ca0234b42ae48b87715bad224c901ef9e0a35fbeb4204a63a45d1b1d`.
+Dopo: MD5 `0eec947d66bbac2930385977b448a836`, SHA256
+`b3062b925c3968caf9bba6129a288e49006cdeb9140165c24a3245628192a3d2`.
+La migration riconosce LF/CRLF, esige un solo blocco precedente e confronta
+l'intera riga pg_proc eccetto prosrc, inclusi OID/owner/ACL/config/flags.
+Drift di baseline o postcondizione solleva 55000 e abortisce la transazione.
+Non vengono riscritte migration storiche o create nuove funzioni pubbliche.
+
+`supabase/tests/task_094_import_recovery_plan_single_builder.sql` verifica il
+blocco estratto dal prosrc effettivo contro l'espressione precedente e expected
+indipendenti: header mancanti/null/non-oggetto/vuoti, precedenza RHS, ordinary e
+correction, CJK, ordine degli array, campi sconosciuti e COUNT scoped su staging
+reale. Verifica inoltre il forward effettivo, metadata completo, drift 55000 e
+rollback con catalog/data intatti. Nessun auth stub o rilassamento di assert.
+I 22 vettori/17 gruppi di identity pairing restano immutati; cambia soltanto il
+pin del corpo installato, che ora include il builder successivo.
+
+File del delta: nuova migration e nuovo pgTAP, pin del test pairing, questa
+scheda e MASTER-PLAN. La verifica statica e i pin concreti sono nell'handoff
+esterno; test/SQL/build/apply/deploy e beneficio prestazionale restano NOT_RUN
+da questa lane. Il workflow esistente esegue la chain e `supabase test db`.
+Servono review indipendente, PG isolato con chain reale e pgTAP reale, CI sul
+nuovo commit e prove 5000/59999 con medesimi cap/deadline e controlli economici.
+Nessun DONE, READY o nuova qualifica viene emesso da questo delta source-only.
+
 ## Candidata source-only del 12 ottobre 2026 UTC: pairing delle identita
 
 Stato: CODEX_CANDIDATE_COMPLETE_TO_REVIEW. Il coordinatore autorizza soltanto
