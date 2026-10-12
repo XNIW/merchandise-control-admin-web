@@ -1,5 +1,42 @@
 # MerchandiseControl Admin Web - Master Plan
 
+## TASK-094 REVIEW — complete-plan con un solo builder, 12 ottobre 2026 UTC
+
+Il coordinatore autorizza la continuazione FIX nel nuovo worktree isolato
+`admin-post-pr123-plan-complete-fix-20261012`, da Admin ae0e8304. La diagnostica
+owned COPY_PROFILE REV6 ha raggiunto tutti i 24 marker e restituito il JSON
+planned identico alla risposta cached: chiamata 7587.597 ms, blocco Phased P08
+1490.084 ms. Sono tempi su una copia calda, con piano e parti gia presenti e
+rollback: non misurano il precedente fallimento 59999 o una nuova qualifica.
+La sola candidata sostituisce il builder `v_normal` di complete-plan per gli
+header oggetto con un unico `jsonb_object_agg`, chiavi uniche e precedenza dei
+quattro campi RHS; nessun ORDER BY sui grandi valori. Per header SQL NULL,
+JSON null, scalari e array resta l'espressione precedente. Hash canonico, P05,
+SmallV1 completo, proof, auth, OID/owner/ACL, cap e deadline restano invariati.
+La migration forward pinned e638/821d → 0eec/b306 controlla drift e metadata
+completo; il nuovo pgTAP confronta il blocco installato, l'espressione precedente
+e expected indipendenti, con scopi reali e rollback. I vettori pairing precedenti
+restano invariati, salvo il pin del corpo installato. Source-only: efficacia,
+pgTAP locale, applicazione e nuove prove 5000/59999 ancora NOT_RUN. Review
+indipendente e runtime sul nuovo freeze precedono ogni qualifica; nessun DONE/READY.
+[Scope, digests e criteri](TASKS/TASK-094-pos-catalog-import-receipt-and-retirement.md).
+
+## TASK-094 REVIEW — candidata pairing identita, 12 ottobre 2026 UTC
+
+Il coordinatore autorizza la sola preparazione sorgente da main9f8d6a7e nel
+nuovo worktree `admin-post-pr123-identity-pairing-fix-20261012`. Una migration
+forward pinned e018→e638 sostituisce soltanto il terzo EXISTS globale root con
+UNION ALL e GROUP BY(group_index,ordinal), mantenendo scopi, NULL/alias,
+guard/ACL/auth, hash/DML, cap e timeout. Nessun nuovo filtro group_index=0.
+Il pgTAP dedicato confronta query estratta dal prosrc, JOIN precedente ed
+expected indipendenti in17 gruppi/22 vettori su vere staging tables rollback-only,
+senza auth stub. Il massimo59999 REV3 resta FAIL; il piano read-only a2de acquisito
+mostra pairing Nested Loop con scansioni PK soltanto scoped e filtro group/ordinal.
+E un piano stimato postrollback, non il piano storico o tempi di esecuzione:
+efficacia della candidata non provata. Solo parser/static ora; PG/test/build/
+apply/deploy/pubblicazione NOT_RUN. Handoff verso REVIEW, nessun DONE/READY.
+[Scope e criteri](TASKS/TASK-094-pos-catalog-import-receipt-and-retirement.md).
+
 ## TASK-094 REVIEW — fix circoscritto della normalizzazione, 11 ottobre 2026
 
 La richiesta utente dell'11 ottobre autorizza il FIX necessario nel worktree
