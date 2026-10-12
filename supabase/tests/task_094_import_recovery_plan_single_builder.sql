@@ -275,7 +275,7 @@ $apply$;
 create function pg_temp.single_builder_guard_probe(p_case text) returns jsonb language plpgsql as $probe$
 declare
   v_target regprocedure:='app_private.pos_import_recovery_phased_v1(uuid,uuid,uuid,uuid,uuid,text,jsonb)'::regprocedure;
-  v_before jsonb; v_baseline jsonb; v_after jsonb; v_data jsonb;
+  v_before jsonb; v_namespace_before jsonb; v_baseline jsonb; v_after jsonb; v_data jsonb;
   v_definition text; v_candidate text; v_state text; v_message text;
   v_baseline_pin boolean:=false; v_after_pin boolean:=false; v_metadata_equal boolean:=false;
   v_applied boolean:=false;
@@ -283,6 +283,7 @@ declare
        'itemCount',(select count(*) from app_private.pos_import_recovery_normal_rows where shop_id=p_shop_id and shop_device_id=p_shop_device_id and upload_id=v_id and domain='child'));$prior_builder$;
 begin
   select to_jsonb(p) into strict v_before from pg_catalog.pg_proc p where oid=v_target;
+  select to_jsonb(n) into strict v_namespace_before from pg_catalog.pg_namespace n where nspname='app_private';
   v_data:=pg_temp.single_builder_snapshot();
   begin
     select body into strict v_candidate from single_builder_artifacts where name='candidate';
@@ -310,7 +311,11 @@ begin
         execute replace(v_definition,v_prior_builder,v_prior_builder||E'\n     -- intentional test body drift');
       when 'security_drift' then execute format('alter function %s security invoker',v_target);
       when 'search_path_drift' then execute format('alter function %s set search_path to public',v_target);
-      when 'owner_drift' then execute format('alter function %s owner to service_role',v_target);
+      when 'owner_drift' then
+        -- ALTER OWNER requires CREATE for the new owner. Both this grant and
+        -- the owner change are inside this caught subtransaction.
+        execute 'grant create on schema app_private to service_role';
+        execute format('alter function %s owner to service_role',v_target);
       when 'strict_drift' then execute format('alter function %s strict',v_target);
       when 'volatile_drift' then execute format('alter function %s stable',v_target);
       when 'parallel_drift' then execute format('alter function %s parallel safe',v_target);
@@ -333,7 +338,9 @@ begin
   return jsonb_build_object(
     'baselinePin',v_baseline_pin,'applied',v_applied,'state',v_state,'message',v_message,
     'afterPin',v_after_pin,'metadataEqual',v_metadata_equal,
-    'rollbackCatalogEqual',(select to_jsonb(p) from pg_catalog.pg_proc p where oid=v_target) is not distinct from v_before,
+    'rollbackCatalogEqual',
+      (select to_jsonb(p) from pg_catalog.pg_proc p where oid=v_target) is not distinct from v_before
+      and (select to_jsonb(n) from pg_catalog.pg_namespace n where nspname='app_private') is not distinct from v_namespace_before,
     'rollbackDataEqual',pg_temp.single_builder_snapshot() is not distinct from v_data);
 end;
 $probe$;
@@ -360,7 +367,7 @@ select is(result->>'message',expected_message,case_name||': actual migration err
 from single_builder_guard_results order by case_no;
 select is((result->>'applied')::boolean,expected_applied,case_name||': drift refuses before body replacement')
 from single_builder_guard_results order by case_no;
-select is(result->>'rollbackCatalogEqual','true',case_name||': caught transaction restores complete original pg_proc')
+select is(result->>'rollbackCatalogEqual','true',case_name||': caught transaction restores complete original pg_proc and pg_namespace')
 from single_builder_guard_results order by case_no;
 select is(result->>'rollbackDataEqual','true',case_name||': caught transaction preserves every owned staging field')
 from single_builder_guard_results order by case_no;
