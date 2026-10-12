@@ -15,12 +15,12 @@ select no_plan();
 select is(
   (select md5(replace(prosrc,E'\r\n',E'\n')) from pg_catalog.pg_proc
    where oid='app_private.pos_import_recovery_phased_v1(uuid,uuid,uuid,uuid,uuid,text,jsonb)'::regprocedure),
-  '0eec947d66bbac2930385977b448a836','installed candidate full prosrc MD5');
+  '564beca67b00d3e9867be23210a0a8ec','installed candidate full prosrc MD5');
 select is(
   (select encode(extensions.digest(convert_to(replace(prosrc,E'\r\n',E'\n'),'UTF8'),'sha256'),'hex')
    from pg_catalog.pg_proc
    where oid='app_private.pos_import_recovery_phased_v1(uuid,uuid,uuid,uuid,uuid,text,jsonb)'::regprocedure),
-  'b3062b925c3968caf9bba6129a288e49006cdeb9140165c24a3245628192a3d2','installed candidate full prosrc SHA256');
+  '1290b84c7a62ac8677c6da22f2521f5a93d5d123dc263e5c00ea2673f61e4faa','installed candidate full prosrc SHA256');
 
 create temporary table single_builder_artifacts(name text primary key,body text not null);
 insert into single_builder_artifacts values('migration',$migration_artifact$do $migration$
@@ -111,9 +111,9 @@ declare
 begin
   select replace(prosrc,E'\r\n',E'\n') into strict v_source from pg_catalog.pg_proc
     where oid='app_private.pos_import_recovery_phased_v1(uuid,uuid,uuid,uuid,uuid,text,jsonb)'::regprocedure;
-  if md5(v_source) is distinct from '0eec947d66bbac2930385977b448a836'
+  if md5(v_source) is distinct from '564beca67b00d3e9867be23210a0a8ec'
     or encode(extensions.digest(convert_to(v_source,'UTF8'),'sha256'),'hex')
-       is distinct from 'b3062b925c3968caf9bba6129a288e49006cdeb9140165c24a3245628192a3d2'
+       is distinct from '1290b84c7a62ac8677c6da22f2521f5a93d5d123dc263e5c00ea2673f61e4faa'
     or length(v_source)-length(replace(v_source,v_begin,''))<>length(v_begin)
     or length(v_source)-length(replace(v_source,v_next,''))<>length(v_next) then
     raise exception 'installed builder extraction baseline/anchor mismatch';
@@ -279,6 +279,22 @@ declare
   v_definition text; v_candidate text; v_state text; v_message text;
   v_baseline_pin boolean:=false; v_after_pin boolean:=false; v_metadata_equal boolean:=false;
   v_applied boolean:=false;
+  v_active_coverage constant text:=$active_coverage$       with selected_entries as materialized (
+         select entry->>'kind' kind,entry->>'partIndex' part_index_text,entry->>'childClientItemId' client_item_id
+           from jsonb_array_elements(v_items) entry
+       )
+       select coalesce(jsonb_agg(((child.child-'items')#-'{normalized,items}')||jsonb_build_object('items',chosen.items) order by child.part_index),'[]'::jsonb) into v_children
+         from app_private.pos_import_recovery_child_headers child cross join lateral (
+           select jsonb_agg(n.row_json order by n.ordinal) items from app_private.pos_import_recovery_normal_rows n
+           where n.shop_id=p_shop_id and n.shop_device_id=p_shop_device_id and n.upload_id=v_id and n.domain='child' and n.group_index=child.part_index
+             and exists(select 1 from selected_entries entry where entry.kind='child' and entry.part_index_text::integer=child.part_index and entry.client_item_id=n.client_item_id)) chosen
+         where child.shop_id=p_shop_id and child.shop_device_id=p_shop_device_id and child.upload_id=v_id and chosen.items is not null;$active_coverage$;
+  v_prior_coverage constant text:=$prior_coverage$       select coalesce(jsonb_agg(((child.child-'items')#-'{normalized,items}')||jsonb_build_object('items',chosen.items) order by child.part_index),'[]'::jsonb) into v_children
+         from app_private.pos_import_recovery_child_headers child cross join lateral (
+           select jsonb_agg(n.row_json order by n.ordinal) items from app_private.pos_import_recovery_normal_rows n
+           where n.shop_id=p_shop_id and n.shop_device_id=p_shop_device_id and n.upload_id=v_id and n.domain='child' and n.group_index=child.part_index
+             and exists(select 1 from jsonb_array_elements(v_items) entry where entry->>'kind'='child' and (entry->>'partIndex')::integer=child.part_index and entry->>'childClientItemId'=n.client_item_id)) chosen
+         where child.shop_id=p_shop_id and child.shop_device_id=p_shop_device_id and child.upload_id=v_id and chosen.items is not null;$prior_coverage$;
   v_prior_builder constant text:=$prior_builder$     v_normal:=v_header||jsonb_build_object('parts',v_children,'coverage',coalesce(v_items,'[]'::jsonb),'planCanonicalHash',v_hash,
        'itemCount',(select count(*) from app_private.pos_import_recovery_normal_rows where shop_id=p_shop_id and shop_device_id=p_shop_device_id and upload_id=v_id and domain='child'));$prior_builder$;
 begin
@@ -288,6 +304,12 @@ begin
   begin
     select body into strict v_candidate from single_builder_artifacts where name='candidate';
     v_definition:=replace(pg_catalog.pg_get_functiondef(v_target),E'\r\n',E'\n');
+    -- Reconstruct only the later coverage delta inside this caught probe.
+    -- The historical migration DO and its e638/0eec pins remain exact.
+    if length(v_definition)-length(replace(v_definition,v_active_coverage,''))<>length(v_active_coverage) then
+      raise exception 'test reverse-coverage range mismatch';
+    end if;
+    v_definition:=replace(v_definition,v_active_coverage,v_prior_coverage);
     if length(v_definition)-length(replace(v_definition,v_candidate,''))<>length(v_candidate) then
       raise exception 'test reverse-candidate range mismatch';
     end if;

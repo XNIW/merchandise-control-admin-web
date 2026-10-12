@@ -63,6 +63,84 @@ Next: frozen-source review and normal PR/CI. Applying the two exact migrations a
 deploying exact source require their separate concrete authorization; acceptance
 on the real caller/shop and platform remains NOT_RUN.
 
+## Continuazione SOURCE ONLY del 12 ottobre 2026 UTC: coverage con entries materializzate
+
+Stato: REVIEW. Il coordinatore autorizza il nuovo FIX circoscritto nel worktree
+`admin-post-pr123-coverage-projection-20261012`, branch
+`codex/admin-post-pr123-coverage-projection-20261012`, da main Admin
+`6d2bcf1addf92fc2e3e662ba38491f0662ab4a20`. Nessuna modifica alla primary o ai
+freeze precedenti. Il massimo effettivo A2 resta FAIL: la richiesta coverage ha
+superato la deadline client invariata di 10 secondi, prima di qualsiasi apply.
+La diagnosi owned 8706 ha riprodotto circa 14.343/14.468 secondi nel SELECT di
+child selection; questi tempi localizzano il costo, senza qualificare una patch.
+
+La candidata sostituisce una sola query del ramo coverage di read-normalize-page.
+`selected_entries AS MATERIALIZED` espande `v_items` una volta e conserva soltanto
+le tre proiezioni testuali kind, partIndex e childClientItemId. Il cast integer
+resta nel precedente EXISTS, senza cast anticipato nella CTE. Restano identici
+il LATERAL, gli scope shop/device/upload/domain e group, il semijoin EXISTS,
+la molteplicità dei normal rows, ORDER BY ordinal/part_index, coalesce a [],
+la rimozione di items e normalized.items e ogni altro campo del JSON completo.
+Nessun JOIN che moltiplichi le righe, DISTINCT, nuovo filtro, indice, ANALYZE,
+GUC, cap, timeout, auth, proof, hash, storage o apply economico viene aggiunto.
+La [documentazione primaria PostgreSQL17](https://www.postgresql.org/docs/17/queries-with.html#QUERIES-WITH-CTE-MATERIALIZATION)
+descrive MATERIALIZED come calcolo separato.
+
+La prova controllata owned d3ae, chiusa dal coordinatore il 12 ottobre 2026,
+ha completato 34 SQL read con 34 rollback/reset e confrontato i 16 edge case
+a coppie: JSON completo identico. La lettura primaria precedente ha richiesto
+14976.4326 ms, la candidata temporanea con clock 8601.3105 ms; il controller
+completo 205840.3945 ms. Quattro native handle exit0, archivio immutabile e
+cleanup confermati. Sono tempi diagnostici su una copia owned, senza prova
+HTTP o qualifica dei budget del massimo. La ricevuta Root
+`ROOT_COVERAGE_SAFE_d3ae2d42766e421c928cd95904cb4dec_PASS_EXPLICIT_HOST_CLOSURE.json`,
+SHA256 `3d9514157b68fb3c8ca27c7e9d9888e5ebf4d7edd2381c7a9e970235a97a1229`,
+conserva perimetro e limiti; il FAIL A2 non cambia esito.
+
+La CLI del coordinatore ha generato il solo file vuoto canonico
+`20261012211402_pos_import_recovery_coverage_entries_materialized.sql`.
+Il forward esige il corpo LF 0eec e SHA256
+`b3062b925c3968caf9bba6129a288e49006cdeb9140165c24a3245628192a3d2`, riconosce
+LF/CRLF, esige un solo blocco da sostituire e preserva l'intera riga pg_proc
+tranne prosrc, inclusi OID, owner, ACL completa, signature, config, cost e flags.
+Baseline/postcondition drift abortiscono con SQLSTATE55000. Nessuna migration
+storica viene riscritta, nessuna funzione pubblica o grant permanente creato.
+Dopo: MD5 `564beca67b00d3e9867be23210a0a8ec`, SHA256
+`1290b84c7a62ac8677c6da22f2521f5a93d5d123dc263e5c00ea2673f61e4faa`.
+
+Il nuovo pgTAP `task_094_import_recovery_coverage_entries_materialized.sql`
+estrae la query candidata dal prosrc installato e la confronta con la copia
+indipendente del SELECT precedente ed expected JSON/SQLSTATE espliciti. I 38
+vettori usano vere staging tables con FK, PK e client_item_id generato intatti:
+duplicate coverage e normal IDs, NULL/scalari/missing keys, arrays vuoti,
+assenza di header/normal rows, nonchild con index invalido/overflow, integer
+noncanonici +0/00/spazi, ordinary/correction, CJK, ordine, header stripping e
+scope shop/device/upload/domain/gruppo estranei. Sono prove della query su dati
+staged owned, non ammissione del parser, autentica importazione o performance.
+I dieci probe eseguono il DO effettivo in subtransaction caught, con LF/CRLF,
+cost/ACL preservati, drift del corpo/security/path/owner/strict/volatile/parallel,
+metadata completo, namespace ACL e staging data ripristinati dopo rollback.
+Il grant CREATE necessario al probe owner drift è soltanto temporaneo e caught.
+261 assertion attese da analisi statica; nessuna assertion eseguita da questa lane.
+
+I test storici restano significativi: identity-pairing aggiorna soltanto il pin
+finale. Nel test single-builder, oltre ai pin installati, il probe ricostruisce
+l'inversa esatta del successivo coverage block prima del reverse builder.
+Il DO storico, e638/0eec, expected e tutte le 133 assertion restano invariati;
+il rollback ritorna al corpo finale 564. L'adattamento non riscrive una migration
+storica né considera il corpo moderno la sua vecchia baseline.
+
+File del delta: nuova migration, nuovo pgTAP, due adattamenti circoscritti dei
+pgTAP precedenti, questa sezione e il piccolo header corrente del MASTER-PLAN.
+Il manifest sorgente/diff/inverse esterno separa i check statici dalle prove
+NOT_RUN. Il workflow esistente applica la chain e usa pgTAP reale; non vengono
+aggiunti job, stub auth o TAP fallback. Da questa lane: PG/query/runtime/test/
+build/apply/deploy/commit/push NOT_RUN. La prova controllata candidata/edge
+del coordinatore è distinta dai nuovi pgTAP ancora NOT_RUN. Servono review
+del bundle e source/CI frozen, nuova calibrazione5000
+e massimo59999 completi con stesso protocollo, cap/deadline, contatori, hash e
+controlli economici una volta sola. Nessun DONE, READY, beneficio o MAXPASS
+anticipato. Le ricevute A2 e ogni failure precedente restano immutabili.
 ## Continuazione source-only del 12 ottobre 2026 UTC: complete-plan con un builder
 
 Stato: REVIEW, candidata da verificare. Il coordinatore autorizza il FIX soltanto

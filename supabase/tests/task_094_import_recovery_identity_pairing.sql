@@ -10,8 +10,8 @@ select no_plan();
 select is(
   (select md5(replace(prosrc,E'\r\n',E'\n')) from pg_catalog.pg_proc
    where oid='app_private.pos_import_recovery_phased_v1(uuid,uuid,uuid,uuid,uuid,text,jsonb)'::regprocedure),
-  '0eec947d66bbac2930385977b448a836',
-  'installed body includes identity pairing and the later complete-plan builder'
+  '564beca67b00d3e9867be23210a0a8ec',
+  'installed body includes identity pairing, complete-plan builder and later coverage projection'
 );
 
 create temporary table identity_pairing_expressions(origin text primary key,expression text not null);

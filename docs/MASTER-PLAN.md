@@ -1,5 +1,24 @@
 # MerchandiseControl Admin Web - Master Plan
 
+## TASK-094 REVIEW — candidata coverage con entries materializzate, 12 ottobre 2026 UTC
+
+Nuovo FIX source-only isolato da Admin main6d2bcf1. Il massimo A2 resta FAIL
+prima di apply: coverage ha superato la deadline10s; diagnosi owned8706 ha
+riprodotto14.343/14.468s nel child SELECT. Una sola query candidata materializza
+le proiezioni testuali delle entries, conserva EXISTS/LATERAL/cast integer,
+scopi, molteplicità, ordine e JSON completo. Guard forward pinned0eec/b306 →
+564bec/1290 con OID/owner/ACL e tutta pg_proc preservati; drift55000 e rollback.
+Nuovo pgTAP reale:38vettori/261assert attese, expected indipendenti, no auth stub;
+gli storici133/70 conservano guard/expected tramite pin e inversa circoscritta.
+Prova SQL owned d3ae chiusa PASS:34read/rollback/reset,16edge a coppie con JSON
+completo identico; primaria14976.4326→8601.3105ms, controller205840.3945ms,
+quattro native exit0 e archivio/cleanup invariati. Ricevuta Root SHA256
+`3d9514157b68fb3c8ca27c7e9d9888e5ebf4d7edd2381c7a9e970235a97a1229`.
+È diagnostica su copia: pgTAP source, HTTP e nuove5000/59999 restano NOT_RUN.
+Nessun indice/ANALYZE/GUC/cap/timeout/auth/apply modificato,
+nessun DONE/READY o qualifica anticipata. Le sezioni datate precedenti restano
+storiche e immutate. [Scope e gate](TASKS/TASK-094-pos-catalog-import-receipt-and-retirement.md).
+
 ## TASK-094 REVIEW — complete-plan con un solo builder, 12 ottobre 2026 UTC
 
 Il coordinatore autorizza la continuazione FIX nel nuovo worktree isolato
