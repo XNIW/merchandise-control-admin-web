@@ -199,8 +199,6 @@ begin
   v_roots:=(select jsonb_agg(item||jsonb_build_object('barcode','cache-root-'||ordinality,'changeKind','no_change','purchasePrice',null,'retailPrice',null) order by ordinality)
    from jsonb_array_elements(v_roots) with ordinality r(item,ordinality));
   v_device:=case when c.spec?'foreignOriginal' then '40000000-0000-4000-8000-000000094802'::uuid else '40000000-0000-4000-8000-000000094801'::uuid end;
-  insert into app_private.pos_catalog_import_recovery_uploads(shop_id,shop_device_id,upload_id,mode,manifest,manifest_hash,raw_hash,total_bytes,normalized_request,canonical_hash,client_import_id,idempotency_key,original_schema,item_count,verified_at)
-  values('10000000-0000-4000-8000-000000094801',v_device,c.original_id,'original','{}','sha256:'||repeat('4',64),v_raw_hash,2,jsonb_build_object('items',v_roots),'sha256:'||repeat('6',64),'cache-root-'||c.case_no,'cache-key-'||c.case_no,'pos-catalog-import-v1',jsonb_array_length(v_roots),now());
   if c.spec->>'mode'='correction' then
    v_proof:=public.pos_catalog_import_apply_v2('10000000-0000-4000-8000-000000094801','40000000-0000-4000-8000-000000094801','30000000-0000-4000-8000-000000094801','60000000-0000-4000-8000-000000094801','00000000-0000-4000-8000-000000094801',
     'cache-root-'||c.case_no,'cache-key-'||c.case_no,'sha256:'||repeat('6',64),'pos-catalog-import-v1','supplier_excel',now(),v_roots,'{}','{}');
@@ -209,8 +207,13 @@ begin
   elsif not(c.spec?'foreignOriginal') then
    v_proof:=public.pos_catalog_import_retire_v1('10000000-0000-4000-8000-000000094801','40000000-0000-4000-8000-000000094801','30000000-0000-4000-8000-000000094801','60000000-0000-4000-8000-000000094801','00000000-0000-4000-8000-000000094801',
     'cache-root-'||c.case_no,'cache-key-'||c.case_no,'sha256:'||repeat('6',64));
-   if v_proof->>'status' is distinct from 'retired' then raise exception 'real retirement fixture failed';end if;
+   if v_proof->>'status' is distinct from 'retired' then
+    raise exception 'real retirement fixture failed case=% name=% result=%',c.case_no,c.case_name,v_proof;end if;
   end if;
+  -- Real A-only retirement/ACK precedes the declared manually staged original.
+  -- This plan-semantics fixture does not accumulate upload-capacity reservations.
+  insert into app_private.pos_catalog_import_recovery_uploads(shop_id,shop_device_id,upload_id,mode,manifest,manifest_hash,raw_hash,total_bytes,normalized_request,canonical_hash,client_import_id,idempotency_key,original_schema,item_count,verified_at)
+  values('10000000-0000-4000-8000-000000094801',v_device,c.original_id,'original','{}','sha256:'||repeat('4',64),v_raw_hash,2,jsonb_build_object('items',v_roots),'sha256:'||repeat('6',64),'cache-root-'||c.case_no,'cache-key-'||c.case_no,'pos-catalog-import-v1',jsonb_array_length(v_roots),now());
   insert into app_private.pos_catalog_import_recovery_uploads(shop_id,shop_device_id,upload_id,mode,manifest,manifest_hash,raw_hash,total_bytes)
   values('10000000-0000-4000-8000-000000094801','40000000-0000-4000-8000-000000094801',c.upload_id,'plan','{"parts":[{}]}'::jsonb,'sha256:'||repeat('7',64),v_raw_hash,2);
   insert into app_private.pos_catalog_import_recovery_upload_parts values('10000000-0000-4000-8000-000000094801','40000000-0000-4000-8000-000000094801',c.upload_id,0,v_raw);
