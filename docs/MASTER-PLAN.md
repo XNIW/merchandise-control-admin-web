@@ -1,5 +1,22 @@
 # MerchandiseControl Admin Web - Master Plan
 
+## TASK-094 REVIEW — cache degli array del piano, 13 ottobre 2026 UTC
+
+FIX circoscritto autorizzato nel worktree `admin-post-pr123-plan-array-cache-20261013`,
+da main Admin5ccdb8ce. MAX205e resta FAIL: FIRST complete-plan SQL10160.5102ms
+ha superato la deadline client10s prima degli apply. Il nuovo forward cambia
+soltanto Small: due alias JSONB dopo il guard originale e16accessi successivi,
+con array/NULL/ordine/duplicati/cast/auth/lock/hash/ACK/DML invariati. Corpi raw
+LF e CRLF pinned, drift55000 e metadata pg_proc/OID/ACL preservati; nessuna
+migration storica modificata. La coppia owned5f03 ha completato due FIRST e
+due rollback con risposta integrale identica:7798.1464ms originale contro
+7211.4464ms candidata con clock, controller253494.5172ms, archivio invariato.
+Una coppia sequenziale non isola gli effetti di buffer/planner e non qualifica
+HTTP/commit/risorse/MAX. Review indipendente della copia PASS. Regressione
+pgTAP reale e nuove5000/59999 sul candidato finale restano da eseguire;
+nessun DONE, READY o apply/deploy live. Le sezioni precedenti restano storiche.
+[Scope e gate](TASKS/TASK-094-pos-catalog-import-receipt-and-retirement.md).
+
 ## TASK-094 REVIEW — candidata coverage con entries materializzate, 12 ottobre 2026 UTC
 
 Nuovo FIX source-only isolato da Admin main6d2bcf1. Il massimo A2 resta FAIL
