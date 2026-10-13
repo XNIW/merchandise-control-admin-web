@@ -63,6 +63,79 @@ Next: frozen-source review and normal PR/CI. Applying the two exact migrations a
 deploying exact source require their separate concrete authorization; acceptance
 on the real caller/shop and platform remains NOT_RUN.
 
+## Continuazione FIX del 13 ottobre 2026 UTC: cache degli array del piano
+
+Stato: REVIEW. La continuazione autorizzata usa il worktree
+`admin-post-pr123-plan-array-cache-20261013`, branch
+`codex/admin-post-pr123-plan-array-cache-20261013`, da main Admin
+`5ccdb8ce6670125c199a6ed9f9d27e5a58cb2347`. MAX205e resta FAIL: la prima
+query SQL complete-plan ha richiesto10160.5102ms, oltre la deadline10s;
+nessun apply/ACK economico e stato completato. Il nuovo difetto prestazionale
+giustifica il solo delta Small, mantenendo le altre funzioni gia verificate.
+
+La CLI Supabase ha generato il file canonico
+`20261013005324_pos_import_recovery_plan_array_cache.sql`. Il forward aggiunge
+due variabili JSONB private non inizializzate; le assegna soltanto dopo il
+guard originale FOUND/mode/hash/tipo-array/cap1024 e prima dei lock originali.
+Sostituisce quattro letture parts e dodici coverage nella coda del ramo plan.
+I tre selector del guard, UUID/cast, ordine dei controlli, auth/lease/fence,
+proof, conflitti, hash, cap e deadline, DML, risposta e altri action rimangono
+identici. Non introduce coalesce, normalizzazione, sort o deduplicazione.
+
+Il body raw LF e pinned SHA256f6d28e812a36ffba4b7c279f5bf3c48cf66ae85da637b2ee7676a435c3e56374
+prima e e3d5f3c0878830e2b1afc732b6e65f3cb5c95de5b7760368b1531d10313dddce
+dopo, MD5fe01bc8ac31a746951b7b2fff8dfb3b1 dopo. Il forward ammette soltanto
+le due rappresentazioni raw LF/CRLF esatte, senza normalizzare il corpo per
+accettarlo. Canonicalizza soltanto i cinque literal degli anchor prima di
+adattarli al corpo, per supportare anche il file migration checked-out CRLF;
+un controllo statico Windows ha rilevato e corretto il doppio CR del primo
+forward prima della pubblicazione. Verifica anchor univoci, perimetro postguard e conteggi4/12; drift
+del corpo o degli attributi canonici enumerati rifiutato con SQLSTATE55000.
+Il postcheck preserva l'intera pg_proc tranne prosrc, inclusi OID/owner/ACL,
+e count/digest relativi di tutte le altre pg_proc in tutti gli schemi. Questi
+ultimi provano conservazione rispetto allo stato effettivo iniziale, senza
+attribuirgli una baseline canonica di metadata non enumerati.
+
+La coppia owned5f0306a3c07148c89409091b64745d1b ha ricostruito lo stesso FIRST
+prima di ciascuna chiamata, con ruolo/JWT service_role e due transazioni
+rollback-only. Originale7798.1464ms, candidata temporanea con29marker7211.4464ms;
+controller253494.5172ms. Risposta PUBLIC completa e trasformazione HTTP identiche
+fra le due chiamate e alla risposta01755 salvata;37relazioni,111funzioni,
+384settings,76indici completi e sequenza invariati dopo ciascun rollback.
+Tre corpi temporanei ripristinati,108nontarget invariati durante i clock,
+quattro native exit0, otto log chiusi, archivio1527file/29directory invariato.
+Closure Root SHA2563e792726b20c375d3e71674cec6a00a74c0e512d9f46d78b4c50de0badf43ef4;
+peer ACTUAL indipendente SHA2563a9761c962b5aec5480684063a1e47016d44ab46af8dd80456832629c8954ac4.
+Le evidenze restano sotto `C:\Dev\_codex-evidence\win7pos-post-pr123-20261011`.
+La differenza osservata586.7ms/7.52% proviene da una coppia sequenziale con
+possibili effetti di buffer/planner e clock: non e un effetto causale isolato,
+una misura HTTP/commit, un budget di risorse o una qualifica del massimo.
+
+Il nuovo pgTAP `task_094_import_recovery_plan_array_cache.sql` compila i due
+corpi Small esatti sul vero OID e confronta36casi della chain RPC autentica
+con expected JSON indipendenti, stato persistito e rollback completo. Usa
+vere lease/permission/owner e ACK da apply_v2; nessuno stub auth o ricevuta
+inventata. Altri21vettori confrontano il predicato membership installato con
+la copia letterale precedente ed expected boolean/SQLSTATE indipendenti.
+NULL/JSON null, UUID/cast, cardinalita, duplicati, scope, proof, cap e conflitti
+sono verificati senza normalizzare i risultati. Gli upload staged manualmente
+provano semantica del piano, non ammissione del parser o normalizzazione TS.
+Il DO canonico e incorporato verbatim con pin UTF8 e quattordici probe reali:
+le quattro combinazioni di sorgente/body LF/CRLF, conservazione di cost/ACL, body/mixed-newline/reapply drift e
+security/path/owner/strict/volatile/parallel. Ogni probe verifica SQLSTATE,
+errore, metadata/nontarget/namespace e dati ripristinati dal rollback caught.
+623 assertion attese dal sorgente; nessuna riportata come gia eseguita.
+
+File del delta: nuova migration, nuovo pgTAP, questa scheda e MASTER-PLAN.
+Al momento di questo handoff i check SQL/runtime/CI sul nuovo freeze e le
+nuove5000/59999 sono NOT_RUN; i PASS diagnostici precedenti restano distinti.
+Il workflow CI esistente applica la chain e raccoglie il pgTAP reale, senza
+nuovi job o dipendenze. Servono review del delta, gate concreti e nuova
+sequenza completa5000→59999 con stessi binari, fixture, protocollo, cap,
+deadline, mapping/economia/storico/stock/replay/ACK/risorse e cleanup.
+I risultati invariati vengono riutilizzati; nessun live/mobile/Windows7
+qualificato da queste prove isolate e nessun DONE/READY.
+
 ## Continuazione SOURCE ONLY del 12 ottobre 2026 UTC: coverage con entries materializzate
 
 Stato: REVIEW. Il coordinatore autorizza il nuovo FIX circoscritto nel worktree
