@@ -390,6 +390,8 @@ select ok(
   (select payload ->> 'apiVersion' from task028_page1)
     = 'customer-order-list.v1'
   and (select payload ->> 'status' from task028_page1) = 'ok'
+  and (select payload ->> 'timeZone' from task028_page1)
+    = 'America/Santiago'
   and (select (payload ->> 'hasMore')::boolean from task028_page1)
   and jsonb_array_length(
     (select payload -> 'orders' from task028_page1)
@@ -445,6 +447,8 @@ select ok(
     = 'customer-order-detail.v1'
   and (select payload ->> 'orderStatus' from task028_detail) = 'confirmed'
   and (select payload ->> 'orderVersion' from task028_detail) = '1'
+  and (select payload ->> 'timeZone' from task028_detail)
+    = 'America/Santiago'
   and jsonb_array_length(
     (select payload -> 'timeline' from task028_detail)
   ) = 1
@@ -546,6 +550,8 @@ select ok(
   and not (select (payload ->> 'idempotent')::boolean from task028_cancel)
   and (select payload ->> 'orderStatus' from task028_cancel) = 'cancelled'
   and (select payload ->> 'orderVersion' from task028_cancel) = '2'
+  and (select payload ->> 'timeZone' from task028_cancel)
+    = 'America/Santiago'
   and jsonb_array_length(
     (select payload -> 'timeline' from task028_cancel)
   ) = 2
@@ -563,7 +569,9 @@ select public.customer_order_cancel_v1(
 
 select ok(
   (select (payload ->> 'idempotent')::boolean from task028_cancel_replay)
-  and (select payload ->> 'orderVersion' from task028_cancel_replay) = '2',
+  and (select payload ->> 'orderVersion' from task028_cancel_replay) = '2'
+  and (select payload ->> 'timeZone' from task028_cancel_replay)
+    = 'America/Santiago',
   'identical cancellation retry replays the same authoritative result'
 );
 

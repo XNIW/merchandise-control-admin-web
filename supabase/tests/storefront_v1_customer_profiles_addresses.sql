@@ -106,7 +106,12 @@ select ok(
 select ok(
   has_table_privilege('authenticated', 'public.customer_profiles', 'SELECT')
   and has_table_privilege('authenticated', 'public.customer_profiles', 'DELETE')
-  and has_table_privilege('authenticated', 'public.customer_addresses', 'SELECT')
+  and has_column_privilege(
+    'authenticated', 'public.customer_addresses', 'address_line_1', 'SELECT'
+  )
+  and not has_column_privilege(
+    'authenticated', 'public.customer_addresses', 'provider_place_id', 'SELECT'
+  )
   and has_table_privilege('authenticated', 'public.customer_addresses', 'DELETE')
   and has_table_privilege(
     'authenticated',

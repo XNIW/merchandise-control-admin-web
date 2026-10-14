@@ -24,6 +24,8 @@ export type ShopAdminActionCode =
   | "delivery_configuration_required"
   | "duplicate_staff_code"
   | "invalid_state"
+  | "transition_denied"
+  | "no_money_collected"
   | "version_conflict"
   | "idempotency_conflict"
   | "import_in_progress"
@@ -104,6 +106,9 @@ const messages: Record<ShopAdminActionCode, string> = {
     "Create an enabled delivery zone and slot before enabling delivery.",
   duplicate_staff_code: "A staff account with this code already exists.",
   invalid_state: "The target row is not in a valid state for this action.",
+  transition_denied: "The requested lifecycle transition is not allowed.",
+  no_money_collected:
+    "No collected customer payment exists, so a monetary refund cannot be recorded.",
   version_conflict:
     "The order changed while this page was open. Refresh and review its current status.",
   idempotency_conflict:
@@ -209,6 +214,8 @@ function mapRpcCode(value: unknown): ShopAdminActionCode {
     "delivery_configuration_required",
     "duplicate_staff_code",
     "invalid_state",
+    "transition_denied",
+    "no_money_collected",
     "version_conflict",
     "idempotency_conflict",
     "import_in_progress",

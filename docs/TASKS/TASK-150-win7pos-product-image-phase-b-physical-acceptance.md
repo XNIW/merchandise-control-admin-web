@@ -3,11 +3,11 @@
 ## Informazioni generali
 
 - ID: `TASK-150`
-- Stato: `ACTIVE`
-- Fase attuale: `EXECUTION`
-- Responsabile attuale: `CODEX / ASUS`
-- Attivazione: `ACTIVE`
-- Executor: `CODEX / ASUS`
+- Stato: `PAUSED_FOR_WECHAT_006_STAGING_HANDOFF`
+- Fase attuale: `EXECUTION / PAUSED`
+- Responsabile attuale: `NONE — EVIDENCE PRESERVED`
+- Attivazione: `PAUSED_FOR_WECHAT_006_STAGING_HANDOFF`
+- Executor: `NONE WHILE TASK-151 / WECHAT-006 IS ACTIVE`
 - Data creazione: `2026-07-30`
 - Task precedente:
   `TASK-149 - Trusted POS product image v1 server contract`
@@ -27,9 +27,11 @@
 
 Attivato esplicitamente dall'utente il `2026-07-31`, dopo il merge normale
 della Phase A Win7POS PR `#72` in
-`9bc5b757b78fe7b9212bf5fae359a5559e3da7f9`. È l'unico task Admin attivo.
-L'execution resta limitata alla Phase B Asus e al boundary QA staging-only
-autorizzato; produzione, Android e iOS restano esclusi.
+`9bc5b757b78fe7b9212bf5fae359a5559e3da7f9`. Era l'unico task Admin registrato
+attivo. L'audit WECHAT-006 del 2026-08-13 non ha trovato writer/processo/lock/
+PR/deploy vivo né lavoro non pubblicato fuori dalla evidence già registrata.
+Il mandato utente autorizza l'handoff: TASK-150 è messo in pausa, non chiuso e
+non riscritto, mentre TASK-151 / WECHAT-006 assume la singola lane Admin.
 
 - Win7POS task coordinato: `ASUS-W7POS-015`.
 - Win7POS branch:
@@ -39,6 +41,17 @@ autorizzato; produzione, Android e iOS restano esclusi.
 - Windows 7 fisico: `NOT_RUN`.
 - Riconciliazione evidence:
   `docs/TASKS/EVIDENCE/TASK-150/2026-08-08-REMOTE-RESIDUAL-RECONCILIATION.md`.
+
+## Handoff WECHAT-006 — 2026-08-13
+
+- Stato precedente preservato: `ACTIVE / EXECUTION` con limiti già documentati.
+- Audit: branch/worktree storici puliti o non più presenti; nessun lock,
+  processo Codex/CLI/deploy, PR aperta, workflow in corso o commit Admin non pubblicato.
+- Evidence TASK-150 non cancellata, spostata, compressa o riscritta.
+- Nuovo writer esclusivo: `TASK-151 / WECHAT-006` sul worktree isolato
+  `codex/wechat-006-admin-staging` dall'attuale `origin/main`.
+- La ripresa TASK-150 richiede una decisione successiva esplicita; questo
+  handoff non autorizza un Run 5 Win7POS.
 
 ## Obiettivo
 

@@ -1,0 +1,12 @@
+{
+  "observedUTC": "2026-10-08T20:40:37.089596+00:00",
+  "actor": "Codex /root/import_receipt_writer",
+  "operation": "read-only docker inspect of exact owned synthetic test container",
+  "ownedContainer": "cmc-pos-receipt-20d218a8f3",
+  "exitCode": 1,
+  "stdout": "[]",
+  "stderr": "Error response from daemon: No such container: cmc-pos-receipt-20d218a8f3",
+  "observedAbsent": true,
+  "normalStopRemoveExitCodes": null,
+  "limit": "Earlier runner did not record cleanup return codes; current absence does not independently prove shutdown mode."
+}

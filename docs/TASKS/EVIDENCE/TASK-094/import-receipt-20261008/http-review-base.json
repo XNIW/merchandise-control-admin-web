@@ -1,0 +1,10 @@
+{
+  "reviewer": "/root/import_receipt_http_review",
+  "observedUTC": "2026-10-08T20:38:45Z",
+  "status": "APPROVED_STATIC_HTTP_CONTRACT",
+  "findings": [],
+  "sourceFreezeSha256": "ae8257fee13401428522e8e079f4f93da6f4d67acd436fb10800fb435f9f21b9",
+  "sourceHashesMatched": 32,
+  "scope": "original frozen HTTP/pure parser/fixture contract; final precision-only delta requires focused review",
+  "limit": "source static review, no live caller/TEST acceptance"
+}

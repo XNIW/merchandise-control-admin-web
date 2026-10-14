@@ -1,0 +1,330 @@
+# Current Mini amendment - 2026-09-12
+
+The user authorizes the Mini-only direct protocol and native privacy design in
+[WECHAT-010-DIRECT-DESIGN.md](WECHAT-010-DIRECT-DESIGN.md). It supersedes the
+mandatory OIDC bridge only for the reviewed direct Mini path; existing OIDC
+surfaces and guarantees remain unchanged. Design review and rollout gates are
+explicitly pending. Earlier decisions below are historical where superseded.
+
+# ADR-002 — WeChat identity through an approved custom OIDC bridge
+
+## Revisione mirata WECHAT-010 / mandato WECHAT-011 — 2026-09-11
+
+Stato: proposta condizionata, runtime invariato nel protocollo. La qualifica
+indipendente di `review_protocol` non ha selezionato un percorso attivabile.
+La versione Auth staging osservata tramite `/auth/v1/health` è **v2.196.0**,
+tag corrispondente al commit `0204331ca41a5b49f076b6fa3dc6c0d20b996590`.
+
+### A. Requisiti indispensabili
+
+Autenticità dell'identità; correlazione della transazione e dell'istanza Mini;
+resistenza a replay e login CSRF; sessione verificata/revocabile; isolamento
+account/shop. `auth.users` e profilo personale restano canonici. Issuer, audience,
+provider, AppID, OpenID e UnionID sono distinti. OpenID non è globale, UnionID può
+mancare; nessun collegamento tramite attributi di profilo o telefono non verificato.
+Il Mini riceve solo un receipt BFF opaco, mai token vendor, session_key o privilegi.
+
+### B. Realizzazione corrente e limite della prova
+
+Il gateway scambia il codice Mini con il bridge e invia a Supabase il relativo ID
+token. Mantiene **raw nonce → SHA256 esadecimale → nonce firmato**, più ledger
+challenge monouso e consumo atomico. L'hash salato del database è un altro valore.
+La presenza del nonce è un requisito di questo percorso, non un obbligo universale
+imposto da qualunque grant Supabase.
+
+In [GoTrue v2.196.0 token_oidc.go:294–307](https://github.com/supabase/auth/blob/0204331ca41a5b49f076b6fa3dc6c0d20b996590/internal/api/token_oidc.go#L294),
+con skip=false, la presenza asimmetrica fallisce, due nonce presenti richiedono
+SHA256(raw) uguale al claim, mentre due nonce assenti non falliscono quel controllo.
+Non si usa questa possibilità per togliere nonce dal gateway corrente.
+
+### C. Alternativa standard da qualificare, non implementata
+
+OneID documenta authorization-code con state, redirect esatto e PKCE S256.
+GoTrue v2.196.0 implementa PKCE upstream Supabase→provider in
+[external.go:84](https://github.com/supabase/auth/blob/0204331ca41a5b49f076b6fa3dc6c0d20b996590/internal/api/external.go#L84)
+e [external_oauth.go:106](https://github.com/supabase/auth/blob/0204331ca41a5b49f076b6fa3dc6c0d20b996590/internal/api/external_oauth.go#L106).
+È distinto dal PKCE applicazione→Supabase. Il controllo del token nel code flow
+[custom_oauth.go:195](https://github.com/supabase/auth/blob/0204331ca41a5b49f076b6fa3dc6c0d20b996590/internal/api/provider/custom_oauth.go#L195)
+non è il controllo nonce del grant diretto. State, nonce e PKCE hanno proprietà
+diverse; valutarli rispetto al flow completo, non sostituirli per nome.
+
+È ammessa la sola valutazione di questo percorso sul medesimo provider mantenuto:
+vero ingresso WeChat nel Mini, Supabase code flow con i due leg PKCE verificati,
+callback esatte e rientro monouso correlato che consegni solo un receipt opaco.
+Prima di implementarlo occorrono una prova specifica Mini TEST e review favorevole;
+il cambiamento di UX/architettura va presentato esplicitamente all'utente.
+Web QR, OAuth di un account pubblico, Google/email o sessioni iniettate non
+costituiscono prova di login WeChat dal Mini.
+
+| Candidato / contratto | Classificazione | Prova / limite |
+|---|---|---|
+| OneID grant `social/wechat/jscode` | DOCUMENTATO | API Mini ufficiale ritorna ID token da wx.login; nonce non esposto nello schema |
+| Nonce firmato nel grant Mini corrente | NON_VERIFICATO | Necessaria risposta vendor e prova token/negativi; assenza docs non prova incompatibilità |
+| OneID authorization-code / PKCE S256 | DOCUMENTATO | Authorize e token endpoint ufficiali; non prova rientro Mini |
+| Code flow OneID nel Mini TEST | NON_VERIFICATO | Overview separa OIDC Web/SPA/mobile dal SDK/API Mini; mancano handoff e domini qualificati |
+| Consumer Mini web-view corrente | PROVATO_LOCALE | Ispezione statica: pagina generica, nessun callback Auth/correlazione/receipt implementato |
+| Compatibilità live provider→Supabase | NON_VERIFICATO | Metadati tenant/provider effettivo assenti; nessuna exchange autentica |
+
+Nessun candidato è PROVATO_LIVE o INCOMPATIBILITÀ_RIPRODOTTA. Il supporto piattaforma
+Supabase non prova configurazione del progetto. Non si registra custom:wechat con
+placeholder. Nessun nuovo IdP, JWT artigianale, fork Auth o adapter speculativo.
+
+La fonte OneID Mini descrive associazione tramite UnionID/OpenID con priorità UnionID
+e creazione utente: qualifica necessaria per AppID isolation, stable sub, collisioni e
+controllo di entrambi gli account. Verificare anche l'ingresso pubblico id_token di
+Supabase: il ledger BFF non protegge automaticamente token ottenuti fuori dal BFF.
+
+Business domain/privacy web-view, host di ogni redirect, cancel, expiry, callback
+duplicato e rientro alla corretta istanza devono essere provati in DevTools e telefono.
+La precedente dichiarazione NOT_REQUIRED_CURRENTLY vale soltanto per la fase OFF.
+
+Fonti ufficiali verificate dal reviewer:
+[Mini grant](https://cloud.tencent.com/document/product/1441/68677),
+[Authorize PKCE](https://cloud.tencent.com/document/product/1441/64348),
+[Token PKCE](https://cloud.tencent.com/document/product/1441/64396),
+[Overview](https://cloud.tencent.com/document/product/1441/64309),
+[SDK Mini](https://cloud.tencent.com/document/product/1441/60710),
+[OIDC Core](https://openid.net/specs/openid-connect-core-1_0.html#AuthRequest),
+[RFC9700 4.5.3](https://www.rfc-editor.org/rfc/rfc9700.html#section-4.5.3).
+
+## WECHAT-010 transport clarification (2026-09-11)
+
+For native/Mini `grant_type=id_token`, retain the random challenge nonce locally
+and submit it unchanged to Supabase. Send its SHA-256 hexadecimal digest as the
+bridge exchange `nonce`; the approved provider must place that exact digest in
+the signed ID-token nonce claim. Supabase performs the hash comparison. This
+clarifies the existing nonce contract; it does not implement or qualify a vendor,
+disable nonce checks, mint a JWT, or change the Web redirect flow.
+Source: [Supabase Auth pinned implementation, lines294–305](https://github.com/supabase/auth/blob/4eee58f296d9698a1c2c0ae14d7a0b379c7622d3/internal/api/token_oidc.go#L294-L305), checked2026-09-11.
+
+Controlled Mini activation additionally requires nonempty server-only
+`WECHAT_MINI_PROGRAM_TESTER_PROFILE_ALLOWLIST` and
+`WECHAT_MINI_PROGRAM_SHOP_ALLOWLIST` (comma-separated canonical UUIDs, at most 100
+entries each; an invalid list denies admission). These intersect canonical
+profile/membership/lifecycle authorization on every request. They never grant a
+membership or authorize a role. Mutation capabilities are the server grants
+intersected with `WECHAT_MINI_PROGRAM_CATALOG_MUTATIONS_ENABLED`.
+Rollback sets `WECHAT_AUTH_MINI_PROGRAM_ENABLED=0`; the independent mutation and
+linking flags remain OFF until their own later live acceptance.
+
+- Status: `CHANGES_REQUIRED`; architecture target retained but bridge is not implemented
+- Date: 2026-08-12
+- Owners: Admin Web server boundary and canonical Supabase project
+- Runtime classification: `FOUNDATION_IMPLEMENTED, LIVE AUTH AND MINI PROGRAM PARITY INCOMPLETE`
+
+## Decision
+
+Retain path **C** as the target architecture: an independently operated, approved, standards-compliant OIDC identity bridge is the only component allowed to exchange WeChat codes. This is a security decision, not a completion claim. The bridge, issuer, discovery document, JWKS and rotation service do not exist in these repositories or in a verified environment, so all flags remain OFF and the flow remains `CHANGES_REQUIRED`.
+
+The bridge must use asymmetric signing, published HTTPS discovery/JWKS, rotation, fixed issuer, explicit acceptable audiences, nonce, short token lifetime, and a stable opaque `sub`. A bridge consisting only of the current exchange interface is not operational and must not be activated. The Admin Web owns the server boundary and native/Mini Program exchange endpoints; no client holds AppSecret or bridge secret.
+
+Website login uses Supabase `signInWithOAuth({ provider: "custom:wechat" })`, preserving Supabase PKCE/state/callback/session cookies. Android, iOS, and Mini Program adapters may obtain a temporary WeChat code only through a verified official platform integration; they use the same Admin endpoint and import the returned supported Supabase session into the existing single session owner. Fixtures exercise only the application contract while the feature is OFF; they are not live-provider evidence.
+
+## Direct OAuth2 compatibility matrix
+
+The Supabase side was verified against current official documentation and the current Auth implementation. The WeChat side could not be revalidated because the official documentation origin was blocked by the execution environment’s site-safety policy. Historical endpoint names are therefore included only as activation questions, never as trusted configuration.
+
+| Property | Supabase custom OAuth2 expectation | WeChat candidate requiring official revalidation | Decision evidence |
+|---|---|---|---|
+| Authorization endpoint | HTTPS OAuth authorization endpoint; Supabase owns callback/state | Historically `open.weixin.qq.com/connect/qrconnect` for Website Application QR login | `UNVERIFIED_WECHAT`; do not configure |
+| Token endpoint | Standards-compatible server token exchange | Historically an API endpoint requiring AppID, AppSecret and code in query parameters | Method/client-auth compatibility not proved |
+| Token method/content type | Provider adapter must accept the provider response through the documented OAuth contract | Historically GET/query and JSON rather than a conventional form POST | Potential incompatibility; official proof absent |
+| Token response | Access token and stable subject data consumable by the provider adapter | Historically includes access token plus OpenID | Additional OpenID mapping may be required |
+| Userinfo | Standards-compatible configured userinfo mapping | Historically requires both access token and OpenID | Bearer-only compatibility not proved |
+| PKCE | Supabase browser flow uses PKCE/state around its callback | No current official WeChat PKCE evidence available | Cannot claim end-to-end PKCE support |
+| State | Required and validated | Historically supported on Website login | Must be revalidated; server challenge remains mandatory for native/Mini |
+| Scope | Configured provider scopes | Historically `snsapi_login` for Website login and a different native scope | Surface-specific scope cannot be assumed interchangeable |
+| Stable identifier | Provider subject must remain stable and opaque | OpenID is AppID-scoped; UnionID may exist only under documented association conditions | Never merge by profile attributes; explicit link when UnionID absent |
+| Email | May be optional for custom providers | No reliable email claim expected | `email_optional`; no synthetic email |
+| Multiple client IDs | OIDC may allow acceptable audiences; OAuth registration remains provider-specific | Website/Android/iOS/Mini Program use separate AppIDs | One direct OAuth registration cannot be assumed to cover all surfaces |
+| Callback | Supabase Auth callback plus application allowlist | Website callback/domain registration is external | Public HTTPS staging callback required; no localhost |
+| Identity linking | Supabase supports authenticated linking with its documented safeguards | Stable provider identity must be proved first | Linking stays separately flagged OFF |
+
+Conclusion: direct OAuth2 is **not approved** because the token method/response, OpenID-dependent userinfo, PKCE and multi-AppID semantics are not proven compatible. Direct OIDC is also not approved because no WeChat issuer/discovery/JWKS/ID-token contract was verified. Path C remains the intended design, but the missing real bridge is a code/runtime blocker rather than a mere credential toggle.
+
+## Evidence and feasibility gate
+
+- Supabase documents custom OAuth2/OIDC providers as generally available, names them `custom:<identifier>`, supports OIDC issuer/discovery/JWKS, acceptable client IDs, and `email_optional`: [Custom OAuth 2.0/OIDC providers](https://supabase.com/docs/guides/auth/custom-oauth-providers).
+- Supabase documents OAuth redirect/deep-link flows and PKCE for native clients: [Native mobile deep linking](https://supabase.com/docs/guides/auth/native-mobile-deep-linking?platform=swift).
+- Supabase documents manual identity linking as beta and automatic verified-email linking behavior: [Identity linking](https://supabase.com/docs/guides/auth/auth-identity-linking).
+- The official Supabase Auth implementation in `internal/api/token_oidc.go` accepts `grant_type=id_token` for a configured `custom:` OIDC provider and verifies enabled provider, issuer discovery/JWKS, audience, nonce, and token subject before issuing/linking a session. Application code relies on that implementation contract; it does not verify or mint JWT itself.
+- Apple App Review Guideline 4.8 explicitly covers third-party/social login and requires an equivalent privacy-preserving login unless an exception is proven: [App Review Guidelines](https://developer.apple.com/app-store/review/guidelines/).
+- Maven Central exposes Tencent’s Android artifact `com.tencent.mm.opensdk:wechat-sdk-android:6.8.34`, with Tencent WeChat Inc. metadata and Apache-2.0 license: [Maven Central artifact](https://central.sonatype.com/artifact/com.tencent.mm.opensdk/wechat-sdk-android/6.8.34). This proves an Android dependency source/version only; it does not prove console registration, signatures, callback behavior or a live login.
+- The official `wechat-miniprogram/api-typings` repository states that Mini Program API declarations are generated from official documentation. The client pins `miniprogram-api-typings@5.2.3`: [official WeChat Mini Program typings](https://github.com/wechat-miniprogram/api-typings).
+
+The available in-app browser blocked the official WeChat Open Platform documentation origin during this execution, and official-domain search returned no accessible result. Site-safety policy prohibited a workaround. Therefore token/userinfo details, iOS distribution, `code2Session`, UnionID eligibility, Universal Link requirements and cross-application association are **not claimed as live-verified**. Activation requires an authorized human to verify them in the official WeChat console/docs without exposing secrets.
+
+## Alternatives
+
+### A — Direct Supabase custom OAuth2 to WeChat: not approved
+
+Supabase's generic custom OAuth implementation uses the standards-based OAuth2 token exchange and bearer userinfo model, with server-controlled PKCE behavior. Direct WeChat compatibility could not be proved against accessible official WeChat documentation in this execution, including token method/format, query OpenID, userinfo authentication, PKCE, and multi-AppID identity behavior. It must not be forced.
+
+### B — Direct WeChat OIDC: not approved
+
+No accessible official evidence proved that WeChat itself exposes the required OIDC discovery, issuer, JWKS, audience, nonce, and ID-token contract. A provider without those properties cannot be configured as trusted OIDC.
+
+### D — Synthetic or client-trusted handoff: prohibited
+
+Fake email, deterministic password, automatic magic link, handcrafted/unverified JWT, service role in a client, WeChat token as Supabase token, nickname/avatar/phone similarity, and permanently separate un-linkable accounts all violate the security/product invariants.
+
+## Canonical identity and linking
+
+Supabase `auth.users` plus the personal profile remains canonical. `auth.identities` is sufficient when `custom:wechat` produces a stable provider identity, so no duplicate identity mapping table is introduced.
+
+The bridge `sub` is an opaque stable subject derived from a verified cross-application WeChat identifier only when the official Open Platform association guarantees it. UnionID is optional until official evidence proves its availability. When UnionID is absent, a new AppID/OpenID must not auto-merge; the user signs into the existing canonical account and explicitly links the new identity. Nickname, avatar, phone, or email similarity never links accounts.
+
+Native link uses the same one-time code/state/nonce exchange with `link_identity: true` and the current verified Supabase access token. Admin Web exposes the official Supabase `linkIdentity` redirect only to an authenticated personal account and only when the separate `WECHAT_AUTH_LINKING_ENABLED` flag is enabled. An identity already owned by another user fails closed without revealing that user. Unlink is not exposed by the new gateway until a separate recent-session check and “at least one other login method” review is approved; the linking flag must remain OFF until this threat model and external provider are accepted. Link/unlink events use redacted audit identifiers.
+
+WeChat never grants `platform_admin`, membership, or shop role. Profile status, shop status, and active membership are checked on every read; removing membership revokes data access without waiting for a new login.
+
+## Implemented and external components
+
+| Component | Owner | State |
+|---|---|---|
+| Default-OFF status, web redirect/callback, state/nonce challenge ledger, exchange boundary | Admin Web | Implemented with fixtures; not live |
+| Supabase `custom:wechat` provider | Supabase project operator | Not configured/verified |
+| OIDC issuer, discovery, JWKS, rotation, audience and WeChat server exchange | Approved bridge operator | Missing |
+| Website Application registration/domain | WeChat Open Platform owner | Missing/unverified |
+| Android package/signature/AppID/device | Android + WeChat owner | External verification required |
+| iOS binary/package, bundle/Universal Link/AppID/device | iOS + WeChat owner | Missing/unverified |
+| Mini Program AppID, request domains, privacy/review | Mini Program + WeChat owner | Missing/unverified |
+
+## Four-surface flows
+
+```mermaid
+sequenceDiagram
+  participant W as Web browser
+  participant S as Supabase Auth
+  participant B as Approved OIDC bridge
+  participant X as WeChat
+  W->>S: authorize provider=custom:wechat + PKCE/state
+  S->>B: OIDC authorization
+  B->>X: official Website login
+  X-->>B: temporary authorization result
+  B-->>S: signed OIDC result (issuer/JWKS/aud/nonce)
+  S-->>W: Admin callback code
+  W->>S: exchangeCodeForSession
+```
+
+```mermaid
+sequenceDiagram
+  participant C as Android/iOS/Mini Program
+  participant A as Admin Web boundary
+  participant B as Approved OIDC bridge
+  participant X as WeChat
+  participant S as Supabase Auth
+  C->>A: challenge(surface/device/mode)
+  A-->>C: one-time state + nonce + correlation
+  C->>X: official SDK or wx.login
+  X-->>C: temporary code
+  C->>A: code + bound state/nonce
+  A->>B: code + surface + nonce
+  B->>X: server-only code exchange
+  B-->>A: signed OIDC ID token
+  A->>S: grant_type=id_token, provider=custom:wechat
+  S-->>A: Supabase session
+  A-->>C: no-store client session envelope
+```
+
+## Operational consequences
+
+- Server challenge state is random, hashed at rest, surface/device/IP/mode/correlation-bound, five-minute TTL, one-time consumed, and database rate-limited.
+- Outbound bridge URL is HTTPS and host-allowlisted, redirects are rejected, body size is bounded, timeout is eight seconds, and no automatic code retry occurs.
+- The gateway returns sanitized codes and never logs codes/tokens. Audit logs contain only hashes, surface, mode, reason, and correlation ID.
+- Shop sales stay behind SECURITY DEFINER RPCs with `search_path = ''`, schema qualification, `auth.uid()`, active profile/shop/membership, bounded keyset pagination, and no direct table/view grants.
+- Mini Program updates use bounded adaptive three-to-thirty-second polling, stop in background and refresh on foreground/pull. It is labelled automatic polling and explicitly **not realtime**. WMP-012 remains incomplete until a verified private shop-scoped invalidation path replaces it.
+- No production config or migration is changed by this execution.
+
+## Rollback
+
+Keep every surface and linking flag OFF. If any controlled environment is later enabled, disable the affected flag first, revoke bridge/provider credentials and sessions, preserve redacted audit evidence, then revoke new RPC execution only if data isolation is in doubt. Do not drop source POS/catalog/image data. The new read functions can be removed in a reviewed forward migration after clients stop using them.
+
+## App Store 4.8
+
+Decision: **APP_REVIEW_DECISION_REQUIRED**. The app may qualify for the business/enterprise exception only if Apple review can verify that the app requires an existing enterprise account. That evidence is not available here. Do not automatically add Sign in with Apple, and do not claim compliance until the product owner/app-review specialist records the applicable path.
+
+## WECHAT-004 identity-link closeout
+
+The application/database transition is a recoverable saga because the external
+provider and Supabase identity commit cannot share one physical transaction.
+`wechat_identity_link_attempts` stores only hashed/bounded protocol state,
+actor, provider, surface, expiry, status and correlation metadata. It never
+stores provider codes or tokens. The allowed lifecycle is `pending` ->
+`provider_completed` -> `audit_finalized`, with terminal `failed`, `conflict`
+and `expired` states. Starting a later attempt supersedes another live attempt
+for the same actor/provider.
+
+Both native challenge and exchange boundaries enforce the independent
+`WECHAT_AUTH_LINKING_ENABLED` switch before provider work. Web callback marker
+parity is checked before PKCE exchange. A marker-loss or post-provider crash is
+recovered only for the currently authenticated canonical actor by reconciling
+`auth.identities`; provider completion is checked before expiring the attempt,
+and audit finalization is idempotent. Invalid/unissued exchange state is not
+persisted as an unauthenticated audit row; outcomes after a valid challenge has
+been consumed remain audited. No profile similarity merge or automatic unlink is
+introduced.
+
+This closes the code-side recovery invariant only. The approved bridge,
+official AppIDs, provider configuration, callback domains and live same-profile
+evidence remain `EXTERNAL_ACTIVATION_REQUIRED`; all surface and linking flags
+remain OFF.
+
+## WECHAT-009 feasibility addendum — 2026-09-07 (proposal, not activation)
+
+The current Admin exchange sends Basic-authenticated JSON `{code, surface,
+nonce, correlation_id}` to one allowlisted service and expects `id_token`.
+This is a repository-specific adapter contract, not a standard OIDC token grant.
+Public issuer/discovery/JWKS values belong to the chosen identity service, not
+WeChat's registration console. Supabase remains the canonical session issuer;
+Mini receives only its opaque BFF receipt after the temporary Supabase handoff.
+
+Two maintained, relevant candidates have documented coverage beyond Web QR:
+
+| Candidate | Documented surfaces | Fit / remaining proof | Cost evidence |
+|---|---|---|---|
+| Tencent OneID (formerly CIAM) | Web and mobile code exchange; separate wx.login grant; OIDC discovery/RSA JWKS | Strongest first-party four-surface candidate. Grant bodies differ from Admin Basic JSON; social token parameter tables do not document nonce. Tenant issuer/audience/stable subject/linking and signing rotation require validation. | Official product describes usage billing; an applicable numeric quote was not verifiable. Obtain a quote; no trial/account/purchase started. |
+| Authing | Web OAuth/OIDC; Android/iOS WeChat; V3 `wechat_mini_program_code` returning ID token | Relevant alternative with documented mobile/Mini exchange, but no proven drop-in nonce-bound response for this gateway. Tenant configuration, subject merge rules and key rotation remain unproved. | Official pricing displays Essential RMB139/month and Professional RMB1299/month at 1,000 active users; entitlement for required bridge/security features and final quote unverified. |
+
+Recommendation: request a **technical qualification of Tencent OneID**, subject
+to explicit operator acceptance of its account/cost/contract and successful
+nonce/rotation/linking proof. This is not approval to configure or buy it.
+Authing is a fallback candidate, not a second simultaneous integration.
+Casdoor was considered but its documentation was safety-blocked; no workaround
+or four-surface compatibility claim is made. Direct WeChat OAuth2 remains unproved.
+
+Minimal proposed ADR correction: permit a typed server-only vendor adapter that
+maps the existing challenge-bound surface/code to the selected service's documented
+grant, instead of requiring the vendor to implement our JSON body verbatim. Keep
+issuer/JWKS/audience validation in Supabase, strict nonce validation, server-only
+secrets, stable opaque subject, safe explicit linking and canonical Supabase user.
+Do not set `skip_nonce_check`, synthesize identities, re-sign a token, or infer
+linking from profile similarity. If the vendor cannot bind the challenge nonce
+into its verified ID token, stop for a separate threat-model/ADR decision; this
+proposal does not authorize relaxing that requirement. No runtime Auth changes.
+
+Callback ownership: WeChat → selected provider's WeChat callback (unknown until
+service configuration); provider → Supabase's displayed OAuth callback; Supabase
+→ Admin `/auth/callback` after PKCE. The project-derived Supabase callback is
+`https://jpgoimipbothfgkokyvm.supabase.co/auth/v1/callback`; it is not the WeChat
+portal callback and still requires read-only confirmation in the provider form.
+
+Qualification acceptance: verified HTTPS issuer/discovery/JWKS and asymmetric
+algorithms; overlapping key rotation/revocation; configured client authentication;
+exact acceptable audiences per platform; nonce match and rejection tests; stable
+sub across associated AppIDs and explicit linking without takeover; separate
+real code exchange tests for Website, Android SDK, iOS SDK and wx.login. No vendor
+has passed that matrix in this execution. Android/iOS AppID fields may map to one
+Mobile Application: verify the registration rather than requiring four apps.
+
+Official sources consulted 2026-09-06/07:
+
+- [Supabase custom OAuth/OIDC](https://supabase.com/docs/guides/auth/custom-oauth-providers): custom identifier, discovery/JWKS, acceptable client IDs, email-optional and callback form.
+- [Tencent Web/mobile exchange](https://cloud.tencent.com/document/product/1441/68675) and [Mini API exchange](https://cloud.tencent.com/document/product/1441/68677): distinct grants; documentation updated 2026-08-26.
+- [Tencent discovery](https://cloud.tencent.com/document/product/1441/64402), [JWKS](https://cloud.tencent.com/document/product/1441/64397), [product/billing](https://cloud.tencent.com/product/idsec).
+- [Authing V3 authentication API](https://api.authing.cn/), [native integration](https://docs.authing.com/v2/guides/basics/platform-guide/integrate-with-mobile-app.html), [pricing](https://www.authing.com/pricing).
+- Tencent's linked official WeChat mobile guide at developers.weixin.qq.com
+  could not be opened (non-retryable); original portal restriction is preserved.
+  Authing API page rendered no inspectable body and Tencent Mini page intermittently
+  timed out; indexed official parameter tables support documentation-level findings
+  only. No unauthenticated tenant demo is treated as an approved issuer.

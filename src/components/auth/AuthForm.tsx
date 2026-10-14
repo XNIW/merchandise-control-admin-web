@@ -13,6 +13,7 @@ type AuthFormProps = {
   labels: Dictionary["authForm"];
   messages: Dictionary["authLogin"]["messages"];
   isConfigured: boolean;
+  isWeChatConfigured: boolean;
   formLabel?: string;
   resultMessage?: string;
 };
@@ -51,6 +52,26 @@ function GoogleIcon() {
   );
 }
 
+function WeChatIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="h-5 w-5 flex-none"
+      viewBox="0 0 24 24"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        d="M9.6 4C4.9 4 1 7.1 1 11c0 2.2 1.3 4.2 3.3 5.5l-.8 2.4 2.9-1.4c1 .3 2.1.5 3.2.5h.6a6.3 6.3 0 0 1-.5-2.4c0-3.8 3.5-6.8 7.9-6.8h.4C16.9 6 13.7 4 9.6 4Zm-3 5.1a1 1 0 1 1 0-2 1 1 0 0 1 0 2Zm5.8 0a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z"
+        fill="currentColor"
+      />
+      <path
+        d="M23 15.5c0-3.1-3-5.7-6.6-5.7s-6.6 2.6-6.6 5.7 3 5.7 6.6 5.7c.9 0 1.8-.2 2.6-.5l2.3 1.1-.6-2c1.4-1.1 2.3-2.6 2.3-4.3Zm-8.8-1a.8.8 0 1 1 0-1.6.8.8 0 0 1 0 1.6Zm4.4 0a.8.8 0 1 1 0-1.6.8.8 0 0 1 0 1.6Z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
 function isSafeRequestedNextPath(
   requested: string | null,
 ): requested is string {
@@ -64,6 +85,7 @@ function isSafeRequestedNextPath(
 export function AuthForm({
   formLabel = "Admin account sign in",
   isConfigured,
+  isWeChatConfigured,
   labels,
   messages,
   resultMessage,
@@ -100,6 +122,24 @@ export function AuthForm({
           <span>{labels.googleSubmit}</span>
         </button>
       </form>
+
+      {isWeChatConfigured ? (
+        <form
+          action="/auth/oauth/wechat"
+          aria-label={`${formLabel} WeChat`}
+          className="grid"
+          method="get"
+        >
+          <input name="next" type="hidden" value={nextPath} />
+          <button
+            type="submit"
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-emerald-700 bg-emerald-600 px-4 text-sm font-semibold text-white outline-none transition hover:bg-emerald-700 focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2"
+          >
+            <WeChatIcon />
+            <span>{labels.wechatSubmit}</span>
+          </button>
+        </form>
+      ) : null}
 
       {resultMessage ? (
         <p

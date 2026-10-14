@@ -1,0 +1,627 @@
+# WECHAT-010 — prestazioni del checkpoint di recovery
+
+## TASK-159 REVIEW — TEST154 applied; authenticated recovery pending, 2026-10-02 15:09 UTC
+
+PR128 candidate head `2e7237f4` passed exact-head database/pgTAP, Verify and
+Cloudflare build checks after the independent immutable-artifact reviews.
+The coordinator applied the reviewed SQL once to TEST at15:09:09 UTC, advancing
+registry153 to154 with service version `20261002150909`. The15:09:43 private
+`bounded-product-bytes-postcheck.json` records POSTCHECK_PASS: all153 previous
+registry entries are unchanged; only the two expected routine bodies changed.
+The existing private helper, existing OIDs/full metadata/ACL, all other functions,
+triggers, scoped data/events, image versions and physical History remain unchanged.
+
+The source filename `20261002054522` is aligned to `20261002150909` in this same
+open PR, with SQL SHA256
+`9a09b8106aa8dbb3f86365ef964cc0e6a204fc8e38440b660716ebb179f04e27`
+unchanged. The local runner changes only its migration path. This receipt delta
+adds no SQL behavior, data mutation or deployment; no local PG/build/global
+verification is repeated for the filename and documentation changes. Final-head
+CI and metadata review precede any merge; the PR is not yet integrated.
+
+Registry153's authentic iOS first-checkpoint HTTP200 followed by HTTP500/57014,
+and the local8s failures, remain preserved evidence. The120s functional oracle
+and copied read-only diagnostic establish their stated equivalence only.
+Authenticated recovery on154 is pending; no terminal recovery,8s runtime PASS or
+DONE is claimed. Earlier06/07UTC preparation and validation entries below are
+historical and do not describe the15:09 applied state.
+
+## Historical pre-apply candidate — capped metadata and exact product bytes, 2 October 2026 06:49 UTC
+
+Registry153 is integrated through PR127/main `e0089365`; applied source and
+metadata/data parity remain confirmed. Its authentic iOS attempt reached one
+checkpoint HTTP200 and then failed the next HTTP500/57014 before activation.
+Prepared recovery state is preserved. Earlier NOT_RUN entries below are historical;
+there is still no terminal recovery or complete8s acceptance.
+
+Two-round read-only profiling with all11 known statements identified first-run
+execution cost in the product/price count and metadata-bound scans. JIT counters
+are zero, and diagnostic-only serial planning does not remove the difference.
+Standalone phase/plan timings are not summed into an authenticated latency claim.
+The candidate combines those repeated scans and independently removes product DTO
+construction where its exact scalar representation is proven.
+
+`20261002150909_wechat_010_bounded_product_bytes.sql` changes only preflight and
+checkpoint bodies. The existing private catalog predicate is evaluated before
+preparing typed count/bound queries: true selects one capped UNION ALL scan carrying
+only boolean/bigint metadata; false executes the original count SQL. This avoids
+preparing new field references under missing/type-drift contracts. The predicate
+is pure pg_catalog work under the existing postgres definer caller; its exact
+body/full metadata are pinned by the migration. Its trusted code is not a new
+business-data or authorization bypass.
+
+All six counts, capped at their original limit+1, still precede row-limit and
+compressed-History returns. Products cap at125000 and prices at175000. Above a cap,
+subset bounds are ignored by the original row-count failure. Below every cap,
+the complete-set bounds are reused only within the same STABLE preflight snapshot.
+Each text length is bigint before addition or multiplication; even the capped
+worst-case text lengths fit bigint. No raw text or DTO enters the count tuplestore.
+Payload scans retain their order, original first violation/prefix bytes and entire
+original loops when the proof fails. Prices still include orphan rows here.
+
+Exact product bytes are297 fixed key/punctuation bytes plus six UUID scalars,
+four text JSON scalars, three typed float8 scalars and three timestamp scalars.
+Actual scalar JSON serialization handles NULL, signed zero, NaN/infinities,
+Unicode/escaping and timestamp range. Tombstones null only category, supplier,
+primary-image version and primary-image update timestamp, as the unchanged DTO
+builder does. Numeric and timestamp memoization is statement-local with unique
+keys; unsafe rows use the original whole DTO. The checkpoint separately checks
+its existing runtime predicate and keeps the entire original product SELECT on
+drift. No preflight values are reused across checkpoint statements.
+
+Local validation command (synthetic disposable clone only):
+
+```sh
+node scripts/testing/wechat-010-bounded-product-bytes.mjs
+```
+
+Local12+184+365 pgTAP checks and exact migration guard cases passed. The first
+harness attempt exceeded its process limit and its cleanup masked the initial
+exception; both evidence and the subsequent explicit primary/cleanup reporting
+are retained privately. Later original153 and candidate checkpoint attempts
+exceeded8s in the unchanged event phase. They are FAIL evidence, not acceptance
+of this candidate. Observed concurrent emulator load was separately stopped;
+it is not asserted as the sole cause.
+
+The functional continuation may use120s solely for a local original/candidate
+oracle, preserving the8s failures and marking budget acceptance false. The
+public candidate runner continues to require8s for the candidate. Individual
+SQL clock intervals are separate from process-inclusive elapsed times; fresh
+connections do not establish same-backend warm measurements. The same-backend
+generic series and private read-only diagnostic state their own limits.
+
+The completed functional continuation passed720product per-row/aggregate vectors
+at each of four extra_float_digits settings,360price aggregate vectors and288
+bound vectors at each setting,15preflight fallback/first-violation cases,90scope/
+NULL/cap cases, all-unique products/prices, two row-cap-before-compressed-History/
+invalid-payload cases, two missing-product-column empty-scope cases, both DTO-shape
+drift fallbacks, complete checkpoint JSON and six pooled calls per implementation.
+Existing function OIDs/full metadata/ACL, other functions and data/events remained
+identical; rollback/reapply passed. The full and all-unique oracle calls used120s
+for semantic validation only; this does not replace the preserved8s failures.
+
+At06:43:45UTC the coordinator ran the twice-reviewed copied-body diagnostic once
+on TEST in REPEATABLE READ READ ONLY followed by ROLLBACK. Both preflight and
+product references (after both timed rounds), and the two complete round values,
+were identical:61598rows,29701203payload bytes, zero violations. Nine-phase elapsed
+was5716.469/3711.593ms; preflight2101.607/600.177, products967.498/951.839,
+prices1554.265/1452.291 and events610.439/326.383ms. This is copied diagnostic code,
+not the authenticated RPC: auth/scope fences and final assembly are excluded and
+planning context differs. Earlier153two-round numbers are historical comparisons,
+not a controlled AB pair. No authenticated8s acceptance is inferred.
+
+The synthetic fixture's2074events also differ in producer/entity shape from the
+TEST inventory; equal totals alone are not a representative performance model.
+Private failed and successful functional logs, the preserved clone and TEST
+read-only receipts remain available for review. Node22 verification passed (lint, types, security and production build). Two
+immutable artifact reviews are pending. No remote action is delegated to this writer, and
+no application/deployment or native recovery success is claimed.
+
+## TASK-159 REVIEW — TEST153 applied; authentic recovery pending, 2026-10-02 UTC
+
+PR127 source head `a8a693ab` passed database/pgTAP, Verify and Cloudflare checks
+on the exact reviewed SQL. After both independent reviews, the coordinator applied
+those bytes once to TEST at04:40 UTC. Supabase assigned service version
+`20261002044017`, advancing the registry from152 to153. The04:40:41 postcheck confirms
+all152 prior entries unchanged, the two existing routines changed only in their
+expected bodies, and the new private SECURITY INVOKER helper. Existing OIDs/ACL and
+all other functions, triggers, scoped data/events, image versions and physical
+History state remain unchanged.
+
+The original filename `20261002040159` is aligned to `20261002044017` with SQL SHA256
+`e6e3a2631c82e506461c400e16a910f87c8e007ff8ad29a643ce10b3f19af826` unchanged; the runner
+changes only its migration path. This receipt stays in PR127 for final metadata
+review and exact-head CI before merge; no auto-merge is enabled. The writer performed
+no remote application or deployment. Registry152's authentic FAIL remains preserved;
+registry153 authentic recovery is NOT_RUN and awaits final main CI and the separate
+coordinator/native gate. No terminal recovery, percentile or DONE acceptance.
+
+## Pre-application review — guarded preflight and price bytes, 2 October 2026 UTC
+
+The registry152 authentic failure remains unresolved. The coordinator's single
+read-only nine-phase diagnostic measured9230.271ms before authentication/fence and
+final assembly; standalone phase timings are not summed to claim RPC latency.
+Preflight serialized every product/price DTO in a bounded PL/pgSQL loop before the
+checkpoint serialized them again. Repeated price scalars added further work.
+
+The candidate migration `20261002044017_wechat_010_preflight_price_bytes.sql`
+changes only the existing preflight and checkpoint bodies and adds one private
+`SECURITY INVOKER` predicate. No business row, existing ACL/OID, DTO builder,
+validator, scope/parent predicate, digest ordering, fence or runtime8s setting changes.
+DDL has local5s lock/60s statement limits and requires the exact reviewed source,
+signature/metadata/ACL baselines, including both verified checkpoint ACL sets.
+Missing attributes and NULL/default ACLs fail closed individually in aggregate
+checks; the new helper has only postgres execution privilege.
+
+The runtime predicate pins14 dependency bodies/full metadata,27 typed columns,
+PostgreSQL major17 and UTF8. It is read once inside the STABLE preflight snapshot
+and once in a MATERIALIZED CTE inside the checkpoint's price SELECT. Drift selects
+the original loops or the entire original price SELECT, including scalar behavior;
+no result is cached across statements. The guard reads only pg_catalog.
+
+Preflight keeps all six capped counts and the active compressed-History gate before
+DTO evaluation. Product/price counts use disjoint shop/legacy UNION ALL branches
+with one outer cap+1. Later logical text lengths are metadata-only and cast to bigint
+before arithmetic. Proven row/domain/remaining-total bounds permit set-based exact
+bytes; unproven rows use each complete original loop, preserving domain order, first
+violation and prefix bytes. Prices continue to include orphans in this preflight.
+
+The conservative product bound is1714+6×the four raw text byte lengths; the price
+bound is752+6×the five lengths. They include JSON punctuation/keys, UUID/nulls,
+float8 worst-case scalar output, canonical amount and timestamps. Passing row bounds
+also proves the pinned storage byte/character limits; mandatory fields stay nonnull.
+These bounds select a path and never substitute for returned exact payload bytes.
+
+For proven prices, exact bytes are170 fixed key/punctuation bytes plus four UUID
+scalars(38 or4), five text JSON scalars, the typed float8 scalar, canonical string/null
+and timestamp/null. Each scalar uses PostgreSQL's actual `to_jsonb(value)::text`;
+SQL NULL contributes4. Only numbers and update timestamps are memoized per SELECT.
+Texts are serialized directly: a prior five-text-join experiment was equivalent but
+slower on all-unique values and is not the candidate. The checkpoint rechecks a local
+row bound and uses the original DTO for each unsafe row. Parent/scope filters and
+ordered digest inputs remain exact; no preflight bytes cross into this SELECT.
+
+The proof follows PostgreSQL17 source: [metadata-only text length](https://github.com/postgres/postgres/blob/REL_17_6/src/backend/utils/adt/varlena.c#L682),
+[JSON escaping](https://github.com/postgres/postgres/blob/REL_17_6/src/backend/utils/adt/json.c#L1473),
+[typed JSONB scalars](https://github.com/postgres/postgres/blob/REL_17_6/src/backend/utils/adt/jsonb.c#L655)
+and [bounded float8 output](https://github.com/postgres/postgres/blob/REL_17_6/src/backend/utils/adt/float.c#L502).
+Fixed JSON key overhead is297 for16 product keys and170 for12 price keys. Float8
+output is bounded conservatively at360 expanded JSON bytes, timestamp scalars at31
+and the guarded canonical amount at19. Dependency/type drift disables this proof.
+
+The coordinator's v6 READ ONLY comparison preserves complete original preflight
+and price JSON and measures6736.758ms for nine phases in one execution. It excludes
+authentication, fence and final checkpoint assembly; it is not native RPC success,
+a latency percentile or terminal recovery. Earlier slower candidates and authentic
+FAIL receipts remain preserved privately. Final source validation and two exact
+artifact reviews are required before integration; the writer does not apply remotely.
+
+Local command (dedicated disposable clone, no protected/real rows):
+
+```sh
+node scripts/testing/wechat-010-preflight-price-bytes.mjs
+```
+
+Before coordinator application, save both existing definitions/full metadata, exact
+registry entries, dependency metadata, scoped data/event fingerprints and confirm
+the new helper is absent. After application, compare existing OIDs/full ACL and all
+non-body metadata, helper invoker/owner/ACL, unrelated functions/triggers, scoped data
+and events. If compensating restoration is authorized, restore the two saved
+functions first, remove only this new helper, and repeat those checks; never reset
+business data or disable a trigger. Actual Retry and terminal recovery remain a
+separate coordinator/native gate.
+
+
+Final source validation PASS:12 guard scenarios plus wrong-role rejection;
+12 new+184 History+365 native pgTAP assertions; exact complete JSON on61,595
+synthetic rows/2,074 events (baseline2717/2723ms, candidate1994/1963ms); two sets
+of six same-backend forced-generic calls under8s;41,345 all-unique price values;
+90 scope/NULL/outer-cap cases;15 original-loop fallback cases; scalar/vector
+comparisons across four extra_float_digits settings. Existing metadata/OID/ACL,
+unrelated routines and row/event fingerprints remain exact. Shape drift in both
+DTO builders preserves preflight JSON; price-builder drift also directly compares
+original/candidate price aggregates. Product-builder drift's price branch is
+established by the false global guard and whole-original-SELECT fallback. Node22
+full verify (lint/typecheck/security/build) and diff checks PASS. The two initial
+fixture-only syntax failures remain preserved; neither changed runtime SQL.
+No remote application, authenticated native success, percentile or DONE claim.
+
+## Current status — pipeline applied; authentic retry still failed, 2 October 2026 UTC
+
+PR124 merged at `2e236586` with head and postmerge CI/Cloudflare PASS. The
+coordinator applied the exact integrity SQL once at 01:37:45 UTC as service version
+`20261002013745`, registry151. The source migration originally named
+`20261002011223` is renamed byte-for-byte, SHA256
+`c3960c7e7c4ffd49dd61e5a84b9108ddd2fb0fa34f1d5e87d6439fe3d546c07b`;
+its regression runner changes only that filename. The independent postcheck at
+01:38:10 preserves prior registry entries, scoped data/events, OIDs/ACL and other
+functions/triggers, with the expected checkpoint body change only.
+
+Authentic iOS Retry at 01:39:43–01:39:52 still failed HTTP500/SQLSTATE57014 in final
+integrity. There was no new manifest/finalization proof. Subsequent standalone
+read-only phase profiling identified cumulative work across preflight, events,
+products, prices and integrity. Instrumented phase timings must not be summed and
+presented as an authenticated RPC measurement. Runtime `statement_timeout=8s`,
+lease checks and the catalog fence remain unchanged.
+
+PR125 integrated the reviewed pipeline correction at `7bd490ba` after exact-head
+and postmerge CI/Cloudflare PASS. The coordinator applied its exact SQL once at
+02:53:17 UTC, service `20261002025317`, registry152. The 02:53:40 independent
+postcheck confirms the expected three bodies and two helper languages only;
+existing OIDs/full ACL and all other metadata, unrelated functions/triggers,
+History storage, scoped rows and events are unchanged. Source version
+`20261002022202` is renamed to the assigned service version with identical SHA256
+`38e504d8b2bd06620b4325c20189eb420ec75afead3572f0685bbb12ed2ba626`.
+The local regression runner changes only its migration path. There is no replay.
+
+The applied migration `20261002025317_wechat_010_checkpoint_pipeline_performance.sql`
+changes exactly three existing routines:
+
+- The checkpoint's product SELECT projects the nine fields it consumes and
+  materializes the same recovery DTO bytecount once per row in the same statement.
+  Counts, raw digest fields, UUID ordering, WHERE predicate and byte threshold are
+  identical. No preflight summary is reused across snapshots or differing domains.
+- The event-row and relation-row scope helpers use PL/pgSQL and short-circuit only
+  when the row already has a shop. That branch is exactly `event shop IS NOT NULL
+  AND row shop = event shop`. Each complete original legacy expression remains
+  byte-identical in the fallback, preserving SQL NULL and mapping semantics.
+
+The guard pins exact OIDs by signature, bodies, owner, full ACL, arguments/defaults,
+security, language, volatility and evaluation attributes. Only the two existing
+helper languages and the three bodies change. No grants, new routines, indexes,
+row rewrite, timeout extension or weakened validator are introduced. DDL has
+transaction-local 5s lock and 60s statement limits. Runtime keeps its existing 8s.
+
+The coordinator refreshed registry151 and scoped fingerprints immediately before
+application, retaining all three definitions and complete metadata. Postcheck
+confirmed event scope body MD5 `95de885c228cb643e349730ae925078c`, relation scope
+`2eb0aee5feb14762b8a52da19662e5f0` and checkpoint
+`f9f74642dbf4e8c1b7e1949f8972c582`. Any compensating restoration requires review
+and the saved three definitions plus the same metadata/data postchecks; it never
+resets data. Receipts remain private under `checkpoint-pipeline-apply-*`.
+The single authentic iOS Retry on registry152 at02:55:18–02:55:27 failed again
+HTTP500/SQLSTATE57014, now in the price SELECT at checkpoint line418, origin8279ms
+and upstream8049ms. Binding remained unchanged; manifest/finalization/journal were
+absent and verified=false. Android152 is NOT_RUN and there is no identical retry.
+The private log is `checkpoint-pipeline-ios-failure-logs.json`. Successful source
+integration, SQL application or a phase SELECT is not native recovery acceptance.
+Further correction requires evidence from the complete cumulative execution, not
+a speculative change based only on the final interrupted statement.
+
+Local verification command (dedicated disposable clone, synthetic rows only):
+
+```sh
+node scripts/testing/wechat-010-checkpoint-pipeline-performance.mjs
+```
+
+The fixture retains the previous representative 61,595 rows and 2,074 events. The
+runner uses TEST's `work_mem=2184kB`, one parallel worker and JIT off, and enforces
+8s per complete authenticated checkpoint. It compares complete JSON, current and
+zero verified baselines, six calls in a single forced-generic backend, and the
+10,001-event cap. Exact metadata/data/other-function parity and rollback/reapply
+are required. Product vectors cover NULL, Unicode, oversize, nonfinite and tombstone
+inputs, including exact aggregate parity and reduced DTO evaluation count.
+The 32 targeted pgTAP assertions include 8,750 comparisons against canonical
+SQL oracles using synthetic mapping-table copies, plus 3,750 comparisons through
+real mapped/disabled/absent states. They exercise NULL, ambiguous/unverified and
+nonfinite mapping cases without disabling canonical triggers. The full 184 History
+and 365 native recovery contract assertions are also required.
+
+Independent read-only TEST product SELECT comparison already returned identical
+complete JSON: baseline 1653.153/1620.620ms versus candidate 1202.087/1170.984ms in
+ABBA order, two samples each. The receipt is kept privately in
+`checkpoint151-products-comparison.json`. This is a phase-only improvement; it
+proves neither full RPC completion nor p95. Final source clone checks pass all
+32+184+365 assertions and 15 guard scenarios plus wrong-role denial. Complete
+checkpoint samples are baseline3979/3956/3977ms versus candidate2728/2706/2789ms;
+current verified baseline2121ms versus1993ms; 10001-event cap6224ms versus3349ms.
+Both versions complete six same-backend forced-generic calls under8s each.
+Product DTO evaluation count is39664 versus19832 with identical aggregate JSON.
+Complete metadata/data/other-function parity and rollback/reapply pass. Logs are
+private in `checkpoint-pipeline-performance.log`; the initial vector-fixture SQL
+failure remains separately preserved. No native terminal PASS is implied.
+
+## Previous review — final integrity, 2 October 2026 UTC
+
+PR123 merged at `e4377f83` after exact-head and postmerge CI/Cloudflare PASS.
+The coordinator applied the price-digest SQL once at 00:54:14 UTC. Source version
+`20261002002517` maps to service `20261002005414`, registry 150; SQL SHA256
+`54bc73e0dcbd4bd1d4323989b3bce6dc1c528117fe45509c35b5301243d8474a` is unchanged.
+The 00:54:42 postcheck preserved previous 149 registry entries, function identities,
+ACL and all scoped data/events, with only the expected implementation changes.
+This source reconciliation renames the migration and its regression-runner path.
+
+Authentic recovery remains open: iOS at 00:55:17 and Android at 00:59:26 each still
+returned HTTP500/SQLSTATE57014, now inside the final integrity SELECT after the
+price/history/image aggregates. Mini polling also waited on the same catalog
+fence. Preserve these failures; the lock and the runtime 8s deadline are unchanged.
+The native apps were parked normally to prevent repeated contention during diagnosis.
+
+The additive candidate changes only the final integrity SELECT in
+`shop_sync_recovery_checkpoint_v1`: narrower materialized row projections and
+per-SELECT validation of distinct non-NULL price timestamps and numeric values.
+Date strings use bytewise `C` collation. Numeric equality only coalesces values
+with the same predicate result, including NaN and signed zero. LEFT JOINs retain
+every scoped row, so violations are still counted per row, including multiple
+invalid fields on one product. NULL price/date remains invalid; NULL product
+number remains materializable. No persistent or cross-statement cache exists.
+All validators, event processing, scopes, parent checks, DTOs, digest inputs/order,
+lease checks, advisory locks and final status construction remain unchanged.
+
+The DDL guard checks the exact checkpoint signature, source, attributes and complete
+canonical-local or observed-TEST ACL set. It also pins the three memoized predicate
+bodies, immutability and evaluation configuration. The migration replaces only the
+checkpoint body; it adds no helper, index, privilege, data mutation or timeout change.
+
+The coordinator additionally compared the original and candidate SELECT against
+TEST in read-only transactions with an 8s limit, without calling an authenticated
+RPC or changing a definition. All 20 integrity counters were equal and zero.
+Original execution 3536.944/3183.693ms versus candidate 1785.830/1827.670ms; the second
+pair reversed execution order. This proves the measured SELECT improvement, not
+terminal recovery or full RPC completion. Four plans and the comparison are kept
+privately in `integrity-readonly-comparison-receipt.json`. No p95 is inferred from
+these two samples per version. The earlier dataset counts refer to that snapshot;
+subsequent authorized Mini fixtures require a fresh pre-application fingerprint.
+
+Run the local regression and whole-checkpoint benchmark with Node22:
+
+```sh
+node scripts/testing/wechat-010-checkpoint-integrity-performance.mjs
+```
+
+Its disposable local Docker clone has 61,595 synthetic rows: 19,832 products
+(19,772 active, 19,811 parent-linked), 41,345 prices, 135 suppliers, 104 categories,
+178 History (83 active, 1,437 array rows) and one ready primary image. History data
+and overlay text total 232,794 and 23,852 bytes. These generated strings are not
+real business data, and the sizes are not asserted to match TEST exactly. Numeric
+cardinalities and near-universal parent references address the previous simpler
+fixture. All business triggers remain active; the image fixture uses the normal
+server-managed guard in the disposable clone only.
+
+Local complete-checkpoint samples on 2 October, milliseconds:
+
+| Case | Previous source | Candidate |
+| --- | --- | --- |
+| 2,074 events, first new backend | 4225 | 3972 |
+| Repeated calls, fresh backend/shared data cache | 4197 / 4153 | 3943 / 3969 |
+| Verified current event baseline | 2383 | 2130 |
+| 10,001 events, baseline zero | 6613 | 6190 |
+
+Every measured call keeps the 8s deadline. These are local samples, not cold-cache
+or remote percentile claims. Complete old/new JSON is identical, including the
+scope, hashes, payload budgets and event decisions. The 10,001-event case still
+inspects 10,000 and requires full recovery. Six consecutive calls in each of the
+same original/candidate backends with `force_generic_plan` also remain identical
+and finish under the per-statement 8s deadline.
+
+Deterministic RED→GREEN in the final SELECT: price validator calls 41,345→1,142;
+product-number calls 59,496→1,345; legacy-timestamp calls 82,773→1,407 (including
+83 unchanged History calls). All-unique distributions validate every distinct input
+and finish under 8s. Temporary constraint-free projections compare every integrity
+counter for NULL, NaN, infinities, signed zero, subnormal/large/fractional numbers,
+invalid dates, missing parents, duplicate barcodes and empty inputs; no malformed
+canonical rows or disabled triggers are involved.
+
+Nine guard scenarios plus the wrong deploy role, nine focused pgTAP assertions,
+184 History and 365 native-contract assertions PASS. Full metadata/OID/ACL and
+all unrelated function definitions stay exact; row/event fingerprints are unchanged.
+An explicit rollback then reapplication preserves the same output and metadata.
+Full Admin Node22 verify, targeted runner lint and diff checks PASS. Private logs:
+`checkpoint-integrity-performance-tests.log`, `checkpoint-integrity-performance-verify.log`.
+
+Before release, the coordinator must refresh registry 150, exact checkpoint source/
+metadata/ACL and all scoped row/event fingerprints (including newly authorized
+Mini fixtures), save protected original definitions, then apply only the reviewed
+merged additive migration once. Record its assigned service version. Independently
+verify the target OID/metadata/ACL, unchanged predicates/other functions/triggers
+and all data/events. A reviewed additive restoration of the saved checkpoint is
+the rollback. Only a subsequent authentic terminal recovery proves the full RPC
+fits the existing budget. The read-only SELECT improvement does not establish that.
+
+## Historical review — price digest, before its 2 October 2026 application
+
+After the previous performance and History fixes were applied (registry149),
+authentic iOS and Android recovery each still reached HTTP500/SQLSTATE57014 in the
+checkpoint price aggregate. iOS origin8227ms/upstream8099ms at00:11:58.614UTC;
+Android origin8181ms at00:24:27.912UTC. The clean resource preflight does not prove
+that the complete checkpoint finishes. Both original failures remain preserved;
+this candidate has no remote application or authentic recovery acceptance yet.
+
+`20261002002517_wechat_010_price_digest_performance.sql` changes only the price
+aggregate in `shop_sync_recovery_checkpoint_v1` and the implementation language of
+`sync_price_canonical_amount_v1`. The latter returns the exact existing expression.
+The price CTE materializes only digest inputs and the computed DTO byte count,
+so each DTO is serialized once. Non-NULL timestamp spellings are de-duplicated
+with bytewise `C` collation and each calls the unchanged validator once per SELECT.
+Two LEFT JOINs retain every price, including NULL/invalid spellings and the original
+`invalid` fallback. There is no persistent cache. Scope/parent predicates, raw
+strings, UUID ordering, hash expressions, all other domains and the preflight
+remain unchanged. The RPC stays VOLATILE; its 8s runtime budget is unchanged.
+
+The DDL guard requires postgres, exact signatures/source/attributes and complete
+ACL sets (canonical local or the observed TEST checkpoint set). It never grants or
+revokes existing permissions. CREATE OR REPLACE preserves OIDs/owners/ACLs. Local
+DDL lock/statement limits remain5s/60s. No data, trigger, index or registry repair.
+
+PostgreSQL can fold an ordinary CTE into its parent query; explicit
+[MATERIALIZED](https://www.postgresql.org/docs/17/queries-with.html#QUERIES-WITH-CTE-MATERIALIZATION)
+prevents duplicate computation here. The evidence below also measures actual
+[transaction-local function counters](https://www.postgresql.org/docs/17/monitoring-stats.html),
+rather than inferring speed or evaluation counts from source alone.
+
+Run the isolated regression/benchmark from the repository root with Node22:
+
+```sh
+node scripts/testing/wechat-010-price-digest-performance.mjs
+```
+
+The runner uses only a disposable local Docker schema clone, no database URL or
+live rows, and removes the clone in `finally`. All fixture triggers remain active.
+Its61,595 synthetic rows contain41,345 prices,165 legacy prices and663/661 distinct
+effective/created timestamps, matching the measured price cardinalities. Other
+domain counts remain the existing synthetic load described below; this is not a
+copy or exact distribution of TEST. It compares complete checkpoint JSON, including
+all byte counts, hashes, scope and event decisions, under the real authenticated
+role in verified mixed shop/legacy scope.
+
+Local results on2 October (milliseconds):
+
+| Complete checkpoint | Previous source | Candidate |
+| --- | --- | --- |
+| 2074 events, first call in a new backend | 4432 | 3865 |
+| 2074 events, repeated shared-cache calls | 4405 /4467 | 3956 /3831 |
+| Verified current event baseline | 2952 | 2428 |
+| 10001 events, baseline zero | 5896 | 5430 |
+
+Each candidate checkpoint uses8s. The original diagnostic oracle permits40s,
+although it completed below8s on this Mac. These are local samples, not remote
+percentiles or proof that TEST now finishes. Each call has a fresh backend/plan;
+shared data/OS caches are not evicted. The10001-event case still inspects10000,
+reports incomplete scan and requires full recovery. Separate EXPLAIN measurements
+attribute the gain to the price stage; other pipeline stages remain unchanged.
+
+Deterministic RED→GREEN: original price aggregate calls the DTO constructor82,690
+times and the timestamp validator82,690 times; candidate calls41,345 and1,324.
+The complete old/new JSON SHA256 for the2074-event fixture is
+`e8f14905be56beaeccf1243a7caf8f23c56d500ac5e0a72c524191502991e013`.
+Nine baseline/ACL/source/signature cases,14 new scalar assertions,184 History and
+365 native contract assertions PASS. Temporary projections also prove equal
+NULL/invalid/empty/Unicode/nonfinite/rounding results and all82,690 timestamps
+unique. Every non-NULL unique spelling is still validated. Full metadata except
+the intended scalar language, unrelated functions, row/event fingerprints and
+compensating rollback/reapply remain exact. Private logs:
+`price-digest-performance-tests.log`, `price-digest-investigate-next.log`.
+Full Admin Node22.23.3 verify PASS (lint/type generation/typecheck/security/build);
+`git diff --check` PASS. Verification log: `price-digest-performance-verify.log`.
+
+Before coordinator release, acquire a fresh registry149/source/metadata/ACL
+snapshot and protected original definitions. In a coordinated DDL window apply
+only the twice-reviewed merged SQL once; record any service-assigned version.
+Independently compare existing OIDs/full metadata/ACL, expected two body changes,
+other functions/triggers, scoped rows and event fingerprints. Rollback is an
+additive reviewed restoration of those protected definitions, with data untouched.
+Only then perform a bounded authentic Retry and assess the terminal recovery and
+latency. A clean preflight or successful migration alone is insufficient.
+
+## Historical receipt — first performance delta, 1 October 2026
+
+Stato: PR119 integrata in main4532831b con CI/Cloudflare PASS; migrazione TEST
+applicata una sola volta dal coordinatore il1 ottobre2026. Nessun Retry autentico
+è stato eseguito per dichiarare recovery/convergenza. Il checkpoint canonico, i
+guard di scope e storage e il limite runtime di8 secondi restano identici.
+
+Il servizio ha assegnato20261001220355 alla sorgente20261001195438, con SQL SHA256
+`54a49cbf529e1019468c9e2708c36f83eea783edca31b0df3c22af43e8fc80d7` invariato.
+Registry148 mantiene i147 precedenti record/hash. Postcheck22:04:29UTC: sei helper
+con OID/owner/ACL/attributi identici e stesse espressioni PL/pgSQL, due indici;
+altre funzioni/trigger, fingerprint dati scoped e2074 eventi invariati. Backup,
+intent, risultato e postcheck sono ricevute private; nessun secret è pubblicato.
+
+## Difetto e delta
+
+Il Retry iOS del 29 settembre, dopo la normalizzazione fisica delle 16 History,
+ha ricevuto HTTP500/SQLSTATE57014; il contesto server indicava il preflight dei
+prezzi. La riproduzione locale misura **l'intero checkpoint**, non solo il preflight.
+La scansione eventi ripete ricerche `lower(id::text)` che non possono usare il PK
+UUID; i helper SQL scalari vengono inoltre richiamati per ogni riga, più volte
+fra preflight, digest e integrità.
+
+`20261001220355_wechat_010_recovery_checkpoint_performance.sql` aggiunge due indici
+sull'esatta espressione esistente, in `inventory_products` e
+`inventory_product_prices`. Converte sei helper privati da SQL a PL/pgSQL con
+`RETURN` della stessa identica espressione. Non cambia il corpo di alcun RPC,
+validator, digest aggregate, resolver, writer o trigger. Non modifica alcun dato.
+
+Gli [indici di espressione PostgreSQL 17](https://www.postgresql.org/docs/17/indexes-expressional.html)
+consentono questa ricerca mantenendo la semantica del predicato. Il meccanismo di
+[preparazione delle espressioni PL/pgSQL](https://www.postgresql.org/docs/17/plpgsql-implementation.html#PLPGSQL-PLAN-CACHING)
+riusa le espressioni analizzate nella sessione. Il beneficio riportato sotto è
+misurato sul checkpoint completo, non dedotto solamente da questi meccanismi.
+
+Il guard DDL richiede `postgres`, sei firme regprocedure/OID e return type esatti,
+argomenti/defaults attesi, sorgenti originali precise, owner, ACL,
+volatility, STRICT, parallel safety e search_path attesi. `CREATE OR REPLACE`
+conserva identità/OID, owner e ACL. I timeout DDL sono transaction-local:
+`lock_timeout=5s`, `statement_timeout=60s`; non modificano il limite runtime.
+Gli indici non sono UNIQUE e non aggiungono restrizioni ai writer esistenti.
+
+## Riproduzione isolata e risultati
+
+Da root repository, con Node22:
+
+```sh
+node scripts/testing/wechat-010-recovery-checkpoint-performance.mjs
+```
+
+Il runner accetta solamente il socket Docker locale, un container Supabase e un
+template `wechat010_*` senza business data e senza connessioni attive. Clona il
+template con owner postgres, applica le due migrazioni precedenti già revisionate,
+esegue il contratto pgTAP e inserisce soltanto fixture sintetiche con tutti i
+trigger attivi. Rimuove il clone nel `finally`. Non accetta URL database.
+
+Fixture: 61.595 righe (20.106 prodotti, 41.345 prezzi, 78 fornitori, 50 categorie,
+16 History); è un carico sintetico comparabile, non una copia del dataset TEST.
+I 2.074 e 10.001 eventi sono prodotti da writer con transazioni reali separate,
+rispettando il raggruppamento canonico per transazione.
+
+Risultati del collaudo finale del 1 ottobre 2026:
+
+| Caso completo | Sorgenti originali | Candidato |
+| --- | --- | --- |
+| 2.074 eventi, baseline zero | timeout a 8s senza indici; 8.433ms con soli indici | 4.695 / 4.584 / 4.638ms |
+| baseline verificata pari al massimo evento | 6.951ms con soli indici | 3.074ms |
+| 10.001 eventi, baseline zero | 9.910ms con soli indici | 5.959ms |
+
+Per ottenere l'oracolo completo dei sorgenti originali il solo clone diagnostico
+usa 40s e mantiene gli indici. Ogni esecuzione del candidato usa 8s. A 10.001
+candidati, il risultato mantiene `inspectedCount=10000`, `scanComplete=false` e
+`requiresFullRecovery=true`; la coda non è promossa a prova di convergenza.
+
+PASS: confronto completo JSON originale/candidato, inclusi tutti i digest, byte
+DTO, scope e decisioni eventi; null, UTC/microsecondi, Unicode, numeri non finiti
+e tombstone; espressioni scalari originali identiche; OID/owner/ACL/attributi e
+ogni altra funzione invariati; fingerprint righe/eventi invariato prima/dopo;
+ruolo, ACL e firma inattesi rifiutati atomicamente; rollback DDL e rollback compensativo
+con reapply; piani naturali che usano entrambi gli indici; **365/365** del contratto
+nativo `cross_platform_sync_recovery_contract.sql`.
+
+Nel clone gli indici occupano rispettivamente 1.212.416 e 2.465.792 byte. Ogni
+nuova riga richiede la relativa manutenzione indice; non è attestato un p95 di
+scrittura né una latenza live. Il checksum completo del checkpoint sintetico
+originale/candidato è `fd39ab8302ec659680bc831b527531e5e74fa526648a7aca23aa4b269c72ccba`.
+Il guard precedente, basato sul solo nome, è stato riprodotto in un clone: un
+omonimo con firma errata avrebbe permesso la creazione di una nuova funzione
+con ACL di default. La regressione V2 rifiuta quel drift prima degli indici;
+entrambe le prove sono rollback-only. Il log integrale resta nella ricevuta privata `checkpoint-performance-regression-v2.log`.
+
+Validation: full Admin `verify` on Node22.23.3 PASS (lint, route type generation,
+TypeScript, security scan, production build); `git diff --check` PASS.
+
+## Procedura TEST revisionata (applicazione completata)
+
+Prima di un'eventuale applicazione, acquisire un fresh snapshot scoped di registry,
+sorgenti/owner/ACL dei sei helper, definizioni degli RPC/guard invariati, indici,
+trigger e fingerprint dati/eventi. Verificare una finestra DDL coordinata. Applicare
+una sola volta i byte revisionati tramite la convenzione Admin e registrare la
+versione assegnata dal servizio; non simulare un timestamp del registry.
+
+Confermare poi i sei helper, i due indici e l'assenza di ogni altro cambiamento;
+rieseguire il checkpoint autentico con il client e la sessione autorizzati. Se il
+DDL incontra il limite lock/statement, la transazione deve fallire senza effetto:
+nessun retry automatico o timeout aumentato.
+
+Rollback: dopo fresh confronto dello stato, ripristinare le sei definizioni
+originali dal backup revisionato e rimuovere soltanto i due indici introdotti,
+in una transazione con gli stessi limiti DDL. Conservare il registry/receipt
+secondo il normale processo compensativo Admin. Nessun rollback di dati o eventi.
+
+## Limiti e secondo problema distinto
+
+Il 1 ottobre Android ha osservato HTTP200 con `checkpoint_resource_exceeded`.
+La diagnosi scoped read-only ha isolato tre History attive con storage e JSON
+tipizzati validi, ma timestamp ISO rifiutati dal validator legacy. Non è un timeout
+e questo delta conserva esattamente tale rifiuto. Una compatibilità documentata
+richiede un delta separato: non cancellare, troncare o riscrivere dati esistenti,
+né ampliare il validator in questa migrazione di prestazioni.
+
+Nessun PASS live, telefono, p95, recovery nativa o convergenza è dedotto dal benchmark.

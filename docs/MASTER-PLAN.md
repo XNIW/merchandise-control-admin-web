@@ -1,5 +1,773 @@
 # MerchandiseControl Admin Web - Master Plan
 
+## TASK-094 REVIEW — cache degli array del piano, 13 ottobre 2026 UTC
+
+FIX circoscritto autorizzato nel worktree `admin-post-pr123-plan-array-cache-20261013`,
+da main Admin5ccdb8ce. MAX205e resta FAIL: FIRST complete-plan SQL10160.5102ms
+ha superato la deadline client10s prima degli apply. Il nuovo forward cambia
+soltanto Small: due alias JSONB dopo il guard originale e16accessi successivi,
+con array/NULL/ordine/duplicati/cast/auth/lock/hash/ACK/DML invariati. Corpi raw
+LF e CRLF pinned, drift55000 e metadata pg_proc/OID/ACL preservati; nessuna
+migration storica modificata. La coppia owned5f03 ha completato due FIRST e
+due rollback con risposta integrale identica:7798.1464ms originale contro
+7211.4464ms candidata con clock, controller253494.5172ms, archivio invariato.
+Una coppia sequenziale non isola gli effetti di buffer/planner e non qualifica
+HTTP/commit/risorse/MAX. Review indipendente della copia PASS. Regressione
+pgTAP reale e nuove5000/59999 sul candidato finale restano da eseguire;
+nessun DONE, READY o apply/deploy live. Le sezioni precedenti restano storiche.
+[Scope e gate](TASKS/TASK-094-pos-catalog-import-receipt-and-retirement.md).
+
+## TASK-094 REVIEW — candidata coverage con entries materializzate, 12 ottobre 2026 UTC
+
+Nuovo FIX source-only isolato da Admin main6d2bcf1. Il massimo A2 resta FAIL
+prima di apply: coverage ha superato la deadline10s; diagnosi owned8706 ha
+riprodotto14.343/14.468s nel child SELECT. Una sola query candidata materializza
+le proiezioni testuali delle entries, conserva EXISTS/LATERAL/cast integer,
+scopi, molteplicità, ordine e JSON completo. Guard forward pinned0eec/b306 →
+564bec/1290 con OID/owner/ACL e tutta pg_proc preservati; drift55000 e rollback.
+Nuovo pgTAP reale:38vettori/261assert attese, expected indipendenti, no auth stub;
+gli storici133/70 conservano guard/expected tramite pin e inversa circoscritta.
+Prova SQL owned d3ae chiusa PASS:34read/rollback/reset,16edge a coppie con JSON
+completo identico; primaria14976.4326→8601.3105ms, controller205840.3945ms,
+quattro native exit0 e archivio/cleanup invariati. Ricevuta Root SHA256
+`3d9514157b68fb3c8ca27c7e9d9888e5ebf4d7edd2381c7a9e970235a97a1229`.
+È diagnostica su copia: pgTAP source, HTTP e nuove5000/59999 restano NOT_RUN.
+Nessun indice/ANALYZE/GUC/cap/timeout/auth/apply modificato,
+nessun DONE/READY o qualifica anticipata. Le sezioni datate precedenti restano
+storiche e immutate. [Scope e gate](TASKS/TASK-094-pos-catalog-import-receipt-and-retirement.md).
+
+## TASK-094 REVIEW — complete-plan con un solo builder, 12 ottobre 2026 UTC
+
+Il coordinatore autorizza la continuazione FIX nel nuovo worktree isolato
+`admin-post-pr123-plan-complete-fix-20261012`, da Admin ae0e8304. La diagnostica
+owned COPY_PROFILE REV6 ha raggiunto tutti i 24 marker e restituito il JSON
+planned identico alla risposta cached: chiamata 7587.597 ms, blocco Phased P08
+1490.084 ms. Sono tempi su una copia calda, con piano e parti gia presenti e
+rollback: non misurano il precedente fallimento 59999 o una nuova qualifica.
+La sola candidata sostituisce il builder `v_normal` di complete-plan per gli
+header oggetto con un unico `jsonb_object_agg`, chiavi uniche e precedenza dei
+quattro campi RHS; nessun ORDER BY sui grandi valori. Per header SQL NULL,
+JSON null, scalari e array resta l'espressione precedente. Hash canonico, P05,
+SmallV1 completo, proof, auth, OID/owner/ACL, cap e deadline restano invariati.
+La migration forward pinned e638/821d → 0eec/b306 controlla drift e metadata
+completo; il nuovo pgTAP confronta il blocco installato, l'espressione precedente
+e expected indipendenti, con scopi reali e rollback. I vettori pairing precedenti
+restano invariati, salvo il pin del corpo installato. Source-only: efficacia,
+pgTAP locale, applicazione e nuove prove 5000/59999 ancora NOT_RUN. Review
+indipendente e runtime sul nuovo freeze precedono ogni qualifica; nessun DONE/READY.
+[Scope, digests e criteri](TASKS/TASK-094-pos-catalog-import-receipt-and-retirement.md).
+
+## TASK-094 REVIEW — candidata pairing identita, 12 ottobre 2026 UTC
+
+Il coordinatore autorizza la sola preparazione sorgente da main9f8d6a7e nel
+nuovo worktree `admin-post-pr123-identity-pairing-fix-20261012`. Una migration
+forward pinned e018→e638 sostituisce soltanto il terzo EXISTS globale root con
+UNION ALL e GROUP BY(group_index,ordinal), mantenendo scopi, NULL/alias,
+guard/ACL/auth, hash/DML, cap e timeout. Nessun nuovo filtro group_index=0.
+Il pgTAP dedicato confronta query estratta dal prosrc, JOIN precedente ed
+expected indipendenti in17 gruppi/22 vettori su vere staging tables rollback-only,
+senza auth stub. Il massimo59999 REV3 resta FAIL; il piano read-only a2de acquisito
+mostra pairing Nested Loop con scansioni PK soltanto scoped e filtro group/ordinal.
+E un piano stimato postrollback, non il piano storico o tempi di esecuzione:
+efficacia della candidata non provata. Solo parser/static ora; PG/test/build/
+apply/deploy/pubblicazione NOT_RUN. Handoff verso REVIEW, nessun DONE/READY.
+[Scope e criteri](TASKS/TASK-094-pos-catalog-import-receipt-and-retirement.md).
+
+## TASK-094 REVIEW — fix circoscritto della normalizzazione, 11 ottobre 2026
+
+La richiesta utente dell'11 ottobre autorizza il FIX necessario nel worktree
+isolato da main15ee1886. Il task attivo resta solo TASK-094. Il delta Admin
+ha preparato una migration forward per il controllo globale di identita durante la
+normalizzazione originale: folding esplicito delle due CTE, stessi predicati,
+scope e failure. La distinta espansione raw/normalized del child e tracciata nel
+task e corretta nella lane POS; il guard SQL512KiB resta invariato qui.
+Nessuna migration storica viene riscritta. Runtime/query/test/build/apply/deploy
+e pubblicazione restano NOT_RUN in questa fase source-only. Il FIX termina con
+handoff verso REVIEW; review indipendente e nuova qualifica sono pending,
+nessun DONE o READY.
+[Scope e procedura](TASKS/TASK-094-pos-catalog-import-receipt-and-retirement.md).
+
+## TASK-094 authorized isolated continuation — 8 October 2026
+
+POS import receipt, explicit identity retirement and linked masked correction are
+in REVIEW in the authorized isolated worktree. Read-only lookup handles original
+and correction-child identities, returns durable RPC ACKs with scoped current
+snapshots, and rederives canonical hashes from immutable originalRequest. Private
+retirement fences reject delayed originals/children; masked correction checks
+current revision and baseSnapshot atomically, preserving newer remote metadata.
+Source-only migrations 20261008194809 and 20261008200355: no TEST apply, deploy,
+cleanup, READY or DONE. Foundation1071 PASS/8 SKIP and synthetic PostgreSQL69 PASS;
+final immutable reviews/build receipt are tracked in the scoped task. Existing
+TASK-054/TASK-159 history and every other worktree remain unchanged.
+[Scoped task](TASKS/TASK-094-pos-catalog-import-receipt-and-retirement.md).
+
+
+## TASK-054 coordinato — creazione indirizzo v3, 8 ottobre 2026
+
+Il mandato Client corrente autorizza il delta aggiuntivo per la creazione con
+risposta persa. Implementate due RPC account-global, ledger privato owner/intento,
+replay atomico e riconciliazione, rifiuto del payload cambiato, tombstone dopo
+cancellazione e sessione Auth corrente obbligatoria. Nessuna modifica alle tre
+migration commerce canoniche o al Worker della lane W.
+
+La concorrenza v2 è stata riprodotta prima del fix: due indirizzi per due richieste
+con lo stesso intento logico. Dopo la patch: un canonical ID/riga, versione
+invariata; 43 nuove + 119 assertion SQL esistenti PASS. La review distinta ha
+richiesto un fix P2 del cast booleano malformato; test rosso, fix minimo e re-review
+con 43/43 rieseguiti autonomamente: APPROVED per source/local. Type probe e security
+scan PASS. Migration `20261008151018`, SHA256
+`b290c6373d2d49a3c9fb4847e5ee8f47f2ce11f4eeeb17da4d3fc4086a615e56`.
+
+CI finale, apply TEST e smoke Client autenticato restano NOT_RUN. Nessun DONE,
+merge, nuova attivazione di task o accettazione runtime. Handoff del delta:
+`CODEX_FIX_COMPLETE_TO_RE_REVIEW`; re-review source/local conclusa, closeout
+integrato ancora aperto. Le altre lane TASK-159 mantengono gli stati precedenti.
+
+[Evidence del delta](TASKS/EVIDENCE/TASK-159/client-task054-address-intent-v3-20261008.md).
+
+
+## TASK-159 source integration — PR128 merged, PR130 reconciliation, 2026-10-04 Santiago
+
+The authorized normal merge of PR128 completed at 03:54:17 UTC as main
+`3201a311cec512a6c638fcc650b59f05e918b66d`, from reviewed head
+`ad2d1aba23cc9d4fff13cbe6adb2a028d5c2c87c`. Exact-head CI37168350875 and
+Cloudflare37168350885 passed; their staging/production deployment jobs were skipped.
+The newly started main CI37175407216/Cloudflare37175407209 were still in progress
+when this reconciliation began; no result is inferred from the earlier head.
+
+PR130 is now reconciled with that merged main, including PR129's fractional-stock
+input fix. Both sides of the three documentation conflicts are retained below.
+The identity migration remains byte-for-byte SHA256
+`9d52258cb07899c59bc35eddf596fef8f37d936a03bc2dedb60c086cc9ef3545`;
+its runner and pgTAP source are unchanged from PR130 head `d4f171d4`. The bounded
+product migration remains SHA256
+`9a09b8106aa8dbb3f86365ef964cc0e6a204fc8e38440b660716ebb179f04e27`.
+This resolution adds no SQL or runtime behavior. Existing passing tests on those
+immutable sources are reused; focused compatibility review and new exact-head CI
+precede PR130's merge, and PR130 remains Draft pending those gates.
+
+This is source integration only: registry155 is not reapplied, no database or
+Worker operation is performed, and the archived price proposals stay excluded.
+Diagnostic STEP1 remains INCONCLUSIVE / NOT_EXECUTED_AFTER_ORDINARY_RECOVERY_COMPLETION;
+ordinary recovery completion does not close the historical timeout cause. Authentic
+post-fix behavior, final recovery, cross-client convergence, performance and phone
+acceptance remain separate and open. TASK-159/WECHAT-010 is not DONE. Earlier dated
+sections retain their historical receipts and statuses.
+
+## TASK-159 REVIEW — TEST155 identity case fix applied, 2026-10-02 18:08 UTC
+
+Both independent reviews approved the exact identity patch. Stacked PR130 head
+ed099f1c passed Database migrations/pgTAP, Verify and Cloudflare build checks
+(CI37044429416 and CF37044429434); deployment jobs were skipped. The coordinator
+applied the reviewed SQL once to TEST at18:07:54–18:07:57UTC. Supabase assigned
+service version20261002180757, advancing the registry from154 to155.
+
+The18:08:53 private admin-identity-case-postcheck.json records PASS: only the two
+expected function bodies changed, with CREATE MD5
+3c60b9f2115fe672c4ce77c7f5f1033d and UPDATE MD5
+b0f15a596d384da887174b3ed054357f. All existing registry entries, target OIDs/full
+metadata/ACL, other functions/triggers and scoped data, History and image
+versions remain unchanged. No existing product codes were backfilled.
+
+The source filename is aligned from20261002171237 to20261002180757, with SQL
+SHA2569d52258cb07899c59bc35eddf596fef8f37d936a03bc2dedb60c086cc9ef3545
+unchanged (11547bytes; joined-SQL MD59e4741b64d7b0999b3000f06990e922f).
+The local runner changes only its migration-path literal. This metadata receipt
+adds no SQL behavior and does not repeat the177passing local SQL checks or the
+passing Node22 verification. Final delta review and exact-head CI remain pending.
+PR130 remains open on PR128; source integration and authentic post-fix behavior
+are not yet accepted. No new Worker deployment or native recovery success is
+claimed. Registry154's recovery failures remain preserved and unresolved.
+
+## Historical pre-apply validation — Admin product identity case, 2026-10-02 UTC
+
+An authentic Admin name-only save preserved stock1.25 but uppercased the
+unchanged barcode and item number. Canonical catalog_text_policy_v1 requires
+case-sensitive identity text without case folding. A separate branch from the
+unchanged PR128 head contains the bounded fix: remove only four upper() wrappers
+from the two personal product functions. Existing btrim/nullif, strict text-policy
+triggers, revision/sync wrappers, OIDs and complete permissions remain unchanged;
+there is no backfill or alteration of already stored codes.
+
+The exact-body source check passes. The migration guard explicitly resolves
+both public functions; the regression reproduces the old guard accepting
+conforming shadow functions while the public target drifted, then proves atomic
+refusal by the qualified guard. An isolated local clone reproduced eight failed
+baseline assertions. The corrected actual RPC tests passed27/27; canonical text
+policy20/20, revision44/44 and Mini mutation86/86 also passed (177checks total).
+These cover mixed-case create with an uppercase peer, name-only identity and
+quantity preservation, explicit identity edit, trim collision, stale revision,
+invalid controls and cross-shop refusal. Both exact ACL sets, unknown grants,
+grant options, metadata/signature drift and wrong deploy role were checked.
+Rollback/reapply preserved OIDs, full metadata/ACL, other functions/triggers and
+data. The clone and runner were absent at17:46:43UTC. Pinned Node22 repository
+verification subsequently passed lint, route types, typecheck, secret/security
+scan and production build. Final immutable review is pending. No remote
+application, authentic post-fix success, commit or integration is claimed.
+
+Registry154's recovery timeout remains unresolved. A separate read-only literal
+ABBA integrity diagnostic returned identical20counters but no performance benefit
+from the four-counter fusion. The subsequent six-call prepared generic-plan
+experiment also returned identical20zero counters, with3generic/0custom plans
+per variant. Repeated baseline494.717/495.735ms versus candidate488.298/488.765ms
+shows only a small standalone difference; first calls were511.309/489.112ms.
+These same-snapshot, forced-generic SELECT measurements exclude authentication,
+fences and other checkpoint phases, and establish no full-RPC8s acceptance.
+The candidate stays archived privately and excluded from this identity source
+change; no checkpoint or runtime deadline change is included here.
+
+## TASK-159 source integration review — 2026-10-03 Santiago (2026-10-04 UTC)
+
+PR128 is being reconciled with latest main `553c4568`, which includes the
+fractional-stock editor fix from PR129. The three documentation conflicts retain
+both the bounded-product/TEST154 receipts and the fractional-stock history below.
+The reviewed migration remains byte-for-byte SHA256
+`9a09b8106aa8dbb3f86365ef964cc0e6a204fc8e38440b660716ebb179f04e27`;
+no SQL, dependency, authorization or runtime behavior is changed by this resolution.
+Earlier CI results qualify their recorded heads only. Focused compatibility review
+and CI on the new integration head are pending; PR128 remains unmerged.
+
+PR130's identity-case delta remains separate and based on PR128 until the reviewed
+PR128 integration is merged. This source operation does not reapply registry155,
+deploy a Worker, execute the frozen price proposal or establish live acceptance.
+The coordinator closed diagnostic STEP1 as INCONCLUSIVE /
+NOT_EXECUTED_AFTER_ORDINARY_RECOVERY_COMPLETION: ordinary recovery completion does
+not establish the cause or resolution of the historical timeout. Authentic final
+recovery, cross-client convergence, performance and phone acceptance remain open.
+TASK-159/WECHAT-010 is not DONE. Earlier dated sections are historical receipts,
+not fresh runtime or deployment evidence.
+
+## TASK-159 REVIEW — TEST154 applied; authenticated recovery pending, 2026-10-02 15:09 UTC
+
+PR128 candidate head `2e7237f4` passed exact-head database/pgTAP, Verify and
+Cloudflare build checks after the independent immutable-artifact reviews.
+The coordinator applied the reviewed SQL once to TEST at15:09:09 UTC, advancing
+registry153 to154 with service version `20261002150909`. The15:09:43 private
+`bounded-product-bytes-postcheck.json` records POSTCHECK_PASS: all153 previous
+registry entries are unchanged; only the two expected routine bodies changed.
+The existing private helper, existing OIDs/full metadata/ACL, all other functions,
+triggers, scoped data/events, image versions and physical History remain unchanged.
+
+The source filename `20261002054522` is aligned to `20261002150909` in this same
+open PR, with SQL SHA256
+`9a09b8106aa8dbb3f86365ef964cc0e6a204fc8e38440b660716ebb179f04e27`
+unchanged. The local runner changes only its migration path. This receipt delta
+adds no SQL behavior, data mutation or deployment; no local PG/build/global
+verification is repeated for the filename and documentation changes. Final-head
+CI and metadata review precede any merge; the PR is not yet integrated.
+
+Registry153's authentic iOS first-checkpoint HTTP200 followed by HTTP500/57014,
+and the local8s failures, remain preserved evidence. The120s functional oracle
+and copied read-only diagnostic establish their stated equivalence only.
+Authenticated recovery on154 is pending; no terminal recovery,8s runtime PASS or
+DONE is claimed. Earlier06/07UTC preparation and validation entries below are
+historical and do not describe the15:09 applied state.
+
+## Historical pre-apply review — bounded scan and product byte candidate, 2026-10-02 06:49 UTC
+
+PR127 is integrated at `e0089365`, with exact-head and postmerge CI/Cloudflare
+checks passing. TEST registry153 is applied and metadata/data postchecks pass.
+The subsequent authentic iOS attempt completed one checkpoint HTTP200 but its
+next checkpoint timed out HTTP500/57014 before activation. Prepared recovery
+state is preserved; no terminal recovery or DONE acceptance is claimed.
+
+The coordinator's read-only two-round diagnostics return identical preflight
+JSON but expose substantial first-execution cost in product/price counts and
+metadata-bound scans. JIT counters are zero; serial planning alone does not
+remove that cost. These diagnostics do not impersonate authentication and do
+not reproduce the complete authenticated RPC deadline.
+
+The sole Admin writer now prepares a bounded candidate: combine each product/
+price capped count with metadata-only upper bounds, with the original count
+branch on contract drift; calculate exact product scalar JSON bytes separately
+inside preflight and the product aggregate. Preserve all six capped counts,
+first-violation/prefix-byte ordering, compression and TOAST guards, original
+fallback loops, DTO/hash/order, scope, ACL, fences and the8s runtime deadline.
+No values or byte totals are shared across checkpoint statements. Existing
+private dependency/type guards remain the trust boundary; no new framework,
+index, grant, data rewrite or remote application is authorized to this writer.
+
+Local12+184+365 SQL checks, migration guards and the complete functional
+continuation passed: full JSON/per-row bytes, vectors, all-unique values, cap/
+precedence, dependency drift, metadata/ACL and rollback. The original153 and
+candidate8s failures in the unchanged event phase remain preserved. The later
+120s local oracle establishes equivalence only, not budget acceptance.
+
+A coordinator-run read-only copied-body diagnostic on TEST returned identical
+preflight/product/full-round values at5716.469 and3711.593ms. It excludes auth,
+fences and final RPC assembly and uses different planning context; it is not an
+authenticated8s PASS or a controlled AB comparison with earlier diagnostics.
+Node22 source verification (lint, types, security and build) passed. Two
+immutable-artifact reviews remain pending. TEST153
+and its authentic failure remain current; this candidate has not been applied.
+
+## TASK-159 REVIEW — fractional stock in the existing product editor, 2026-10-02 UTC
+
+The coordinator reproduced a name-only save blocked by native number validation
+when the existing stock quantity was1.25. The input imposed integer steps while
+the unchanged server contract accepts finite nonnegative quantities. The sole
+application change is stockQuantity step1→any, retaining min0/type number and
+all server, price, revision and authorization behavior.
+
+An isolated Chromium regression renders the actual overview form and performs
+ordinary native submissions:1.25,0.001 and1.234567 were rejected before the fix
+and pass afterward with every non-name FormData value unchanged. Negative stock
+still prevents submission. All4 browser cases and5 existing form tests pass;
+pinned Node22 verify passes lint, types, security scan and production build.
+The first local build rejected an external node_modules symlink; after copying
+the same dependencies into this worktree, verify passed without a source workaround.
+
+The browser regression has no app/backend connection and is not an authenticated
+save or post-deployment acceptance. Source work is isolated from open PR128;
+its separate TEST154 receipt remains there. No migration, data rewrite or deployment
+was performed by this writer. This five-file patch awaits independent review.
+
+## TASK-159 REVIEW — TEST153 applied; authentic recovery pending, 2026-10-02 UTC
+
+PR127 source head `a8a693ab` passed database/pgTAP, Verify and Cloudflare checks
+on the exact reviewed SQL. After both independent reviews, the coordinator applied
+those bytes once to TEST at04:40 UTC. Supabase assigned service version
+`20261002044017`, advancing the registry from152 to153. The04:40:41 postcheck confirms
+all152 prior entries unchanged, the two existing routines changed only in their
+expected bodies, and the new private SECURITY INVOKER helper. Existing OIDs/ACL and
+all other functions, triggers, scoped data/events, image versions and physical
+History state remain unchanged.
+
+The original filename `20261002040159` is aligned to `20261002044017` with SQL SHA256
+`e6e3a2631c82e506461c400e16a910f87c8e007ff8ad29a643ce10b3f19af826` unchanged; the runner
+changes only its migration path. This receipt stays in PR127 for final metadata
+review and exact-head CI before merge; no auto-merge is enabled. The writer performed
+no remote application or deployment. Registry152's authentic FAIL remains preserved;
+registry153 authentic recovery is NOT_RUN and awaits final main CI and the separate
+coordinator/native gate. No terminal recovery, percentile or DONE acceptance.
+
+## TASK-159 pre-application REVIEW — bounded preflight and exact price bytes, 2026-10-02 UTC
+
+PR126 merged at `74f1d3cc` with exact-head and postmerge CI/Cloudflare PASS. The
+coordinator released only the reviewed Admin poller change to TEST; no new live
+poller acceptance is claimed here. Registry152 still has the preserved authentic
+native checkpoint timeout. Complete single-execution read-only profiling, without
+impersonating authentication or changing the8s runtime deadline, identifies repeated
+preflight DTO serialization and price scalar work as the remaining measured costs.
+
+The sole Admin writer is preparing one additive migration: preserve preflight
+first-violation/prefix-byte semantics with original-loop fallback; use metadata-only
+bounds before exact set-based byte calculation; retain one capped count over disjoint
+shop/legacy branches; calculate exact flat price JSON bytes and memoized typed scalars
+only within each SELECT. Existing DTOs, scope/parent filters, digest strings/order,
+TOAST guards, authorization, fences, data and ACL remain unchanged. A new private
+SECURITY INVOKER contract predicate pins dependency metadata/types plus PostgreSQL17
+and UTF8; drift falls back to the original paths. No cross-statement byte reuse.
+
+Preliminary local full JSON/vector/fallback equivalence passes. The coordinator's
+single v6 nine-phase READ ONLY diagnostic is6736.758ms with exact original preflight
+and price JSON equality. This excludes authentication/fence/final assembly and is
+not authenticated RPC, terminal recovery, p95 or DONE acceptance. Earlier slower
+and failed candidates remain private evidence. Final guarded-source regressions,
+full checks and two immutable-artifact reviews precede source integration; only the
+coordinator may apply remotely. No remote action is delegated to this writer.
+
+
+Final source validation PASS:12 guard scenarios plus wrong-role rejection;
+12 new+184 History+365 native pgTAP assertions; exact complete JSON on61,595
+synthetic rows/2,074 events (baseline2717/2723ms, candidate1994/1963ms); two sets
+of six same-backend forced-generic calls under8s;41,345 all-unique price values;
+90 scope/NULL/outer-cap cases;15 original-loop fallback cases; scalar/vector
+comparisons across four extra_float_digits settings. Existing metadata/OID/ACL,
+unrelated routines and row/event fingerprints remain exact. Shape drift in both
+DTO builders preserves preflight JSON; price-builder drift also directly compares
+original/candidate price aggregates. Product-builder drift's price branch is
+established by the false global guard and whole-original-SELECT fallback. Node22
+full verify (lint/typecheck/security/build) and diff checks PASS. The two initial
+fixture-only syntax failures remain preserved; neither changed runtime SQL.
+No remote application, authenticated native success, percentile or DONE claim.
+
+## TASK-159 REVIEW — deferred Admin marker refresh, 2026-10-02 UTC
+
+PR125 is integrated at7bd490ba with exact-head and postmerge CI/Cloudflare PASS.
+The coordinator applied the exact SQL once at02:53:17 UTC as service20261002025317,
+registry152. The independent02:53:40 postcheck preserves OIDs/full ACL, all unrelated
+metadata/functions/triggers and scoped data/events, with only the three expected
+bodies and two helper languages changed. The source filename and runner reference
+are aligned byte-for-byte. The single authentic iOS Retry02:55:18–02:55:27 still
+failed HTTP500/57014, now in the price SELECT (line418). No manifest, finalization
+or verified recovery appeared; Android152 remains NOT_RUN. No identical retry or
+new speculative SQL optimization is authorized by this receipt. The sole writer addresses
+a separate deterministic Admin-shell defect, reproduced against its exact source:
+a marker observed while a form is focused or the refresh throttle is active is
+consumed even though no refresh occurs; later identical markers never retry.
+This does not establish the cause of the earlier interrupted live Admin tab.
+
+Bounded scope: acknowledge the marker only after router.refresh() is invoked,
+retain it across deferral/cancel, recheck focus/visibility/current scope at the
+200ms timer, and cover focus/throttle/same-marker/race/unmount behavior with local
+regressions. Preserve authorization, shop-scoped marker API, polling/backoff and
+form protection. No DDL, Worker deployment or live business mutation by the writer.
+The eleven isolated callback regressions now pass (nine fail against saved original
+source), including offline within the timer, reconnect, backoff and native focus. After host release, Node22 full verify (lint, typecheck, security, build) and the
+existing Admin marker contract pass. A broader local source-test batch has31PASS
+and one unrelated missing Win7POS file; it is not a full-suite PASS. No live poller
+acceptance is claimed. Frozen review, exact-head CI and selective staging review
+precede release.
+
+## TASK-159 REVIEW — complete checkpoint pipeline, 2026-10-02 UTC
+
+PR124 merged at 2e236586 with head/postmerge CI and Cloudflare PASS. The coordinator
+applied the exact integrity SQL once as service version20261002013745 (registry151).
+Its independent postcheck preserves prior registry entries, function metadata/ACL,
+scoped data and events. The subsequent authentic iOS Retry at01:39:43–01:39:52 UTC
+still fails HTTP500/SQLSTATE57014 in final integrity. No terminal native recovery,
+convergence or performance acceptance follows from the earlier phase improvement.
+
+The sole Admin writer now addresses measured cumulative checkpoint work. The
+bounded candidate materializes each product bytecount once within its SELECT and
+adds equivalent non-NULL shop fast paths to the two existing scope predicates.
+Legacy predicate expressions remain exact. No preflight byte reuse across snapshots,
+scalar/DTO changes, new privileges, fence change or runtime8s extension is allowed.
+Final source checks compare exact complete JSON at3956–3979ms versus2706–2789ms
+with TEST work_mem/parallel/JIT settings. The10001-event case is6224ms versus3349ms;
+both versions also pass six same-backend forced-generic calls under8s each. All
+32 targeted +184 History +365 native assertions, 15 guard cases plus wrong-role
+denial, metadata/data parity and rollback/reapply pass. The coordinator's readonly
+product-only comparison is identical at1620.620–1653.153ms versus1170.984–1202.087ms.
+These bounded samples are not authenticated RPC or p95 acceptance. Independent
+frozen-artifact reviews precede integration; only the coordinator may apply
+remotely. The prior integrity filename is aligned with identical SQL bytes. Node22
+full verify (lint, type generation/typecheck, security scan and build) and diffcheck
+PASS; local logs and source fingerprints accompany the frozen review artifact.
+
+## TASK-159 REVIEW — final integrity checkpoint timeout, 2026-10-02 UTC
+
+PR123 is merged at e4377f83 with exact-head and postmerge CI/Cloudflare PASS.
+The coordinator applied its SQL once at 00:54:14 UTC as service version
+20261002005414; registry150. Independent postcheck at 00:54:42 UTC reports no
+metadata/data differences beyond the two expected body changes and the intended
+scalar language. Existing OIDs/ACL, other functions, scoped rows and events remain
+unchanged. The sole Admin writer is reconciling the source filename and runner
+reference with identical SQL bytes. The subsequent authentic failure and the separate measured correction are
+consolidated below; no remote replay by the writer or live recovery acceptance.
+
+The next authentic iOS Retry (00:55:08–00:55:17 UTC) still fails HTTP500/57014,
+now in the final integrity SELECT after completing price/history/image digests.
+The demonstrated improvement is not terminal recovery acceptance. Profile the
+entire integrity phase locally, including repeated scalar validation, projections
+and parent relationships; implement only measured equivalent work reduction.
+Keep the applied SQL intact, add a separate migration for any correction, and
+consolidate its review with the byte-identical service-version rename. No timeout,
+authorization, integrity, data or scope relaxation; no remote action by the writer.
+
+The candidate changes only the checkpoint's final integrity SELECT. All predicates
+and all other checkpoint statements stay unchanged; there are no new helpers,
+grants, index changes or data rewrites. Per-SELECT distinct-value validation retains
+row multiplicity and exact NULL/NaN/signed-zero behavior. Local checks already
+confirm full metadata/OID/ACL parity, unchanged helper definitions, exact complete
+JSON and red-to-green validation-call counts. The coordinator's two read-only TEST
+comparisons produce identical 20 counters and reduce that SELECT from 3536.944/
+3183.693ms to 1785.830/1827.670ms. These are not authenticated RPC or terminal
+recovery acceptance. The native deadline remains 8s, and the observed failure
+receipts remain preserved. [Runbook](RUNBOOKS/wechat-recovery-checkpoint-performance.md).
+
+Final local validation PASS: nine guard cases plus wrong deploy role, nine focused
+assertions, 184 History and 365 native contract assertions; full JSON/data/metadata
+rollback parity; invalid and all-unique values; six pooled generic-plan calls for
+each version. Complete synthetic checkpoint 4153–4225ms → 3943–3972ms, current
+baseline 2383 → 2130ms, 10,001-event boundary 6613 → 6190ms with the existing
+10,000 inspection cap. All calls retain the 8s deadline. Node22 verify and final
+diff/security checks PASS. Independent artifact reviews precede integration;
+authentic recovery remains unaccepted.
+
+## TASK-159 REVIEW — measured price-digest checkpoint timeout, 2026-10-02 UTC
+
+After registry149 and a clean resource preflight, one authentic iOS Retry still
+failed: checkpoint HTTP500/SQLSTATE57014 in the prices version-digest SELECT.
+This is distinct from the earlier preflight timeout and History format rejection.
+One delegated Admin writer will reproduce/profile the complete pipeline locally,
+then prepare the smallest measured correction with identical DTOs, hashes, order,
+scope, ACL and the unchanged 8-second runtime limit. No remote action by the writer;
+two independent reviews and CI gates precede integration and coordinator release.
+
+The bounded candidate passes9 baseline guards,14 new+184 History+365 native
+assertions and exact complete JSON/metadata/data/event rollback proofs. Actual
+price DTO calls halve; timestamp validations fall from82690 to1324 without changing
+the validator. Local61595-row/2074-event checkpoint4405–4467ms→3831–3956ms;
+10001-event boundary5430ms. iOS and Android authentic timeouts remain open until
+coordinator release and terminal Retry; no live PASS or DONE follows from these
+local samples. [Measured scope and runbook](RUNBOOKS/wechat-recovery-checkpoint-performance.md).
+
+## TASK-159 REVIEW — History TEST receipt and source reconciliation, 2026-10-01
+
+PR121 merged d1287cab with head/postmerge CI and Cloudflare PASS. The coordinator
+applied the corrected History migration once at 23:51:53 UTC; Supabase assigned
+service version20261001235153, registry149. Independent postcheck at 23:52:26 UTC
+confirms all prior148 registry entries unchanged, preserved existing function
+OID/metadata/ACL, expected two body changes and one postgres-only private helper.
+Scoped data, the three original History rows, image versions, 2074 events, other
+functions and triggers are unchanged. This source-only receipt renames the SQL
+file to the assigned version with identical bytes and updates its runner path.
+Authentic recovery and native convergence are not yet verified. Earlier review
+entries below describe their historical pre-application state.
+
+## Historical REVIEW — History migration ACL precondition, 2026-10-01
+
+PR120 is merged with head/postmerge CI PASS. Its TEST application was rejected
+atomically by the baseline ACL guard; registry148, function definitions, data and
+events remain unchanged. The sole guard correction recognizes the exact local or
+observed TEST checkpoint ACL, independent of array order, without adding or
+revoking privileges. The History migration has no remote registry entry. Eleven
+ACL scenarios, 184 History and 365 native assertions, complete checkpoint tests
+and full Node22 verify PASS. Independent review precedes source integration and
+any second application by the coordinator. Runtime SQL remains byte-identical.
+
+## Historical REVIEW — History timestamp compatibility, 2026-10-01
+
+Performance PR119 is merged at4532831b after Verify/Database/Cloudflare PASS;
+the coordinator applied the exact SQL once as service20261001220355 (registry148),
+with unchanged data/events/ACL verified. No authentic Retry yet. The separate Admin delta restores the
+verified History-only legacy-or-exact-UTC-ISO-milliseconds contract in coordination
+with Android/iOS. Preserve original timestamp strings, rows, revisions and events;
+leave price formats, updated/deleted timestamps, scope and storage budgets intact.
+Local184 new pgTAP +365 native assertions and full checkpoint/page/targeted/raw-digest
+regressions PASS. One Admin writer; independent artifact review precedes source
+integration and TEST application of History. [TASK-159](TASKS/TASK-159-wechat-010-staging-readiness.md).
+
+## TASK-159 REVIEW — bounded checkpoint performance fix, 2026-10-01
+
+The complete synthetic checkpoint now passes the unchanged8s deadline with exact
+old/new JSON and digest parity:61,595 rows /2,074 events in4.584–4.695s, and the
+10,001-event inspection boundary in5.959s. Two expression indexes and six scalar
+helper language changes preserve scope, guards, owner/ACL and all RPC bodies.
+The365 native contract assertions and rollback/reapply pass locally. See the
+[performance runbook](RUNBOOKS/wechat-recovery-checkpoint-performance.md) and
+[TASK-159](TASKS/TASK-159-wechat-010-staging-readiness.md). Independent frozen-patch reviews approved the performance delta; PR119 and the
+separate TEST application are complete, as recorded above. A separate authentic History ISO-timestamp compatibility blocker
+is diagnosed and remains unchanged; no native convergence or DONE is claimed.
+PR118 postmerge CI/Cloudflare are confirmed PASS.
+
+## TASK-159 REVIEW — TEST normalization and catalog release, 2026-09-29 UTC
+
+Reviewed Admin PR115/PR116 are integrated; the selective TEST Worker release and
+two additive migrations were applied separately. Registry147 preserves all145
+previous entries. The exact reviewed maintenance plan normalized16 History rows
+once: independent postcheck confirms unchanged full-row hashes/revisions,
+compression NULL, zero markers and2074 unchanged shop events. Existing owner/ACL,
+storage settings and four trigger registrations remain unchanged.
+
+Actual Mini catalog validation now passes seven pages/350 identifiers and exact
+microsecond revisions against an independent scoped SQL oracle, without duplicates
+or omissions within that window. Six load-more observations:323–2321ms, median328ms;
+p95 is unmeasured. Source/flags/bindings/runtime remain bounded to the reviewed
+TEST release. Native convergence, phone acceptance and full performance acceptance
+remain unproven; post-maintenance iOS Retry now fails with checkpoint timeout
+SQLSTATE57014 in the price preflight. No DONE. [TASK-159](TASKS/TASK-159-wechat-010-staging-readiness.md)
+records receipts and migration source-to-service mapping. Earlier entries below
+retain their historical implementation/review status.
+
+## TASK-159 REVIEW — bounded History physical normalization, 2026-09-28
+
+The authorized cross-repository TEST completion mandate includes the demonstrated
+native recovery blocker: active legacy History JSONB remains physically PGLZ
+compressed, while the canonical recovery/storage guards deliberately reject it.
+One delegated Admin writer prepared an additive, postgres-only maintenance
+contract, isolated tests and a runbook. Content, scope, revisions and sync events
+remain unchanged in isolated tests; request-path guards remain fail closed.
+Validation: 63 new pgTAP plus 365 native contract cases PASS; compensating DDL
+restore/reapply and the same 63 cases PASS; real second-writer NOWAIT and atomic
+rollback PASS. Node22 verify PASS. Foundation: 1023 PASS, 8 skip, 2 failures from
+missing external Win7POS files, not a clean full-suite PASS. No trigger disable,
+flag change or live SQL. Independent review of the immutable patch is pending;
+no commit/deployment or native convergence is attested by this implementation step.
+Details: [TASK-159](TASKS/TASK-159-wechat-010-staging-readiness.md).
+
+## TASK-159 REVIEW — Mini sync session fix, 2026-09-26
+
+Reviewed additive migration20260926164349 applied once to the authorized TEST target.
+Mini checkpoint/delta now use actual personal session authorization without requiring
+a native POS lease. Registry145, previous144 hashes preserved, zero commerce; native
+function definitions/ACL unchanged. Isolated523pgTAP, verify and1031foundation PASS.
+Wrapper restore/reapply PASS; advisors unchanged. Worker/selective runtime unchanged.
+Live retry and full A–G acceptance pending; simulators authenticated on the exact shop.
+Details and recovery: [TASK-159](TASKS/TASK-159-wechat-010-staging-readiness.md).
+No DONE. The earlier entries below describe prior observations.
+
+## FIX — autenticazione Mini e scope sync, 2026-09-26
+
+Il collaudo autentico ha completato 16 casi di lettura e 9 casi catalogo
+con readback indipendente. Cinque fixture della run restano tracciate nel packet.
+Mini auth e catalog mutations ON sul solo target TEST autorizzato; enrollment OFF.
+Checkpoint HTTP503 riprodotto: il nuovo device Mini non ha una registrazione
+shop_devices, che il resolver di recovery nativo richiede. FIX circoscritto ai
+reader Mini checkpoint/delta; nessuna registrazione artificiale o modifica POS.
+La sessione personale è scaduta prima del picker immagini, upload non iniziato.
+Stato FIX, prove live successive e accettazione A–G ancora aperte; nessun DONE.
+Le ricevute precedenti sotto sono storiche.
+
+
+## Pairing TEST verificato, readonly server attivo — 2026-09-26
+
+Il nuovo pairing personale è completato. Readback canonico15:01UTC: un mapping
+attivo, un audit linked e due prove Tencent verificate/consumate, pair_claim e
+pair_confirm successiva all'approvazione Admin; completamento entro scadenza.
+UI Mini Linked osservata, nessun mapping artificiale o sessione iniettata.
+
+Enrollment chiuso; solo WECHAT_AUTH_MINI_PROGRAM_ENABLED ON sul Worker
+15ad37e9-6176-4410-baab-28a67615211f al100%. Codice selettivo a805d640, runtime,
+altri binding, allowlist singleton e tracing OFF preservati; altri6flag OFF.
+Status pubblico ready confermato dopo propagazione, senza ripetere PATCH.
+Registry144 invariato per versione/nome/hash, zero commerce. Profilo canonico,
+shop_owner e shop designati attivi. Nessun DDL, sorgente o deploy main intera.
+Review helper indipendente APPROVED; rotazione NOT_PERFORMED/ACCEPTED_FOR_TEST_ONLY.
+
+Mini readonly verify149/149 PASS, ma runtime ancora sulla precedente build:
+Mac bloccato prima della ricompilazione, sblocco personale richiesto.
+BLOCKED_EXTERNAL owner utente: sblocco, poi caricamento readonly e login Home
+personale distinto. Login/business/telefono NOT_RUN, nessuna fixture o DONE.
+Fonte canonica: [report Mini](https://github.com/XNIW/MerchandiseControlWeChatMiniProgram/blob/main/docs/testing/WECHAT-010-REPORT.md).
+Le sezioni successive sono storiche e non descrivono lo stato corrente.
+
+## Enrollment TEST attivo — 2026-09-25T20:01:41.857Z
+
+Input AppSecret completato personalmente; binding verificato sul Worker cb474c33.
+PATCH revisionata del solo enrollment: Worker f1e2e3ce-557b-42f4-9159-e796dc635c32,
+traffico100%, release selettiva c55f88a3 e runtime/altri binding invariati.
+WECHAT_MINI_ENROLLMENT_ENABLED=true; altri6flag OFF, tracing disabilitato,
+allowlist singleton e target preservati. Nessun DDL, sorgente o deploy main intera.
+Mini verify149PASS, UI pairing DevTools pronta senza sessione/shop o nuove eccezioni;
+readback limitato profilo/AppID0mapping. Accesso Admin completato personalmente; avvio pairing osservato nel browser e nel DB.
+Due tentativi personali Mini falliti al challenge HTTP400 backend_temporary prima di Tencent.
+Causa riprodotta in workerd1.20260811.1: redirect:error genera TypeError prima della rete.
+FIX nei due trasporti Mini RPC/catalogo: redirect manual, response.ok invariato,
+nessun redirect seguito. Regressione sul motore Cloudflare isolato; nessuna credenziale,
+autenticazione simulata live o diagnostica pubblica. Pairing finale e business NOT_RUN.
+Non chiedere di nuovo AppSecret. Rotazione NOT_PERFORMED, rischio ACCEPTED_FOR_TEST_ONLY.
+Fonte unica: [report Mini](https://github.com/XNIW/MerchandiseControlWeChatMiniProgram/blob/main/docs/testing/WECHAT-010-REPORT.md).
+FIX sul challenge; nessun DONE/live/telefono attestato.
+Le note successive su binding assente/tutti flag OFF sono storiche.
+
+## Aggiornamento DevTools — 2026-09-25T19:03:05.409Z
+
+Mac tornato accessibile dopo la ricevuta precedente: build Mini f956680/app08cb400
+ricompilata e verificata nel DevTools ufficiale,5tab OFF PASS via UI e SDK,
+0nuove eccezioni, nessuna sessione/shop. Primo tentativo SDK rawPath null;
+secondo dopo pagina disponibile PASS, nessuna modifica applicativa/mock.
+Il precedente blocco Mac sotto è storico e risolto. Rimane l'input protetto
+AppSecret, non una nuova richiesta di autorizzazione. Business/telefono NOT_RUN.
+Fonte unica dello stato corrente: [report Mini](https://github.com/XNIW/MerchandiseControlWeChatMiniProgram/blob/main/docs/testing/WECHAT-010-REPORT.md).
+Nessun codice, DDL o deployment ulteriore; CI postmerge7753c0ca
+36176894582/36176894608 PASS. Solo ricevuta: [PR111](https://github.com/XNIW/merchandise-control-admin-web/pull/111).
+
+
+## 2026-09-25 — Image recovery integrated and selective staging verified
+
+PR109 head de9b3924669c4df7d4785108e2b121ca190c8ce3 merged as
+beed0a575a1d65ff0d267b7c1ec6ce6ecd9e754f after CI36175280179 and
+Cloudflare36175280178 PASS; postmerge CI36175776026/Cloudflare36175776098 PASS.
+Automatic staging/production deploy SKIPPED. Selective release
+c55f88a36ac89684f25fd503ca7a3bc085c08660 derives from b8a859c2 and changes only
+service.ts plus the new image migration. Actual Worker
+6343d39c-d50a-4c88-89df-676f709697a2 verified100%; binding/runtime hashes unchanged,
+all7flags OFF, AppSecret absent. HTTP OFF12/12 PASS, no authentic business claim.
+
+Applied migration20260925184847_wechat_010_image_recovery once; registry144,
+previous143version/name/hash entries identical, zero commerce. Function MD5
+588c797e1d304291e34b0628f58b6c4e matches isolated tested DB; owner/ACL unchanged,
+anon/authenticated EXECUTE false. Backup0600 and local restore/reapply PASS;
+advisors security/performance0new. Rename source184000 to service-assigned184847
+and remove only one empty EOF line; SQL instructions unchanged. Final file SHA256
+45e84b6070d35daeb4d1a15b32be3e558303cd67f0286e805719f36ea0559f60 (applied input
+4a863559f6cda50fe7c177ed176d6c5fe3d3837a5c28037b2413039dc2e40d4d).
+
+Two independent readonly reviews APPROVED; original recovery7file manifest
+73c0ebefc32910b302e58986d18769f852bbffa1a9fa10dda537ea83e7a14457 before metadata-only
+rename/EOF normalization. No unreviewed application logic. Node22 verify,
+1030foundationPASS/2skip,25targeted,41pgTAP and isolated concurrent SQL recovery
+PASS. No live fixtures. Mini PR20 integrated with149tests; imported project build
+updated, but new DevTools UI smoke NOT_RUN because the Mac locked during execution.
+Protected AppSecret input and Mac unlock requested once each, no reply acquired.
+
+Full A–G acceptance state: [canonical Mini report](https://github.com/XNIW/MerchandiseControlWeChatMiniProgram/blob/main/docs/testing/WECHAT-010-REPORT.md).
+TASK159 REVIEW/BLOCKED_EXTERNAL; no live, phone, public readiness or DONE.
+Final metadata receipt [PR110](https://github.com/XNIW/merchandise-control-admin-web/pull/110)
+contains no second migration application or deployment.
+
+
+## 2026-09-25 — Image recovery delta in REVIEW
+
+Single writer, two readonly reviewers under the continuation mandate. Only the
+WeChat service branch changes: reconcile immutable existing JPEG bytes before
+signing missing variants, exact null URLs for verified variants, and retryable503
+for uncertain access revalidation. Explicit false remains403. The additive RPC
+replacement locks product then version and returns noop only for the current
+ready version of an active product; native RPC signatures/ACLs remain unchanged.
+
+Node22 verify PASS; foundation1030PASS/2skip; targeted service25/25; image pgTAP41/41.
+Old replay FAIL then new replay PASS, including a two-session concurrent finalize
+state on a disposable local database clone (not a live Mini interaction). The local
+harness pins a validated Unix Docker socket and drops only its generated database.
+Backup of the remote function/ACL and exact143registry saved0600 before any DDL;
+restore/reapply of the single function tested locally. Deployment/PR receipts follow
+execution. No commerce, ordinary shop data, native or production mutations.
+
+Worker beef7b20 and exact target checked again, secret absent/all7flags OFF at18:40UTC.
+Authentic pilot remains BLOCKED_EXTERNAL: owner user for protected AppSecret input,
+then personal pairing. Canonical full mandate matrix/evidence: [Mini report](https://github.com/XNIW/MerchandiseControlWeChatMiniProgram/blob/main/docs/testing/WECHAT-010-REPORT.md).
+No LIVE_VALIDATED, PHONE_VALIDATED, PUBLIC_RELEASE_READY or self-approved DONE.
+
+
+## 2026-09-25 — Verified integration and staging OFF receipt
+
+Current acceptance report: [Mini WECHAT-010](https://github.com/XNIW/MerchandiseControlWeChatMiniProgram/blob/main/docs/testing/WECHAT-010-REPORT.md). TASK-159 remains REVIEW; authentic TEST acceptance is BLOCKED_EXTERNAL, owner user for the existing protected installer input and subsequent personal pairing. No DONE or public release. The14September TEST-only credential exception remains valid; rotation NOT_PERFORMED / ACCEPTED_FOR_TEST_ONLY.
+
+PR107 merged419d53bb5a70ff95f491f174fbb45f2b0d3617fe after exact-head CI36165504804 and Cloudflare build36165504722 PASS; main CI36166021776/build36166021736 PASS, automatic staging/production deploys SKIPPED. Selective release b8a859c236385d39b2b9b52e5dc56310ee386980 derives from b0e306f1 and changes only six runtime files plus one WeChat migration, all independently approved. Worker beef7b20-2448-4f45-8ff7-67e014004702 verified active; all bindings preserved, seven flags OFF, no tracing. Wrangler only made the default asset base_path / explicit; compatibility settings unchanged. HTTP OFF smoke12/12 PASS. No whole-main deploy.
+
+Registry143, newest20260925172134_wechat_010_functional_reads, zero commerce. Rename from the initial source timestamp20260925161038 reconciles the service-assigned registry version; SQL bytes remain SHA25617049a7ed3fde844d80877065c3ac2853312aa4e1bf6aadbea1c6f1f3a9f0d27. Function definitions match isolated tested DB, owners/grants unchanged and anon/authenticated EXECUTE denied. Backup two definitions+ACL+142registry saved0600 before apply; restore/reapply tested locally with22pgTAP PASS. Advisors security/performance0new findings versus before. No business fixtures or financial/native/production mutations.
+
+Local evidence: Node22 verify, foundation1015PASS/2skip,337pgTAP,48UI smoke+2pairing component. Mini independent33/33 runner guard tests and actual DevTools5tab OFF smoke are separate from authenticated business. Binding still absent, designated active profile/shop has0active Mini mappings; credential validity/pairing/login/phone NOT_RUN. Protected input is already requested once; all reported source/release work is complete independently of it.
+
+## Historical pre-integration notes — superseded by receipt above
+
+## 2026-09-25 — TASK-159 functional read delta / WECHAT-010
+
+Current source of product acceptance is Mini `docs/testing/WECHAT-010-REPORT.md` and its unified parity matrix. Historical activation notes below do not supersede the14September TEST-only exposed-credential mandate. No production or DONE; source integration is distinct from staging deployment and authentic validation.
+
+Implemented six route/server changes plus migration20260925161038: optional exact shop-scoped category/supplier ID lookup; strict calendar History filters converted at shop timezone; explicit membership/shop/read denials; own valid Mini session account suspension. No table/data migration, grants widened, native/OIDC/commerce change, or client credential. Unknown read RPC still fails42501 before membership lookup.
+
+Evidence: Admin verify Node22 PASS; foundation1015PASS/2skip with existing read-only Win7POS reference; initial2ENOENT due incomplete default external checkout are not source failures. All337pgTAP across8WeChat suites PASS on isolated local PostgreSQL17.6 database (schema only copied, no real data). New22assertions cover250+250relations, lookup/search/archive/scope/permissions, month boundary and23/25-hour DST dates including microseconds. Direct pairing55assertions includes suspended valid session vs invalid device. Local UI smoke/Worker checks recorded separately; none are Tencent/business-live evidence.
+
+Independent read-only contracts review APPROVED, Admin10-file application/test/migration manifest SHA2560fafba0256f1caebf0950dbf41bd90311e00a306707c9e46103ec7d3054c8b39 (sorted path+NUL+SHA256(bytes)+LF). Migration SHA25617049a7ed3fde844d80877065c3ac2853312aa4e1bf6aadbea1c6f1f3a9f0d27. Source baseline13389c5e, branch codex/wechat-010-functional-completion. PR/CI/merge and isolated release receipts follow actual execution.
+
+Selective staging release must derive from b0e306f1 and include only the six runtime files and this migration, never whole Admin main. Before mutation revalidate142registry entries/zero commerce, active Worker3185ab67, exact target/flags, and preserve both function definitions+ACL for recovery; restore flags OFF/previous Worker if needed. Existing142migration statements remain unchanged. The7WeChat flags remain OFF until authentic activation. Protected input request already sent; AppSecret validity, pairing, login, business/phone/native readback NOT_RUN. Rotation NOT_PERFORMED/ACCEPTED_FOR_TEST_ONLY.
+
+## 2026-09-25 — WECHAT-010 functional completion / EXECUTION
+
+Current user mandate continues TASK-159 with root as sole writer and two independent read-only reviewers. Scope includes bounded exact relation lookup, shop-calendar History dates and typed read denials, with additive Admin-only migration, isolated database tests and selective staging release. TEST credential exception of September 14 remains valid only for the designated pilot; OneID is paused. Historical entries below are superseded where this mandate applies. No DONE or live acceptance is inferred.
+
+## 2026-09-12 - Explicit native privacy and direct Mini mandate
+
+WECHAT-010/TASK-159 continues in EXECUTION. The operator designates the existing
+private profile and TASK068E_260618231325 as pilot target; current canonical
+identity, active membership/shop and shop_owner role were rechecked read-only.
+This does not prove native clients use the same shop. No impersonation.
+Authorized: shared/versioned native privacy available without Auth; explicit
+Mini-only code2Session architecture revision, secure initial pairing to the
+existing profile, opaque sessions and restricted authorization, additive reviewed
+migrations if required. OneID remains paused. OIDC guarantees for other surfaces
+remain unchanged. Root sole writer in both existing isolated worktrees; at most
+two independent read-only reviewers. No production or activation before proof.
+Prior narrower scope is superseded only by this explicit amendment.
+
+Historical status follows; the amendment above is current.
+
+## Current review — WECHAT-010
+
+`TASK-159`, `REVIEW / EXTERNAL_ACTIVATION_REQUIRED`; nessun writer applicativo
+attivo. Il mandato WECHAT-011 ha concluso fix/review indipendente e integrazione
+normale PR104 (`57e60497`), con CI e pgTAP2627 verdi. Release isolata `91f3d8e5`
+distribuita in staging come Worker `29d0c715-e3e7-4a23-b9e7-40ade3149414`,100%,
+smoke HTTPS OFF9/9 PASS. Migration141 identiche, flags/allowlist assenti/defaultOFF.
+Auth live NOT_RUN: credenziale TEST, protocollo/tenant OneID e tester/shop da
+qualificare. Nessun DONE o modifica production. Evidence e ripresa in TASK-159 e
+nel report unico Mini `docs/testing/WECHAT-010-REPORT.md`.
+
 ## Identita progetto
 
 - Nome progetto: `MerchandiseControl Admin Web`
@@ -2919,34 +3687,87 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
   `docs/TASKS/TASK-150-win7pos-product-image-phase-b-physical-acceptance.md`
 - Evidence TASK-150:
   `docs/TASKS/EVIDENCE/TASK-150/README.md`
-- Stato TASK-150: `ACTIVE`
-- Fase TASK-150: `EXECUTION`
-- Attivazione TASK-150: `ACTIVE`
-- Executor TASK-150: `CODEX / ASUS`
+- Stato TASK-150: `PAUSED_FOR_WECHAT_006_STAGING_HANDOFF`
+- Fase TASK-150: `EXECUTION / PAUSED`
+- Attivazione TASK-150: `PAUSED_FOR_WECHAT_006_STAGING_HANDOFF`
+- Executor TASK-150: `NONE WHILE TASK-151 / WECHAT-006 AWAITS REVIEW`
+- Task TASK-151:
+  `TASK-151 - WECHAT-006 Shared Public Staging Activation and Closeout`
+- File task TASK-151:
+  `docs/TASKS/TASK-151-wechat-006-shared-public-staging-closeout.md`
+- Evidence TASK-151:
+  `docs/AUDITS/WECHAT-006-WORKLOG.md` e bundle locale ristretto WECHAT-006
+- Stato TASK-151: `PAUSED_FOR_MOBILE_STOREFRONT_PRODUCT_CONTROL`
+- Fase TASK-151: `REVIEW / PAUSED_EXTERNAL_ACTIVATION`
+- Attivazione TASK-151: `PAUSED_FOR_MOBILE_STOREFRONT_PRODUCT_CONTROL`
+- Executor TASK-151: `NONE`
+- Task TASK-152:
+  `TASK-152 - Mobile Storefront Authoring Boundary`
+- File task TASK-152:
+  `docs/TASKS/TASK-152-mobile-storefront-authoring-boundary.md`
+- Stato TASK-152: `DONE`
+- Fase TASK-152: `REVIEW`
+- Attivazione TASK-152: `USER_APPROVED_DONE`
+- Executor TASK-152: `NONE`
+- Checkpoint locale TASK-152 2026-08-21: migration authoring versionata, Admin UI e
+  pipeline immagini condivisa implementate; fresh reset `PASS`, pgTAP completo 47
+  file/2551 test `PASS`, foundation 984/0 `PASS`, schema lint e `npm run verify`
+  `PASS`. Review indipendente diff-scoped e CI exact-SHA ancora in corso/non eseguita.
+- Re-review TASK-152 2026-08-21: `APPROVED` dopo un unico fix batch sui tre P2 e
+  sul P3 della review; pgTAP post-fix 47 file/2561 test, foundation 984/0,
+  schema lint e verify `PASS`. PR `#94` su implementation SHA
+  `a6d4f94a8cdd01c6de3df2ed4f327b38d8516227`: Verify, Database migrations and
+  pgTAP e Cloudflare build `PASS`; sole annotazioni non bloccanti sul runtime
+  Node delle GitHub Actions. Chiusura e merge normale autorizzati dal mandato del
+  release train, subordinati alla CI verde del commit documentale. La condizione e
+  stata soddisfatta; TASK-152 e riconciliato `DONE` dal mandato del 2026-08-22.
 - Stato TASK-062: `DONE`
 - Fase TASK-062: `DONE_RECONCILED`
-- Stato globale attuale: `EXECUTION`
-- Task attivo: `TASK-150 - Win7POS Product Image Phase B / Physical Acceptance`
+- Task TASK-153:
+  `TASK-153 - Client Commerce Address, Delivery and Payment Contract`
+- File task TASK-153:
+  `docs/TASKS/TASK-153-client-commerce-address-delivery-payment-contract.md`
+- Stato TASK-153: `DONE`
+- Fase TASK-153: `REVIEW`
+- Task TASK-154: `TASK-154 - Client Commerce Notification Inbox and Reorder Contract`
+- Stato TASK-154: `DONE`
+- Task TASK-155: `TASK-155 - Client Commerce After-sales Contract and Admin Queue`
+- Stato TASK-155: `DONE`
+- Task TASK-156: `TASK-156 - Client Commerce Verified Reviews and Moderation`
+- Stato TASK-156: `DONE`
+- Task TASK-157: `TASK-157 - Client Commerce Staging E2E and Closeout`
+- Stato TASK-157: `DONE`
+- Fase TASK-157: `REVIEW`
+- Stato globale attuale: `IDLE`
+- Task attivo: `NESSUNO`
 - Task precedente:
-  `TASK-149 - Trusted POS product image v1 server contract`
-  (`REVIEW_READY / REVIEW`)
-- Prossimo task pianificato: `DA DEFINIRE DOPO TASK-150`
-- Ultimo task chiuso: `TASK-148 - Final POS article-sync staging cleanup`
-- Ultimo task completato: `TASK-148 - Final POS article-sync staging cleanup`
+  `TASK-152 - Mobile Storefront Authoring Boundary` (`DONE / REVIEW`)
+- Prossimo task pianificato: `NESSUNO`; il train
+  `CLIENT_COMMERCE_JOURNEY_COMPLETION` è chiuso senza production activation.
+- Ultimo task chiuso: `TASK-157 - Client Commerce Staging E2E and Closeout`
+- Ultimo task completato: `TASK-157 - Client Commerce Staging E2E and Closeout`
 - Marker compatibilità harness storico — Ultimo task chiuso: `TASK-081 - Win7POS Sales Sync, Revenue, Stock Sync, Shop Admin Dashboard and UX alignment`
 - Marker compatibilità harness storico — Ultimo task completato: `TASK-081 - Win7POS Sales Sync, Revenue, Stock Sync, Shop Admin Dashboard and UX alignment`
-- File task corrente: `docs/TASKS/TASK-150-win7pos-product-image-phase-b-physical-acceptance.md`
+- File task corrente: `NESSUNO`
 - Ultimo file task:
   `docs/TASKS/TASK-149-admin-trusted-pos-product-image-v1.md`
-- Evidence task corrente: `docs/TASKS/EVIDENCE/TASK-150/README.md`
+- Evidence task corrente: `NESSUNO`
 - Ultima evidence task: `docs/TASKS/EVIDENCE/TASK-149/README.md`
-- Stato task: `ACTIVE`
-- Stato task precedente: `REVIEW_READY`
-- Fase: `EXECUTION`
+- Stato task: `IDLE`
+- Stato task precedente: `DONE`
+- Fase: `REVIEW`
 - Milestone interna:
-  `READY_FOR_ASUS_PRODUCT_IMAGE_PHASE_B`
-- Responsabile: `CODEX / ASUS`
-- Branch/worktree TASK-150:
+  `CLIENT_COMMERCE_JOURNEY_COMPLETION_COMPLETE`
+- Correzione P2 riproducibile approvata sul secondo e ultimo PR Admin:
+  read model owner-scoped delle righe storiche d'ordine per il post-vendita e
+  quantità residua rivalidata dalla mutation; nessuna dipendenza dal catalogo
+  corrente o dal dominio reorder.
+- Responsabile: `USER_APPROVER`
+- Branch/worktree TASK-151:
+  implementazione `codex/wechat-006-admin-staging`, merge commit corrente
+  `728f413d740913145be550e1ffdbf4091dba3676`; closeout documentale
+  `codex/wechat-006-admin-closeout`.
+- Handoff TASK-150 preservato; branch/worktree storici:
   lineage Admin `codex/task-150-win7pos-image-qa-boundary-20260731`, baseline
   `d2689f15f0291670bbc2713967368521e3f3a7fe`, integrata su `main` fino a
   `dfb6e8c179ad50b6e2b103742ee4accf641c43ac`; Win7POS task
@@ -2974,7 +3795,9 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
   failure e la recovery Storage `30732082208` non ha eseguito il cleanup commit.
   Receipt terminale, full matrix exact-ID, snapshot shared, package e Windows 7
   fisico restano `BLOCKED`/`NOT_RUN`; Run 5 e nuovi deploy non sono autorizzati.
-  TASK-150 resta `ACTIVE / EXECUTION`, TASK-149 `REVIEW_READY / REVIEW`.
+  Questo era lo stato canonico pre-handoff. Dal 2026-08-13 TASK-150 resta
+  `PAUSED_FOR_WECHAT_006_STAGING_HANDOFF`; TASK-151 attende review designata;
+  TASK-149 resta `REVIEW_READY / REVIEW`.
   Evidence:
   `docs/TASKS/EVIDENCE/TASK-150/2026-08-08-REMOTE-RESIDUAL-RECONCILIATION.md`.
 - Apertura TASK-149 2026-07-30: ricevuta autorizzazione completa per il
@@ -4590,6 +5413,15 @@ Products and full Shop navigation`. Scope: audit/fix performance cloud reale
 
 ## Regole di avanzamento
 
+- WECHAT-004 final integration (2026-08-13): the Admin-owned opaque Mini BFF
+  session, catalog/image service wrappers, delta/watermark/reconcile boundary,
+  identity-link recovery saga and local cross-platform fixture are code-complete
+  and feature-gated. Targeted security coverage is 66/66; all seven snapshot
+  findings are fixed. Merge/CI identifiers and final `DONE_CODE` reconciliation
+  are tracked by the four-repository WECHAT-004 integration PRs. External
+  bridge/AppID/provider/domains/DevTools/device activation remains separate;
+  no staging or production apply is included.
+
 - Un solo task attivo per volta.
 - Codex prepara handoff a `REVIEW`, non marca `DONE`.
 - `DONE` richiede review positiva e conferma esplicita dell'utente.
@@ -4629,3 +5461,7 @@ Summary:
 - Browser QA passed for Master provisioning, owner Admin Console, staff manager Shop code login, platform denial, fake shop_id denial, recovery manager 1001, old/new PIN behavior, refresh and logout invalidation.
 - Local cleanup completed with residual synthetic auth/profile/shop counts at zero.
 - No cloud/production apply, no commit, no push, no stage finale, no global production-ready claim.
+
+- WECHAT-009 / TASK-158: bounded sync gateway and focused tests handed to `REVIEW`;
+  bridge qualification proposal appended to ADR-002. External Auth remains OFF.
+  Normal PR/CI/merge closeout is authorized; no application writer remains active.

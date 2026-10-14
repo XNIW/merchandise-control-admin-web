@@ -1,0 +1,322 @@
+name: WECHAT-006 Shared Staging Migrations
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Dry-run or apply the exact seven WECHAT migrations"
+        required: true
+        default: dry-run
+        type: choice
+        options:
+          - dry-run
+          - apply
+      expected_commit_sha:
+        description: "Exact merged main commit authorized for this operation"
+        required: true
+        type: string
+      apply_confirmation:
+        description: "For apply, enter APPLY_WECHAT006_SHARED_STAGING"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wechat-006-shared-staging-migrations
+  cancel-in-progress: false
+
+env:
+  EXPECTED_STAGING_SUPABASE_PROJECT_REF: jpgoimipbothfgkokyvm
+  SOURCE_POOLER_HOST: aws-1-sa-east-1.pooler.supabase.com
+  MIGRATION_MANIFEST: scripts/wechat-006-staging-migrations.json
+  REMAPPED_LOCAL_MIGRATION_FILE: 20260727055520_task_142_catalog_text_policy_v1.sql
+  REMAPPED_REMOTE_MIGRATION_FILE: 20260727084040_task_142_catalog_text_policy_v1.sql
+
+jobs:
+  migrate:
+    name: Guarded dry-run and optional apply
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: cloudflare-staging
+
+    env:
+      ALLOWED_STAGING_SUPABASE_PROJECT_REFS: ${{ vars.ALLOWED_STAGING_SUPABASE_PROJECT_REFS }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+      STAGING_SUPABASE_PROJECT_REF: ${{ vars.STAGING_SUPABASE_PROJECT_REF }}
+
+    steps:
+      - name: Checkout exact workflow revision
+        uses: actions/checkout@v4
+
+      - name: Verify immutable shared-staging inputs
+        env:
+          REQUESTED_MODE: ${{ inputs.mode }}
+          EXPECTED_COMMIT_SHA: ${{ inputs.expected_commit_sha }}
+          APPLY_CONFIRMATION: ${{ inputs.apply_confirmation }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const ref = process.env.STAGING_SUPABASE_PROJECT_REF || "";
+          const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+          const mode = process.env.REQUESTED_MODE || "";
+          const expectedCommit = process.env.EXPECTED_COMMIT_SHA || "";
+          const allowed = (process.env.ALLOWED_STAGING_SUPABASE_PROJECT_REFS || "")
+            .split(",")
+            .map((value) => value.trim())
+            .filter(Boolean);
+          let urlMatchesProject = false;
+          try {
+            urlMatchesProject = new URL(url).hostname === `${ref}.supabase.co`;
+          } catch {}
+          const status = {
+            mainBranch: process.env.GITHUB_REF === "refs/heads/main",
+            exactCommit:
+              /^[0-9a-f]{40}$/.test(expectedCommit) &&
+              process.env.GITHUB_SHA === expectedCommit,
+            exactProject:
+              ref === process.env.EXPECTED_STAGING_SUPABASE_PROJECT_REF,
+            allowedProject: allowed.includes(ref),
+            urlMatchesProject,
+            databasePasswordPresent: Boolean(process.env.SUPABASE_DB_PASSWORD),
+            supportedMode: mode === "dry-run" || mode === "apply",
+            applyConfirmationOk:
+              mode !== "apply" ||
+              process.env.APPLY_CONFIRMATION ===
+                "APPLY_WECHAT006_SHARED_STAGING",
+          };
+          console.log(JSON.stringify(status));
+          if (Object.values(status).some((value) => !value)) process.exit(1);
+          NODE
+
+      - name: Build protected pooler URL
+        env:
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          set -euo pipefail
+          mkdir -p _wechat006-migration/evidence _wechat006-migration/project
+          SOURCE_DB_URL="$(node <<'NODE'
+          const ref = process.env.STAGING_SUPABASE_PROJECT_REF;
+          const password = process.env.SUPABASE_DB_PASSWORD;
+          const host = process.env.SOURCE_POOLER_HOST;
+          if (!ref || !password || !host) process.exit(1);
+          process.stdout.write(
+            `postgresql://postgres.${ref}:${encodeURIComponent(password)}@${host}:5432/postgres?sslmode=require`,
+          );
+          NODE
+          )"
+          echo "::add-mask::$SOURCE_DB_URL"
+          printf '%s' "$SOURCE_DB_URL" > _wechat006-migration/source-db-url
+          chmod 600 _wechat006-migration/source-db-url
+
+      - name: Capture and reconcile the pre-operation ledger
+        run: |
+          set -euo pipefail
+          SOURCE_DB_URL="$(cat _wechat006-migration/source-db-url)"
+          docker run --rm -i --network host \
+            -e SOURCE_DB_URL="$SOURCE_DB_URL" \
+            postgres:17 \
+            psql -X -qAt -F $'\t' -v ON_ERROR_STOP=1 \
+              "$SOURCE_DB_URL" \
+              -c "select version, name from supabase_migrations.schema_migrations order by version" \
+              > _wechat006-migration/evidence/pre-operation-ledger.tsv
+          node scripts/wechat-006-reconcile-migration-delta.mjs \
+            supabase/migrations \
+            _wechat006-migration/evidence/pre-operation-ledger.tsv \
+            "$MIGRATION_MANIFEST" \
+            _wechat006-migration/evidence/pre-operation-delta.json
+
+      - name: Build the canonical CLI projection
+        run: |
+          set -euo pipefail
+          cp supabase/config.toml _wechat006-migration/project/supabase-config.toml
+          mkdir -p _wechat006-migration/project/supabase
+          mv _wechat006-migration/project/supabase-config.toml \
+            _wechat006-migration/project/supabase/config.toml
+          cp -R supabase/migrations \
+            _wechat006-migration/project/supabase/migrations
+          LOCAL_REMAP="_wechat006-migration/project/supabase/migrations/$REMAPPED_LOCAL_MIGRATION_FILE"
+          REMOTE_REMAP="_wechat006-migration/project/supabase/migrations/$REMAPPED_REMOTE_MIGRATION_FILE"
+          test -f "$LOCAL_REMAP"
+          test ! -e "$REMOTE_REMAP"
+          mv "$LOCAL_REMAP" "$REMOTE_REMAP"
+
+      - name: Supabase CLI remote dry-run
+        run: |
+          set -euo pipefail
+          SOURCE_DB_URL="$(cat _wechat006-migration/source-db-url)"
+          npx --yes supabase@2.113.0 \
+            --workdir "$PWD/_wechat006-migration/project" \
+            db push \
+            --dry-run \
+            --include-all \
+            --db-url "$SOURCE_DB_URL" \
+            2>&1 | tee _wechat006-migration/evidence/supabase-dry-run.txt
+          node <<'NODE'
+          const { readFileSync } = require("node:fs");
+          const manifest = JSON.parse(
+            readFileSync(process.env.MIGRATION_MANIFEST, "utf8"),
+          );
+          const output = readFileSync(
+            "_wechat006-migration/evidence/supabase-dry-run.txt",
+            "utf8",
+          );
+          const expected = manifest.map((row) => row.version).sort();
+          const observed = [
+            ...new Set(output.match(/(?<!\d)\d{14}(?!\d)/g) ?? []),
+          ].sort();
+          if (JSON.stringify(observed) !== JSON.stringify(expected)) {
+            throw new Error("remote_dry_run_version_set_not_exact");
+          }
+          NODE
+
+      - name: Re-prove an unchanged ledger before apply
+        if: inputs.mode == 'apply'
+        run: |
+          set -euo pipefail
+          SOURCE_DB_URL="$(cat _wechat006-migration/source-db-url)"
+          docker run --rm -i --network host \
+            -e SOURCE_DB_URL="$SOURCE_DB_URL" \
+            postgres:17 \
+            psql -X -qAt -F $'\t' -v ON_ERROR_STOP=1 \
+              "$SOURCE_DB_URL" \
+              -c "select version, name from supabase_migrations.schema_migrations order by version" \
+              > _wechat006-migration/evidence/pre-apply-ledger.tsv
+          cmp --silent \
+            _wechat006-migration/evidence/pre-operation-ledger.tsv \
+            _wechat006-migration/evidence/pre-apply-ledger.tsv || {
+              echo "Shared staging migration ledger changed after dry-run." >&2
+              exit 1
+            }
+
+      - name: Apply the exact seven migrations
+        if: inputs.mode == 'apply'
+        run: |
+          set -euo pipefail
+          SOURCE_DB_URL="$(cat _wechat006-migration/source-db-url)"
+          npx --yes supabase@2.113.0 \
+            --workdir "$PWD/_wechat006-migration/project" \
+            db push \
+            --include-all \
+            --db-url "$SOURCE_DB_URL" \
+            --yes \
+            2>&1 | tee _wechat006-migration/evidence/supabase-apply.txt
+          node <<'NODE'
+          const { readFileSync } = require("node:fs");
+          const manifest = JSON.parse(
+            readFileSync(process.env.MIGRATION_MANIFEST, "utf8"),
+          );
+          const output = readFileSync(
+            "_wechat006-migration/evidence/supabase-apply.txt",
+            "utf8",
+          );
+          const expected = manifest.map((row) => row.version).sort();
+          const observed = [
+            ...new Set(output.match(/(?<!\d)\d{14}(?!\d)/g) ?? []),
+          ].sort();
+          if (JSON.stringify(observed) !== JSON.stringify(expected)) {
+            throw new Error("remote_apply_version_set_not_exact");
+          }
+          NODE
+
+      - name: Verify the exact post-apply ledger
+        if: inputs.mode == 'apply'
+        run: |
+          set -euo pipefail
+          SOURCE_DB_URL="$(cat _wechat006-migration/source-db-url)"
+          docker run --rm -i --network host \
+            -e SOURCE_DB_URL="$SOURCE_DB_URL" \
+            postgres:17 \
+            psql -X -qAt -F $'\t' -v ON_ERROR_STOP=1 \
+              "$SOURCE_DB_URL" \
+              -c "select version, name from supabase_migrations.schema_migrations order by version" \
+              > _wechat006-migration/evidence/post-apply-ledger.tsv
+          ALLOW_EXPECTED_ALREADY_APPLIED=true \
+            node scripts/wechat-006-reconcile-migration-delta.mjs \
+              supabase/migrations \
+              _wechat006-migration/evidence/post-apply-ledger.tsv \
+              "$MIGRATION_MANIFEST" \
+              _wechat006-migration/evidence/post-apply-delta.json
+
+      - name: Verify post-apply schema invariants
+        if: inputs.mode == 'apply'
+        run: |
+          set -euo pipefail
+          SOURCE_DB_URL="$(cat _wechat006-migration/source-db-url)"
+          docker run --rm -i --network host \
+            -e SOURCE_DB_URL="$SOURCE_DB_URL" \
+            postgres:17 \
+            psql -X -qAt -v ON_ERROR_STOP=1 "$SOURCE_DB_URL" <<'SQL' \
+              > _wechat006-migration/evidence/schema-verdict.json
+          select json_build_object(
+            'migration_count', (select count(*) from supabase_migrations.schema_migrations),
+            'migration_head', (select version from supabase_migrations.schema_migrations order by version desc limit 1),
+            'wechat_table_count', (
+              select count(*) from pg_class c join pg_namespace n on n.oid=c.relnamespace
+              where c.relkind='r' and n.nspname in ('public','app_private')
+                and (c.relname ilike '%wechat%' or c.relname ilike '%mini_program%')
+            ),
+            'wechat_rls_table_count', (
+              select count(*) from pg_class c join pg_namespace n on n.oid=c.relnamespace
+              where c.relkind='r' and c.relrowsecurity
+                and n.nspname in ('public','app_private')
+                and (c.relname ilike '%wechat%' or c.relname ilike '%mini_program%')
+            ),
+            'wechat_function_count', (
+              select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+              where n.nspname in ('public','app_private')
+                and (p.proname ilike '%wechat%' or p.proname ilike '%mini_program%')
+            )
+          );
+          SQL
+          node <<'NODE'
+          const { readFileSync } = require("node:fs");
+          const verdict = JSON.parse(
+            readFileSync(
+              "_wechat006-migration/evidence/schema-verdict.json",
+              "utf8",
+            ),
+          );
+          const pass =
+            verdict.migration_count === 137 &&
+            verdict.migration_head === "20260813160233" &&
+            verdict.wechat_table_count === 11 &&
+            verdict.wechat_rls_table_count === 7 &&
+            verdict.wechat_function_count === 50;
+          console.log(JSON.stringify({ ...verdict, pass }));
+          if (!pass) process.exit(1);
+          NODE
+
+      - name: Run WECHAT pgTAP against shared staging
+        if: inputs.mode == 'apply'
+        run: |
+          set -euo pipefail
+          SOURCE_DB_URL="$(cat _wechat006-migration/source-db-url)"
+          npx --yes supabase@2.113.0 test db \
+            --db-url "$SOURCE_DB_URL" \
+            supabase/tests/wechat_auth_sales_read_contract.sql \
+            supabase/tests/wechat_002_mini_program_read_parity.sql \
+            supabase/tests/wechat_003_catalog_mutations.sql \
+            supabase/tests/wechat_003_image_intent_replay_rate_lock.sql \
+            supabase/tests/wechat_auth_challenge_rate_locks.sql \
+            supabase/tests/wechat_004_bff_session_sync_link.sql
+
+      - name: Run remote database lint
+        if: inputs.mode == 'apply'
+        run: |
+          set -euo pipefail
+          SOURCE_DB_URL="$(cat _wechat006-migration/source-db-url)"
+          npx --yes supabase@2.113.0 db lint \
+            --db-url "$SOURCE_DB_URL" \
+            --level error
+
+      - name: Remove protected connection material
+        if: always()
+        run: |
+          set -euo pipefail
+          if [ -f _wechat006-migration/source-db-url ]; then
+            shred -u _wechat006-migration/source-db-url || \
+              rm -f _wechat006-migration/source-db-url
+          fi

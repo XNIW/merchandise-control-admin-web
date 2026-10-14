@@ -1,0 +1,160 @@
+{
+  "scope": "TASK-054 address intent v3; source and isolated synthetic SQL only",
+  "base": "82af13ef0005ecfb767809bd362327e91692b5ba",
+  "migration_version": "20261008151018",
+  "runtime_apply": "NOT_RUN",
+  "authenticated_client_smoke": "NOT_RUN",
+  "review": {
+    "initial": "CHANGES_REQUIRED",
+    "finding": "P2 invalid isDefault declaration cast escaped as 22P02",
+    "fix": "catch invalid_text_representation at v3 transaction boundary",
+    "rereview": "APPROVED source/local",
+    "reviewer": "independent address_sql_review",
+    "independent_tests": {
+      "suite": "customer_address_create_intent_v3",
+      "assertions": 43,
+      "exit_code": 0,
+      "rollback": true,
+      "residual_synthetic_users": 0
+    }
+  },
+  "files": [
+    {
+      "path": "supabase/migrations/20261008151018_customer_address_create_intent_v3.sql",
+      "sha256": "b290c6373d2d49a3c9fb4847e5ee8f47f2ce11f4eeeb17da4d3fc4086a615e56"
+    },
+    {
+      "path": "src/lib/supabase/database.types.ts",
+      "sha256": "c2194902aa770bd71c4fee7b564a79271992f30f0b6e906cbdaa1f6a0581901c"
+    },
+    {
+      "path": "tests/foundation/client-commerce-types.ts",
+      "sha256": "76adee2c2ecbaed0153328a7731d282e3b6f6dc804406a2d90a07d75eaf2ea50"
+    },
+    {
+      "path": "supabase/tests/customer_address_create_intent_v3.sql",
+      "sha256": "0364e0e056ae1863d914864641c754808260c8447a84fe53aec006bb10430afc"
+    },
+    {
+      "path": "scripts/testing/customer-address-create-intent-v3.py",
+      "sha256": "023f56e5233275c9091fbc4b35f793a54e6ba86dd1b7228a35c34f827e10cd08"
+    },
+    {
+      "path": "docs/contracts/CUSTOMER_ADDRESS_CREATE_INTENT_V3.md",
+      "sha256": "f5714cc0331d6a28574dcaf3619ce1dbef5c910ae75262fa8fe1ea176d6e8f60"
+    }
+  ],
+  "checks": [
+    {
+      "name": "contract-final",
+      "result": "PASS",
+      "exit_code": 0,
+      "assertions": 43,
+      "test_sql": "supabase/tests/customer_address_create_intent_v3.sql"
+    },
+    {
+      "name": "profile-address-final",
+      "result": "PASS",
+      "exit_code": 0,
+      "assertions": 64,
+      "test_sql": "supabase/tests/storefront_v1_customer_profiles_addresses.sql"
+    },
+    {
+      "name": "commerce-final",
+      "result": "PASS",
+      "exit_code": 0,
+      "assertions": 55,
+      "test_sql": "supabase/tests/client_commerce_journey_v1.sql"
+    },
+    {
+      "name": "concurrency-v2-red",
+      "exit_code": 1,
+      "scope": "local_synthetic",
+      "baseline": true,
+      "advisory_contention_observed": true,
+      "canonical_count": 2,
+      "same_canonical_id": false,
+      "same_version": true,
+      "result": "FAIL"
+    },
+    {
+      "name": "concurrency-v3-final",
+      "exit_code": 0,
+      "scope": "local_synthetic",
+      "baseline": false,
+      "advisory_contention_observed": true,
+      "canonical_count": 1,
+      "same_canonical_id": true,
+      "same_version": true,
+      "result": "PASS"
+    },
+    {
+      "name": "review-P2-red",
+      "result": "FAIL",
+      "psql_exit_code": 0,
+      "assertions": 41,
+      "failed_assertions": 1,
+      "observed_status": "22P02",
+      "expected_status": "invalid"
+    },
+    {
+      "name": "strict-types-positive-negative",
+      "result": "PASS",
+      "exit_code": 0
+    },
+    {
+      "name": "security-scan",
+      "result": "PASS",
+      "exit_code": 0
+    }
+  ],
+  "new_rpc_manifest": [
+    {
+      "name": "customer_address_create_reconcile_v3",
+      "result": "jsonb",
+      "schema": "public",
+      "settings": [
+        "search_path=\"\"",
+        "statement_timeout=5s"
+      ],
+      "arguments": "p_intent_id uuid",
+      "anon_execute": false,
+      "definition_md5": "0ab9e432fb8c2038f53b76cba9a6dc7d",
+      "security_definer": true,
+      "identity_arguments": "p_intent_id uuid",
+      "authenticated_execute": true,
+      "migration": "20261008151018_customer_address_create_intent_v3.sql",
+      "migration_sha256": "b290c6373d2d49a3c9fb4847e5ee8f47f2ce11f4eeeb17da4d3fc4086a615e56",
+      "sources": [
+        "lib/features/account/data/supabase_customer_account_repository.dart"
+      ],
+      "payload_versions_in_consumer": [
+        "customer-address.v3"
+      ]
+    },
+    {
+      "name": "customer_address_create_v3",
+      "result": "jsonb",
+      "schema": "public",
+      "settings": [
+        "search_path=\"\"",
+        "statement_timeout=5s"
+      ],
+      "arguments": "p_intent_id uuid, p_payload jsonb",
+      "anon_execute": false,
+      "definition_md5": "4238f17114e2f2543692ab990c126fb1",
+      "security_definer": true,
+      "identity_arguments": "p_intent_id uuid, p_payload jsonb",
+      "authenticated_execute": true,
+      "migration": "20261008151018_customer_address_create_intent_v3.sql",
+      "migration_sha256": "b290c6373d2d49a3c9fb4847e5ee8f47f2ce11f4eeeb17da4d3fc4086a615e56",
+      "sources": [
+        "lib/features/account/data/supabase_customer_account_repository.dart"
+      ],
+      "payload_versions_in_consumer": [
+        "customer-address.v3"
+      ]
+    }
+  ],
+  "full_verify": "NOT_RUN: no Next/React runtime changed in this delta; SQL contract, strict type probes and security scan run separately; CI remains required"
+}

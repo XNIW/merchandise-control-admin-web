@@ -8,6 +8,12 @@ const read = (path) => readFileSync(join(root, path), "utf8");
 const migration = read(
   "supabase/migrations/20260802001000_storefront_v1_admin_publications.sql",
 );
+const mobileAuthoringMigration = read(
+  "supabase/migrations/20260821144753_mobile_storefront_authoring_v1.sql",
+);
+const mobileSessionSummaryMigration = read(
+  "supabase/migrations/20260821211500_mobile_storefront_authoring_session_summary.sql",
+);
 const page = read("src/app/shop/storefront/page.tsx");
 const actions = read("src/app/shop/storefront/actions.ts");
 const mutations = read("src/server/shop-admin/storefront-mutations.ts");
@@ -63,7 +69,9 @@ test("TASK-007 Server Actions reauthorize and never use a generic service-role t
   assert.match(actions, /bulkPauseStorefrontAction/);
   assert.match(mutations, /resolveShopActionContext/);
   assert.match(mutations, /storefront\.bulk_publish/);
-  assert.match(mutations, /admin_storefront_publication_mutate_v1/);
+  assert.match(mutations, /storefront_publication_authoring_mutate_v1/);
+  assert.match(mutations, /p_expected_version: expectedVersion/);
+  assert.match(mutations, /p_idempotency_key: idempotencyKey/);
   assert.match(leaseBoundary, /callStaffWebStorefrontMutation/);
   assert.match(leaseBoundary, /callStaffWebStorefrontRead/);
   assert.doesNotMatch(mutations, /createSupabaseAdminClient|\.from\(/);
@@ -75,6 +83,7 @@ test("TASK-007 installs the exact granular RBAC permission set", () => {
     "storefront.view",
     "storefront.edit",
     "storefront.publish",
+    "storefront.pricing.manage",
     "storefront.bulk_publish",
     "storefront.promotions.manage",
     "storefront.images.manage",
@@ -84,7 +93,12 @@ test("TASK-007 installs the exact granular RBAC permission set", () => {
   for (const permission of requiredPermissions) {
     assert.match(permissions, new RegExp(permission.replace(".", "\\.")));
     assert.match(staffPermissions, new RegExp(permission.replace(".", "\\.")));
-    assert.match(migration, new RegExp(permission.replace(".", "\\.")));
+    assert.match(
+      permission === "storefront.pricing.manage"
+        ? mobileAuthoringMigration
+        : migration,
+      new RegExp(permission.replace(".", "\\.")),
+    );
   }
   assert.match(staffPermissions, /SHOP_STAFF_WEB_PERMISSION_TREE/);
   assert.match(staffPermissions, /canStaffWebPerformShopAdminAction/);
@@ -114,6 +128,74 @@ test("TASK-007 SQL boundary is tenant-scoped, audited and lease-bound", () => {
   assert.match(migration, /publication\.shop_id = p_shop_id/);
 });
 
+test("TASK-152 authoring is versioned, idempotent and source-derived", () => {
+  for (const marker of [
+    "storefront_publication_authoring_mutate_v1",
+    "storefront_publications_authoring_read_v1",
+    "admin_storefront_publication_bulk_mutate_v2",
+    "p_expected_version",
+    "p_idempotency_key",
+    "storefront_authoring_receipts",
+    "stale_revision",
+    "idempotency_conflict",
+    "storefront_mutation_source",
+    "last_mutation_source",
+    "changedFields",
+    "correlationId",
+    "storefront.pricing.manage",
+    "storefront_guard_operational_product_delete_v1",
+    "storefront_guard_operational_product_hard_delete",
+    "pg_advisory_xact_lock",
+  ]) {
+    assert.match(
+      mobileAuthoringMigration,
+      new RegExp(marker.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+    );
+  }
+  assert.match(
+    mobileAuthoringMigration,
+    /revoke execute on function public\.admin_storefront_publication_mutate_v1[\s\S]*from authenticated, service_role/,
+  );
+  assert.doesNotMatch(mobileAuthoringMigration, /grant .*storefront_product_publications.*authenticated/i);
+});
+
+test("mobile authoring attribution is session-bound and list reads stay bounded", () => {
+  for (const marker of [
+    "storefront_authoring_client_sessions",
+    "storefront_authoring_bind_android_session_v1",
+    "storefront_authoring_bind_ios_session_v1",
+    "auth_session_id",
+    "session_source_conflict",
+    "storefront_publications_authoring_summary_v1",
+    "p_page_size",
+    "p_source_product_ids",
+    "differsFromOperational",
+    "publicImageThumbnailUrl",
+    "publicImageDetailUrl",
+  ]) {
+    assert.match(
+      mobileSessionSummaryMigration,
+      new RegExp(marker.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+    );
+  }
+  assert.match(
+    mobileSessionSummaryMigration,
+    /coalesce\(cardinality\(p_source_product_ids\), 0\) > 100/,
+  );
+  assert.match(
+    mobileSessionSummaryMigration,
+    /coalesce\(p_page_size, 0\) not between 1 and 100/,
+  );
+  assert.doesNotMatch(
+    mobileSessionSummaryMigration,
+    /app_metadata[\s\S]*storefront_mutation_source/,
+  );
+  assert.doesNotMatch(
+    mobileSessionSummaryMigration,
+    /request\.headers|x-client-info/,
+  );
+});
+
 test("TASK-007 preview consumes the public versioned contract", () => {
   assert.match(migration, /v_preview := public\.storefront_home_v1\(v_public_slug\)/);
   assert.match(page, /payload restituito da storefront_home_v1/);
@@ -124,8 +206,16 @@ test("TASK-007 staging workflow retains the publication ledger and post-verifies
   assert.match(stagingWorkflow, /adminPublicationsLedgerRetained/);
   assert.match(stagingWorkflow, /publicApiPlannerLedgerRetained/);
   assert.match(stagingWorkflow, /adminRpcBoundary/);
+  assert.match(
+    stagingWorkflow,
+    /storefront_publications_authoring_read_v1[\s\S]*storefront_publication_authoring_mutate_v1/,
+  );
+  assert.match(stagingWorkflow, /legacyAuthoringMutationDenied/);
   assert.match(stagingWorkflow, /adminAuthoringDirectDenied/);
-  assert.match(stagingWorkflow, /storefrontPermissionMatrix/);
+  assert.match(
+    stagingWorkflow,
+    /'storefrontPermissionMatrix',[\s\S]*select count\(\*\) = 9/,
+  );
 });
 
 test("TASK-007 staging acceptance is exact-branch guarded and cleans its synthetic tenant", () => {

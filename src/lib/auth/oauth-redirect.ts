@@ -8,6 +8,16 @@ export type OAuthLoginResultCode =
   | "oauth_origin_missing"
   | "oauth_provider_not_enabled"
   | "oauth_redirect_misconfigured"
+  | "wechat_account_suspended"
+  | "wechat_cancelled"
+  | "wechat_code_expired"
+  | "wechat_denied"
+  | "wechat_identity_already_linked"
+  | "wechat_identity_conflict"
+  | "wechat_membership_missing"
+  | "wechat_not_configured"
+  | "wechat_state_invalid"
+  | "wechat_temporary"
   | "unsafe_next";
 
 export function isSafeInternalNextPath(

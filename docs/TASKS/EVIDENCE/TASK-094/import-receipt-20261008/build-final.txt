@@ -1,0 +1,154 @@
+
+> merchandise-control-admin-web@0.1.0 build
+> next build
+
+▲ Next.js 16.2.12 (Turbopack)
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.6s
+  Running TypeScript ...
+  Finished TypeScript in 9.2s ...
+  Collecting page data using 15 workers ...
+  Generating static pages using 15 workers (0/7) ...
+  Generating static pages using 15 workers (1/7)
+  Generating static pages using 15 workers (3/7)
+  Generating static pages using 15 workers (5/7)
+✓ Generating static pages using 15 workers (7/7) in 90ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ƒ /
+├ ƒ /_not-found
+├ ƒ /.well-known/apple-app-site-association
+├ ƒ /account-deletion
+├ ƒ /account/profile
+├ ƒ /account/wechat-mini
+├ ƒ /api/auth/wechat/challenge
+├ ƒ /api/auth/wechat/exchange
+├ ƒ /api/auth/wechat/logout
+├ ƒ /api/auth/wechat/mini/[operation]
+├ ƒ /api/auth/wechat/status
+├ ƒ /api/mini-program/v1/account
+├ ƒ /api/mini-program/v1/catalog
+├ ƒ /api/mini-program/v1/catalog/detail
+├ ƒ /api/mini-program/v1/catalog/history
+├ ƒ /api/mini-program/v1/catalog/lifecycle
+├ ƒ /api/mini-program/v1/catalog/mutations
+├ ƒ /api/mini-program/v1/catalog/prices
+├ ƒ /api/mini-program/v1/categories
+├ ƒ /api/mini-program/v1/history
+├ ƒ /api/mini-program/v1/product-images/finalize
+├ ƒ /api/mini-program/v1/product-images/intent
+├ ƒ /api/mini-program/v1/product-images/read-urls
+├ ƒ /api/mini-program/v1/product-images/remove
+├ ƒ /api/mini-program/v1/sales
+├ ƒ /api/mini-program/v1/sales/detail
+├ ƒ /api/mini-program/v1/sales/filters
+├ ƒ /api/mini-program/v1/sales/range
+├ ƒ /api/mini-program/v1/sales/summary
+├ ƒ /api/mini-program/v1/shops
+├ ƒ /api/mini-program/v1/suppliers
+├ ƒ /api/mini-program/v1/sync/checkpoint
+├ ƒ /api/mini-program/v1/sync/delta
+├ ƒ /api/pos/auth/first-login
+├ ƒ /api/pos/catalog/article-mutations
+├ ƒ /api/pos/catalog/import-correction
+├ ƒ /api/pos/catalog/import-receipt
+├ ƒ /api/pos/catalog/import-retire
+├ ƒ /api/pos/catalog/import-sync
+├ ƒ /api/pos/catalog/product-images/finalize
+├ ƒ /api/pos/catalog/product-images/intent
+├ ƒ /api/pos/catalog/product-images/read-urls
+├ ƒ /api/pos/catalog/product-images/remove
+├ ƒ /api/pos/catalog/pull
+├ ƒ /api/pos/orders/ack
+├ ƒ /api/pos/orders/claim
+├ ƒ /api/pos/sales/sync
+├ ƒ /api/pos/session/heartbeat
+├ ƒ /api/qa/win7pos-product-image
+├ ƒ /api/shop/pos/revenue
+├ ƒ /api/shop/pos/revenue/sale-detail
+├ ƒ /api/shop/product-images/finalize
+├ ƒ /api/shop/product-images/intent
+├ ƒ /api/shop/product-images/read-urls
+├ ƒ /api/shop/product-images/remove
+├ ƒ /api/shop/products/search-suggestions
+├ ƒ /api/shop/storefront/images/adopt
+├ ƒ /api/shop/storefront/images/finalize
+├ ƒ /api/shop/storefront/images/intent
+├ ƒ /api/shop/storefront/images/rollback
+├ ƒ /api/shop/storefront/images/source
+├ ƒ /auth/callback
+├ ƒ /auth/login
+├ ƒ /auth/logout
+├ ƒ /auth/oauth/google
+├ ƒ /auth/oauth/wechat
+├ ƒ /auth/oauth/wechat/link
+├ ƒ /platform
+├ ƒ /platform/admins
+├ ƒ /platform/audit
+├ ƒ /platform/audit/[eventId]
+├ ƒ /platform/data
+├ ƒ /platform/devices
+├ ƒ /platform/history
+├ ƒ /platform/operations
+├ ƒ /platform/overview
+├ ƒ /platform/provisioning
+├ ƒ /platform/provisioning/create-shop
+├ ƒ /platform/provisioning/recover-manager-1001
+├ ƒ /platform/shop-admins
+├ ƒ /platform/shop-admins/[profileId]
+├ ƒ /platform/shops
+├ ƒ /platform/shops/[shopId]
+├ ƒ /platform/shops/[shopId]/profile
+├ ƒ /platform/shops/new
+├ ƒ /platform/support
+├ ƒ /platform/sync
+├ ƒ /platform/system
+├ ƒ /platform/users
+├ ƒ /platform/users/[profileId]
+├ ƒ /privacy
+├ ƒ /shop
+├ ƒ /shop/after-sales
+├ ƒ /shop/audit
+├ ƒ /shop/audit/[eventId]
+├ ƒ /shop/categories
+├ ƒ /shop/categories/[categoryId]
+├ ƒ /shop/courier
+├ ƒ /shop/devices
+├ ƒ /shop/devices/[deviceId]
+├ ƒ /shop/history
+├ ƒ /shop/history/[entryId]
+├ ƒ /shop/history/detail
+├ ƒ /shop/import-export
+├ ƒ /shop/import-export/apply
+├ ƒ /shop/import-export/export
+├ ƒ /shop/import-export/preview
+├ ƒ /shop/import-export/template
+├ ƒ /shop/members
+├ ƒ /shop/members/[memberId]
+├ ƒ /shop/orders
+├ ƒ /shop/overview
+├ ƒ /shop/pos
+├ ƒ /shop/products
+├ ƒ /shop/products/[productId]
+├ ƒ /shop/products/detail
+├ ƒ /shop/qa-sync-fixture
+├ ƒ /shop/reviews
+├ ƒ /shop/roles
+├ ƒ /shop/settings
+├ ƒ /shop/staff
+├ ƒ /shop/staff-login
+├ ƒ /shop/staff-logout
+├ ƒ /shop/staff/[staffId]
+├ ƒ /shop/storefront
+├ ƒ /shop/suppliers
+├ ƒ /shop/suppliers/[supplierId]
+├ ƒ /shop/sync
+├ ƒ /shop/sync-event-marker
+└ ƒ /wechat/ios
+
+
+ƒ Proxy (Middleware)
+
+ƒ  (Dynamic)  server-rendered on demand

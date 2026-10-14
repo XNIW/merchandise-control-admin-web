@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import { randomUUID } from "node:crypto";
 import { ActionResultBanner } from "@/app/shop/_components/ActionResultBanner";
 import { SHOP_ADMIN_CONTENT_FRAME_CLASS } from "@/components/shop/shopLayout";
 import type { Json } from "@/lib/supabase/database.types";
@@ -268,6 +269,8 @@ function PublicationEditor({ model, row }: { model: StorefrontPublicationsReadMo
       <form action={saveStorefrontPublicationAction} className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {model.selectedShopId ? <input name="shop_id" type="hidden" value={model.selectedShopId} /> : null}
         <input name="sourceProductId" type="hidden" value={row.sourceProductId} />
+        <input name="expectedVersion" type="hidden" value={row.catalogVersion} />
+        <input name="idempotencyKey" type="hidden" value={randomUUID()} />
         <label className="grid gap-1 text-xs font-medium text-zinc-700 md:col-span-2">
           Nome pubblico
           <input className={fieldClassName} defaultValue={row.publicName ?? row.operationalName ?? ""} maxLength={200} name="publicName" required />
@@ -289,19 +292,24 @@ function PublicationEditor({ model, row }: { model: StorefrontPublicationsReadMo
         </label>
         <label className="grid gap-1 text-xs font-medium text-zinc-700">
           Modalità prezzo
-          <select className={fieldClassName} defaultValue={row.priceSourceMode ?? "operational"} name="priceSourceMode">
+          <select className={fieldClassName} defaultValue={row.priceSourceMode ?? "operational"} disabled={!model.permissions.canManagePricing} name="priceSourceMode">
             <option value="operational">Segue prezzo operativo</option>
             <option value="override">Override cliente</option>
             <option value="promotion">Promozione</option>
           </select>
         </label>
+        {!model.permissions.canManagePricing ? <>
+          <input name="priceSourceMode" type="hidden" value={row.priceSourceMode ?? "override"} />
+          <input name="retailPriceClp" type="hidden" value={defaultPrice} />
+          {row.compareAtPriceClp !== null ? <input name="compareAtPriceClp" type="hidden" value={row.compareAtPriceClp} /> : null}
+        </> : null}
         <label className="grid gap-1 text-xs font-medium text-zinc-700">
           Prezzo cliente CLP
-          <input className={fieldClassName} defaultValue={defaultPrice} min={0} name="retailPriceClp" required step={1} type="number" />
+          <input className={fieldClassName} defaultValue={defaultPrice} disabled={!model.permissions.canManagePricing} min={0} name="retailPriceClp" required step={1} type="number" />
         </label>
         <label className="grid gap-1 text-xs font-medium text-zinc-700">
           Prezzo precedente CLP
-          <input className={fieldClassName} defaultValue={row.compareAtPriceClp ?? ""} min={0} name="compareAtPriceClp" step={1} type="number" />
+          <input className={fieldClassName} defaultValue={row.compareAtPriceClp ?? ""} disabled={!model.permissions.canManagePricing} min={0} name="compareAtPriceClp" step={1} type="number" />
         </label>
         <label className="grid gap-1 text-xs font-medium text-zinc-700">
           Ordine catalogo
@@ -368,6 +376,7 @@ function Catalog({ model, params }: { model: StorefrontPublicationsReadModel; pa
       <Filters params={params} />
       <form aria-label="Azioni multiple Storefront" className="flex flex-wrap items-center gap-2 rounded-xl border border-zinc-200 bg-white p-3 shadow-sm" id="storefront-bulk-form">
         {model.selectedShopId ? <input name="shop_id" type="hidden" value={model.selectedShopId} /> : null}
+        <input name="idempotencyKey" type="hidden" value={randomUUID()} />
         <button className={buttonClassName} disabled={!model.permissions.canBulkPublish} formAction={bulkPublishStorefrontAction}>Pubblica selezionati</button>
         <button className={secondaryButtonClassName} disabled={!model.permissions.canBulkPublish} formAction={bulkPauseStorefrontAction}>Metti in pausa</button>
         <p className="self-center text-xs text-zinc-500">Le operazioni multiple sono atomiche e limitate a 100 righe.</p>
@@ -385,12 +394,12 @@ function Catalog({ model, params }: { model: StorefrontPublicationsReadModel; pa
         ) : model.rows.map((row) => (
           <article className="border-b border-zinc-200 last:border-b-0" key={row.sourceProductId}>
             <div className="grid gap-3 p-4 md:grid-cols-[auto_minmax(0,2fr)_repeat(4,minmax(0,1fr))] md:items-center">
-              <input aria-label={`Seleziona ${row.publicName ?? row.operationalName ?? row.barcode}`} className="size-5 rounded border-zinc-300 accent-emerald-800 outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2" disabled={!row.publicationId || !model.permissions.canBulkPublish} form="storefront-bulk-form" name="publicationIds" type="checkbox" value={row.publicationId ?? ""} />
+              <input aria-label={`Seleziona ${row.publicName ?? row.operationalName ?? row.barcode}`} className="size-5 rounded border-zinc-300 accent-emerald-800 outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2" disabled={!row.publicationId || !model.permissions.canBulkPublish} form="storefront-bulk-form" name="publicationItems" type="checkbox" value={row.publicationId ? `${row.publicationId}:${row.catalogVersion}` : ""} />
               <div className="min-w-0">
                 <p className="truncate font-semibold text-zinc-950">{row.publicName ?? row.operationalName ?? "Prodotto senza nome"}</p>
                 <p className="mt-0.5 text-xs text-zinc-500">{row.barcode} · interno: {row.operationalName ?? "—"}</p>
               </div>
-              <div><p className="text-xs text-zinc-500">Stato</p><span className={`mt-1 inline-flex rounded-md border px-2 py-0.5 text-xs font-semibold ${statusTone(row.publicationStatus)}`}>{row.publicationStatus}</span></div>
+              <div><p className="text-xs text-zinc-500">Stato</p><span className={`mt-1 inline-flex rounded-md border px-2 py-0.5 text-xs font-semibold ${statusTone(row.publicationStatus)}`}>{row.publicationStatus}</span><p className="mt-1 text-xs text-zinc-500">v{row.catalogVersion} · {row.mutationSource === "ios" ? "iOS" : row.mutationSource[0]?.toUpperCase() + row.mutationSource.slice(1)}</p></div>
               <div><p className="text-xs text-zinc-500">Prezzo operativo</p><p className="mt-1 text-sm font-semibold">{clp(row.operationalPrice)}</p></div>
               <div><p className="text-xs text-zinc-500">Prezzo cliente</p><p className="mt-1 text-sm font-semibold">{clp(row.retailPriceClp)}</p></div>
               <div><p className="text-xs text-zinc-500">Categoria / immagine</p><p className="mt-1 truncate text-sm">{row.publicCategoryName ?? "—"} · {row.publishedImageVersionId ? "pronta" : "mancante"}</p></div>
@@ -1251,7 +1260,7 @@ function auditDate(value: string) {
 
 function Audit({ model }: { model: StorefrontPublicationsReadModel }) {
   if (!model.permissions.canViewAudit) return <p className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">Permesso storefront.audit.view richiesto.</p>;
-  return <section className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm"><div className="border-b border-zinc-200 p-4"><h2 className="font-semibold">Audit Storefront</h2><p className="text-sm text-zinc-500">Attore, operazione e snapshot pubblico prima/dopo; nessun secret.</p></div>{model.audit.length === 0 ? <p className="p-6 text-sm text-zinc-500">Nessun evento Storefront.</p> : <ul aria-label="Timeline audit Storefront">{model.audit.map((event) => <li className="grid gap-3 border-b border-zinc-100 p-4 text-sm md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(11rem,1fr)]" key={event.id}><div className="min-w-0"><p className="text-xs text-zinc-500">Evento</p><p className="font-medium [overflow-wrap:anywhere]">{event.eventKey}</p></div><div className="min-w-0"><p className="text-xs text-zinc-500">Attore</p><p className="[overflow-wrap:anywhere]">{event.actorKind}</p></div><div><p className="text-xs text-zinc-500">Esito</p><p>{event.result} · {event.updatedCount ?? 1} righe</p></div><div><p className="text-xs text-zinc-500">Quando</p><time dateTime={event.createdAt} title={event.createdAt}>{auditDate(event.createdAt)}</time></div></li>)}</ul>}</section>;
+  return <section className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm"><div className="border-b border-zinc-200 p-4"><h2 className="font-semibold">Audit Storefront</h2><p className="text-sm text-zinc-500">Attore, source, operazione e snapshot pubblico prima/dopo; nessun secret.</p></div>{model.audit.length === 0 ? <p className="p-6 text-sm text-zinc-500">Nessun evento Storefront.</p> : <ul aria-label="Timeline audit Storefront">{model.audit.map((event) => <li className="grid gap-3 border-b border-zinc-100 p-4 text-sm md:grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))_minmax(11rem,1fr)]" key={event.id}><div className="min-w-0"><p className="text-xs text-zinc-500">Evento</p><p className="font-medium [overflow-wrap:anywhere]">{event.eventKey}</p></div><div className="min-w-0"><p className="text-xs text-zinc-500">Attore</p><p className="[overflow-wrap:anywhere]">{event.actorKind}</p></div><div><p className="text-xs text-zinc-500">Source</p><p>{event.source}</p></div><div><p className="text-xs text-zinc-500">Esito</p><p>{event.result} · {event.updatedCount ?? 1} righe</p></div><div><p className="text-xs text-zinc-500">Quando</p><time dateTime={event.createdAt} title={event.createdAt}>{auditDate(event.createdAt)}</time></div></li>)}</ul>}</section>;
 }
 
 export default async function StorefrontPage({ searchParams }: { searchParams: SearchParams }) {

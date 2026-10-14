@@ -1,0 +1,44 @@
+[
+  {
+    "version": "20260813002817",
+    "name": "wechat_auth_sales_read_contract",
+    "file": "20260813002817_wechat_auth_sales_read_contract.sql",
+    "sha256": "f67ce63f96ec9ddcd6bb17cde3bf80f132031b31083024b571a1d405ec1f40bf"
+  },
+  {
+    "version": "20260813022833",
+    "name": "wechat_002_mini_program_read_parity",
+    "file": "20260813022833_wechat_002_mini_program_read_parity.sql",
+    "sha256": "f0399cfeb4b264282d15343a5e2e49bca2c5bd67534f6d1b75a7688c4876f832"
+  },
+  {
+    "version": "20260813035221",
+    "name": "wechat_003_catalog_mutations",
+    "file": "20260813035221_wechat_003_catalog_mutations.sql",
+    "sha256": "19f7feffb67c11ba41c8a014882238f485fd741437bc239ffc1481f1a9aa1aff"
+  },
+  {
+    "version": "20260813043000",
+    "name": "wechat_003_image_intent_replay_rate_lock",
+    "file": "20260813043000_wechat_003_image_intent_replay_rate_lock.sql",
+    "sha256": "4317e5a6fc8140250dbdd90662c6b6c7c2440cae707312ce7dd1b9babbbb31e4"
+  },
+  {
+    "version": "20260813044500",
+    "name": "wechat_auth_challenge_rate_locks",
+    "file": "20260813044500_wechat_auth_challenge_rate_locks.sql",
+    "sha256": "d42abc5b2e215788ea0e5fec97e9837785ffd3ed482c290cf2ce750cb32c02ff"
+  },
+  {
+    "version": "20260813160232",
+    "name": "wechat_004_mini_bff_session_sync",
+    "file": "20260813160232_wechat_004_mini_bff_session_sync.sql",
+    "sha256": "35d4e28e77708de7c1238be2ed817d2549272570a86cd24502dab8ecb0d17054"
+  },
+  {
+    "version": "20260813160233",
+    "name": "wechat_004_identity_link_saga",
+    "file": "20260813160233_wechat_004_identity_link_saga.sql",
+    "sha256": "3a3370d855a1e50cfc8e06ee7dfcd7722ecf02ce8cec1e68564cf7a6014acffd"
+  }
+]

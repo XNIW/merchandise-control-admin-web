@@ -37,6 +37,7 @@ const nextConfig: NextConfig = {
   },
   poweredByHeader: false,
   serverExternalPackages: ["read-excel-file", "unzipper-esm", "write-excel-file"],
+  skipTrailingSlashRedirect: true,
 };
 
 export default nextConfig;

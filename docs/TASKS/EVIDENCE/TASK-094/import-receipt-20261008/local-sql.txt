@@ -1,0 +1,34 @@
+PASS actual migration parses and commits on owned PostgreSQL
+PASS missing receipt is snapshot only
+PASS lookup writes no ledger or economic row
+PASS existing apply produces accepted durable ACK
+PASS lookup returns persisted ACK exactly
+PASS repeated receipt leaves ACK unchanged
+PASS hash mismatch conflicts
+PASS clientImportId mismatch conflicts
+PASS idempotencyKey mismatch conflicts
+PASS retirement returns ACK when apply already committed
+PASS legacy incomplete ACK fails closed
+PASS failed legacy import cannot be retired
+PASS catalog.import denial prevents reading receipt
+PASS catalog.import denial prevents retirement
+PASS revoked runtime lease denies lookup
+PASS cross-shop request cannot enumerate ledger
+PASS cross-device request cannot enumerate ledger
+PASS retirement commits private identity fence
+PASS retirement repeats idempotently with exact timestamp
+PASS retired lookup is conflict not false absence
+PASS late original rejects before delegated economic writes
+PASS new replacement operation remains independently admissible
+PASS late original after replacement is still rejected
+PASS retirement changed hash conflicts
+PASS retirement clashing key conflicts
+PASS direct legacy v1 cannot bypass retirement
+PASS private prior implementation is not callable by service_role
+PASS anon/authenticated cannot lookup or retire
+PASS session expiry while waiting on identity lock denies lookup
+PASS retirement waits for in-flight apply and returns accepted ACK
+PASS late original waits for retirement then rejects
+PASS retirement-win race has zero additional economic writes
+{"result": "PASS", "checks": 32, "migrationSha256": "6a979d64b77e858f8e33874007279c5d132043a489fc17216bd9da0ccf42cab9", "scope": "owned synthetic PostgreSQL model; no external DB; legacy apply sentinel", "checksPassed": ["actual migration parses and commits on owned PostgreSQL", "missing receipt is snapshot only", "lookup writes no ledger or economic row", "existing apply produces accepted durable ACK", "lookup returns persisted ACK exactly", "repeated receipt leaves ACK unchanged", "hash mismatch conflicts", "clientImportId mismatch conflicts", "idempotencyKey mismatch conflicts", "retirement returns ACK when apply already committed", "legacy incomplete ACK fails closed", "failed legacy import cannot be retired", "catalog.import denial prevents reading receipt", "catalog.import denial prevents retirement", "revoked runtime lease denies lookup", "cross-shop request cannot enumerate ledger", "cross-device request cannot enumerate ledger", "retirement commits private identity fence", "retirement repeats idempotently with exact timestamp", "retired lookup is conflict not false absence", "late original rejects before delegated economic writes", "new replacement operation remains independently admissible", "late original after replacement is still rejected", "retirement changed hash conflicts", "retirement clashing key conflicts", "direct legacy v1 cannot bypass retirement", "private prior implementation is not callable by service_role", "anon/authenticated cannot lookup or retire", "session expiry while waiting on identity lock denies lookup", "retirement waits for in-flight apply and returns accepted ACK", "late original waits for retirement then rejects", "retirement-win race has zero additional economic writes"]}
+OWNED_CONTAINER_CLOSED cmc-pos-receipt-f642c1687e

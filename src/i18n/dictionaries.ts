@@ -40,7 +40,17 @@ type AuthLoginMessageCode =
   | "oauth_redirect_misconfigured"
   | "sign_in_blocked"
   | "unsafe_next"
-  | "validation_failed";
+  | "validation_failed"
+  | "wechat_account_suspended"
+  | "wechat_cancelled"
+  | "wechat_code_expired"
+  | "wechat_denied"
+  | "wechat_identity_already_linked"
+  | "wechat_identity_conflict"
+  | "wechat_membership_missing"
+  | "wechat_not_configured"
+  | "wechat_state_invalid"
+  | "wechat_temporary";
 
 export type Dictionary = {
   access: {
@@ -54,6 +64,8 @@ export type Dictionary = {
     email: string;
     eyebrow: string;
     lastSignIn: string;
+    linkWeChat: string;
+    linkWeChatDescription: string;
     noPersonalSession: string;
     notAvailable: string;
     notConfigured: string;
@@ -84,6 +96,7 @@ export type Dictionary = {
   authForm: {
     email: string;
     googleSubmit: string;
+    wechatSubmit: string;
     password: string;
     passwordDivider: string;
     pending: string;
@@ -176,6 +189,8 @@ const emptyExact: Record<string, string> = {};
 
 const itExact: Record<string, string> = {
   Storefront: "Vetrina",
+  "After-sales": "Post-vendita",
+  "Verified reviews": "Recensioni verificate",
   "Customer orders": "Ordini cliente",
   "Account": "Account",
   "Account identity unavailable": "Identita account non disponibile",
@@ -243,6 +258,7 @@ const itExact: Record<string, string> = {
   "Active": "Attivo",
   "Active sessions": "Sessioni attive",
   "Admin Console": "Console Admin",
+  "Courier Mode": "Modalita corriere",
   "Admin Console/shop access": "Accesso Console Admin/shop",
   "All states": "Tutti gli stati",
   "Archived": "Archiviato",
@@ -354,6 +370,9 @@ const itExact: Record<string, string> = {
   "Overview shop": "Panoramica shop",
   "Platform Admins": "Admin piattaforma",
   "Platform Overview": "Panoramica piattaforma",
+  "Privacy Notice": "Informativa sulla privacy",
+  "Account Deletion": "Eliminazione account",
+  "WeChat iOS Return": "Ritorno WeChat iOS",
   "POS / Staff": "POS / Staff",
   "Incassi POS": "Incassi POS",
   "POS Live": "POS Live",
@@ -1546,6 +1565,8 @@ const itExact: Record<string, string> = {
 };
 
 const esExact: Record<string, string> = {
+  "After-sales": "Posventa",
+  "Verified reviews": "Reseñas verificadas",
   Storefront: "Tienda",
   "Customer orders": "Pedidos de clientes",
   "Account": "Cuenta",
@@ -1614,6 +1635,7 @@ const esExact: Record<string, string> = {
   "Active": "Activo",
   "Active sessions": "Sesiones activas",
   "Admin Console": "Consola Admin",
+  "Courier Mode": "Modo repartidor",
   "Admin Console/shop access": "Acceso Consola Admin/shop",
   "All states": "Todos los estados",
   "Archived": "Archivado",
@@ -1708,6 +1730,9 @@ const esExact: Record<string, string> = {
   "Overview shop": "Resumen del shop",
   "Platform Admins": "Admins de plataforma",
   "Platform Overview": "Resumen de plataforma",
+  "Privacy Notice": "Aviso de privacidad",
+  "Account Deletion": "Eliminacion de cuenta",
+  "WeChat iOS Return": "Retorno de WeChat en iOS",
   "POS / Staff": "POS / Staff",
   "Incassi POS": "Ingresos POS",
   "POS Live": "POS Live",
@@ -2877,6 +2902,8 @@ const esExact: Record<string, string> = {
 };
 
 const zhExact: Record<string, string> = {
+  "After-sales": "售后服务",
+  "Verified reviews": "已验证评价",
   Storefront: "店铺前台",
   "Customer orders": "客户订单",
   "Account": "账号",
@@ -2944,6 +2971,7 @@ const zhExact: Record<string, string> = {
   "Active": "启用",
   "Active sessions": "活动会话",
   "Admin Console": "店铺管理台",
+  "Courier Mode": "配送员模式",
   "Admin Console/shop access": "店铺管理台/店铺访问",
   "All states": "全部状态",
   "Archived": "已归档",
@@ -3038,6 +3066,9 @@ const zhExact: Record<string, string> = {
   "Overview shop": "店铺概览",
   "Platform Admins": "平台管理员",
   "Platform Overview": "平台概览",
+  "Privacy Notice": "隐私声明",
+  "Account Deletion": "账号删除",
+  "WeChat iOS Return": "微信 iOS 返回",
   "POS / Staff": "POS / 员工",
   "Incassi POS": "POS 收入",
   "POS Live": "POS 实时",
@@ -5950,6 +5981,9 @@ const en: Dictionary = {
     email: "Email",
     eyebrow: "Account",
     lastSignIn: "Last sign in",
+    linkWeChat: "Link WeChat",
+    linkWeChatDescription:
+      "Link WeChat to this signed-in personal account. Existing shop roles do not change.",
     noPersonalSession: "No personal session",
     notAvailable: "Not available",
     notConfigured: "Supabase Auth is not configured in this runtime.",
@@ -6017,6 +6051,7 @@ const en: Dictionary = {
   authForm: {
     email: "Email",
     googleSubmit: "Continue with Google",
+    wechatSubmit: "Continue with WeChat",
     password: "Password",
     passwordDivider: "or use password",
     pending: "Signing in",
@@ -6069,6 +6104,19 @@ const en: Dictionary = {
         "Google sign-in is not enabled in the local Supabase Auth configuration. Add the Google OAuth client ID and secret, then restart Supabase.",
       oauth_redirect_misconfigured:
         "Google sign-in is misconfigured: Supabase returned an old Vercel redirect. Update Supabase Auth URLs before retrying.",
+      wechat_account_suspended: "This personal account is suspended.",
+      wechat_cancelled: "WeChat sign-in was cancelled.",
+      wechat_code_expired: "The WeChat authorization expired. Try again.",
+      wechat_denied: "WeChat authorization was denied.",
+      wechat_identity_already_linked: "This WeChat identity is already linked.",
+      wechat_identity_conflict:
+        "This WeChat identity cannot be linked to this account. Contact support with the correlation ID.",
+      wechat_membership_missing:
+        "This account has no active shop membership.",
+      wechat_not_configured: "WeChat sign-in is not available in this environment.",
+      wechat_state_invalid:
+        "The WeChat sign-in request expired or was already used. Start again.",
+      wechat_temporary: "WeChat sign-in is temporarily unavailable. Try again later.",
       unsafe_next:
         "The requested sign-in destination is not valid. Open the console again and retry.",
       validation_failed: "Email and password are required.",
@@ -6209,6 +6257,9 @@ const it: Dictionary = {
     email: "Email",
     eyebrow: "Account",
     lastSignIn: "Ultimo accesso",
+    linkWeChat: "Collega WeChat",
+    linkWeChatDescription:
+      "Collega WeChat a questo account personale autenticato. I ruoli shop esistenti non cambiano.",
     noPersonalSession: "Nessuna sessione personale",
     notAvailable: "Non disponibile",
     notConfigured: "Supabase Auth non e configurata in questo runtime.",
@@ -6279,6 +6330,7 @@ const it: Dictionary = {
   authForm: {
     email: "Email",
     googleSubmit: "Continua con Google",
+    wechatSubmit: "Continua con WeChat",
     password: "Password",
     passwordDivider: "oppure usa password",
     pending: "Accesso in corso",
@@ -6331,6 +6383,18 @@ const it: Dictionary = {
         "Accesso Google non abilitato nella configurazione locale Supabase Auth. Aggiungi client ID e secret OAuth Google, poi riavvia Supabase.",
       oauth_redirect_misconfigured:
         "Accesso Google configurato male: Supabase ha restituito un vecchio redirect Vercel. Aggiorna gli URL Auth Supabase e riprova.",
+      wechat_account_suspended: "Questo account personale e sospeso.",
+      wechat_cancelled: "Accesso WeChat annullato.",
+      wechat_code_expired: "L'autorizzazione WeChat e scaduta. Riprova.",
+      wechat_denied: "Autorizzazione WeChat rifiutata.",
+      wechat_identity_already_linked: "Questa identita WeChat e gia collegata.",
+      wechat_identity_conflict:
+        "Questa identita WeChat non puo essere collegata all'account. Contatta il supporto con il correlation ID.",
+      wechat_membership_missing: "L'account non ha membership shop attive.",
+      wechat_not_configured: "Accesso WeChat non disponibile in questo ambiente.",
+      wechat_state_invalid:
+        "La richiesta WeChat e scaduta o e gia stata usata. Ricomincia.",
+      wechat_temporary: "Accesso WeChat temporaneamente non disponibile. Riprova piu tardi.",
       unsafe_next:
         "La destinazione richiesta per l'accesso non e valida. Riapri la console e riprova.",
       validation_failed: "Email e password sono obbligatorie.",
@@ -6474,6 +6538,9 @@ const es: Dictionary = {
     email: "Email",
     eyebrow: "Cuenta",
     lastSignIn: "Ultimo inicio de sesion",
+    linkWeChat: "Vincular WeChat",
+    linkWeChatDescription:
+      "Vincula WeChat a esta cuenta personal autenticada. Los roles de shop existentes no cambian.",
     noPersonalSession: "Sin sesion personal",
     notAvailable: "No disponible",
     notConfigured: "Supabase Auth no esta configurado en este runtime.",
@@ -6545,6 +6612,7 @@ const es: Dictionary = {
   authForm: {
     email: "Email",
     googleSubmit: "Continuar con Google",
+    wechatSubmit: "Continuar con WeChat",
     password: "Contraseña",
     passwordDivider: "o usa password",
     pending: "Iniciando sesion",
@@ -6597,6 +6665,18 @@ const es: Dictionary = {
         "El ingreso con Google no esta habilitado en la configuracion local de Supabase Auth. Agrega el client ID y secret OAuth de Google, luego reinicia Supabase.",
       oauth_redirect_misconfigured:
         "El ingreso con Google esta mal configurado: Supabase devolvio un redirect antiguo de Vercel. Actualiza los URL de Auth Supabase e intenta de nuevo.",
+      wechat_account_suspended: "Esta cuenta personal esta suspendida.",
+      wechat_cancelled: "El ingreso con WeChat fue cancelado.",
+      wechat_code_expired: "La autorizacion de WeChat expiro. Intenta de nuevo.",
+      wechat_denied: "La autorizacion de WeChat fue rechazada.",
+      wechat_identity_already_linked: "Esta identidad de WeChat ya esta vinculada.",
+      wechat_identity_conflict:
+        "Esta identidad de WeChat no se puede vincular. Contacta soporte con el correlation ID.",
+      wechat_membership_missing: "La cuenta no tiene membresias de shop activas.",
+      wechat_not_configured: "El ingreso con WeChat no esta disponible en este entorno.",
+      wechat_state_invalid:
+        "La solicitud de WeChat expiro o ya fue usada. Inicia de nuevo.",
+      wechat_temporary: "El ingreso con WeChat no esta disponible temporalmente.",
       unsafe_next:
         "El destino solicitado para ingresar no es valido. Abre la consola de nuevo e intenta otra vez.",
       validation_failed: "Email y contraseña son obligatorios.",
@@ -6740,6 +6820,8 @@ const zhCN: Dictionary = {
     email: "邮箱",
     eyebrow: "账号",
     lastSignIn: "上次登录",
+    linkWeChat: "关联微信",
+    linkWeChatDescription: "将微信关联到当前已登录的个人账号。现有店铺角色不会改变。",
     noPersonalSession: "无个人会话",
     notAvailable: "不可用",
     notConfigured: "此运行时未配置 Supabase Auth。",
@@ -6795,6 +6877,7 @@ const zhCN: Dictionary = {
   authForm: {
     email: "邮箱",
     googleSubmit: "使用 Google 继续",
+    wechatSubmit: "使用微信登录",
     password: "密码",
     passwordDivider: "或使用密码",
     pending: "登录中",
@@ -6838,6 +6921,16 @@ const zhCN: Dictionary = {
         "本地 Supabase Auth 配置未启用 Google 登录。请添加 Google OAuth client ID 和 secret，然后重启 Supabase。",
       oauth_redirect_misconfigured:
         "Google 登录配置错误：Supabase 返回了旧的 Vercel redirect。请更新 Supabase Auth URL 后重试。",
+      wechat_account_suspended: "此个人账号已停用。",
+      wechat_cancelled: "已取消微信登录。",
+      wechat_code_expired: "微信授权已过期，请重试。",
+      wechat_denied: "微信授权已拒绝。",
+      wechat_identity_already_linked: "此微信身份已关联。",
+      wechat_identity_conflict: "此微信身份无法关联到该账号，请提供关联编号联系支持。",
+      wechat_membership_missing: "此账号没有有效的店铺成员资格。",
+      wechat_not_configured: "当前环境未启用微信登录。",
+      wechat_state_invalid: "微信登录请求已过期或已使用，请重新开始。",
+      wechat_temporary: "微信登录暂时不可用，请稍后重试。",
       unsafe_next: "请求的登录目标无效。请重新打开控制台后重试。",
       validation_failed: "邮箱和密码为必填项。",
     },

@@ -3,6 +3,7 @@ import "server-only";
 import type { SupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Json, Tables } from "@/lib/supabase/database.types";
 import type { ProductImageRequestActor } from "./auth";
+import { callTrustedWeChatRpc } from "@/server/auth/wechat-mini-session";
 import { createProductImageCacheScope } from "./cache-scope";
 import {
   PRODUCT_IMAGE_BUCKET,
@@ -28,6 +29,32 @@ import {
 type RpcObject = Record<string, Json | undefined>;
 type ImageVersionRow = Tables<"inventory_product_image_versions">;
 
+async function imageActorRpc(
+  admin: SupabaseAdminClient,
+  actor: ProductImageRequestActor,
+  rpc: string,
+  params: Record<string, unknown>,
+) {
+  if (!actor.miniProof) return admin.rpc(rpc as never, params as never);
+  const scoped = { ...params };
+  delete scoped.p_actor_profile_id;
+  delete scoped.p_actor_kind;
+  const data = await callTrustedWeChatRpc(
+    "wechat_mini_business_v1",
+    {
+      ...actor.miniProof,
+      p_operation: rpc,
+      p_params: scoped,
+    },
+    5_000,
+    131_072,
+  );
+  return {
+    data,
+    error: data === null ? { message: "session_or_backend_unavailable" } : null,
+  };
+}
+
 export type ProductImageServiceResult = {
   body: Record<string, unknown>;
   status: number;
@@ -48,7 +75,7 @@ function safeFailure(code: string, status = 503) {
   });
 }
 
-function asObject(value: Json | null): RpcObject {
+function asObject(value: unknown): RpcObject {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as RpcObject)
     : {};
@@ -84,7 +111,9 @@ async function productImageAccessIsPublishable(
   actor: ProductImageRequestActor,
   permission: "read" | "write",
 ) {
-  const { data, error } = await admin.rpc(
+  const { data, error } = await imageActorRpc(
+    admin,
+    actor,
     "product_image_revalidate_access_v1",
     {
       p_actor_kind: actor.actorKind,
@@ -96,13 +125,32 @@ async function productImageAccessIsPublishable(
   return !error && data === true;
 }
 
+// An uncertain revalidation must remain retryable without publishing URLs or
+// destroying the client's durable operation identity. Keep legacy callers intact.
+async function weChatImageWriteAccessFailure(
+  admin: SupabaseAdminClient,
+  actor: ProductImageRequestActor,
+): Promise<ProductImageServiceResult | null> {
+  try {
+    const { data, error } = await imageActorRpc(admin, actor,
+      "product_image_revalidate_access_v1", {
+        p_actor_kind: actor.actorKind, p_actor_profile_id: actor.actorProfileId,
+        p_permission: "write", p_shop_id: actor.shopId,
+      });
+    if (error || (data !== true && data !== false)) return safeFailure("backend_unavailable");
+    return data ? null : safeFailure("permission_denied", 403);
+  } catch {
+    return safeFailure("backend_unavailable");
+  }
+}
+
 async function markVersionFailed(
   admin: SupabaseAdminClient,
   actor: ProductImageRequestActor,
   input: ProductImageFinalizeInput,
   code: string,
 ) {
-  await admin.rpc("product_image_fail_version", {
+  await imageActorRpc(admin, actor, "product_image_fail_version", {
     p_actor_kind: actor.actorKind,
     p_actor_profile_id: actor.actorProfileId,
     p_error_code: code,
@@ -142,15 +190,25 @@ export async function recordProductImageDenied(input: {
 export async function createProductImageIntent(
   actor: ProductImageRequestActor,
   input: ProductImageIntentInput,
+  identifiers?: { correlationId: string; idempotencyKey: string },
 ): Promise<ProductImageServiceResult> {
   const admin = resolveAdminClient();
   if (!admin) {
     return safeFailure("not_configured");
   }
 
-  const rpcResult = await admin.rpc("product_image_create_intent", {
-    p_actor_kind: actor.actorKind,
+  const rpcName = identifiers
+    ? "product_image_create_intent_wechat_v1"
+    : "product_image_create_intent";
+  const rpcParams = {
+    ...(!identifiers ? { p_actor_kind: actor.actorKind } : {}),
     p_actor_profile_id: actor.actorProfileId,
+    ...(identifiers
+      ? {
+          p_correlation_id: identifiers.correlationId,
+          p_idempotency_key: identifiers.idempotencyKey,
+        }
+      : {}),
     p_main_bytes: input.main.bytes,
     p_main_height: input.main.height,
     p_main_sha256: input.main.sha256,
@@ -161,7 +219,8 @@ export async function createProductImageIntent(
     p_thumb_height: input.thumb.height,
     p_thumb_sha256: input.thumb.sha256,
     p_thumb_width: input.thumb.width,
-  });
+  };
+  const rpcResult = await imageActorRpc(admin, actor, rpcName, rpcParams);
 
   if (rpcResult.error) {
     return safeFailure("backend_unavailable");
@@ -176,6 +235,10 @@ export async function createProductImageIntent(
 
   const versionId = textField(rpc.version_id);
   if (rpc.status === "noop" && versionId) {
+    if (identifiers) {
+      const denied = await weChatImageWriteAccessFailure(admin, actor);
+      if (denied) return denied;
+    }
     return serviceResult(200, {
       cacheScope: createProductImageCacheScope(
         actor.actorKind,
@@ -190,12 +253,15 @@ export async function createProductImageIntent(
   const mainPath = textField(rpc.main_path);
   const thumbPath = textField(rpc.thumb_path);
   const expiresAt = textField(rpc.expires_at);
+  const expiresAtMs = expiresAt ? Date.parse(expiresAt) : Number.NaN;
 
   if (
     !versionId ||
     !mainPath ||
     !thumbPath ||
     !expiresAt ||
+    !Number.isFinite(expiresAtMs) ||
+    expiresAtMs <= Date.now() ||
     !canonicalProductImagePath({
       path: mainPath,
       productId: input.productId,
@@ -215,6 +281,46 @@ export async function createProductImageIntent(
   }
 
   const bucket = admin.storage.from(PRODUCT_IMAGE_BUCKET);
+  if (identifiers && rpc.replayed === true) {
+    // Reconcile immutable objects before signing a replay. Supabase can reject
+    // signing/PUT for an existing object; never overwrite it or finalize a probe.
+    const reconcile = async (variant: "main" | "thumb", path: string) => {
+      const metadata = input[variant];
+      const download = await bucket.download(path);
+      if (download.error) {
+        if (!isProductImageStorageObjectMissingError(download.error)) return {error: safeFailure("storage_unavailable")};
+        const signed = await bucket.createSignedUploadUrl(path);
+        // Another in-flight upload may win after the missing-object check. Keep
+        // pending state and let the next exact replay inspect the actual bytes.
+        if (signed.error || !signed.data?.signedUrl) return {error: safeFailure("storage_unavailable")};
+        return {url: signed.data.signedUrl};
+      }
+      if (!download.data) return {error: safeFailure("storage_unavailable")};
+      const verified = verifyDownloadedJpeg({
+        blobMimeType: download.data.type,
+        bytes: new Uint8Array(await download.data.arrayBuffer()),
+        expectedBytes: metadata.bytes, expectedHeight: metadata.height,
+        expectedSha256: metadata.sha256, expectedWidth: metadata.width,
+        maxBytes: variant === "main" ? PRODUCT_IMAGE_MAIN_MAX_BYTES : PRODUCT_IMAGE_THUMB_MAX_BYTES,
+        maxSide: variant === "main" ? PRODUCT_IMAGE_MAIN_MAX_SIDE : PRODUCT_IMAGE_THUMB_MAX_SIDE,
+      });
+      if (!verified.ok) {
+        await markVersionFailed(admin, actor, {productId: input.productId, shopId: input.shopId, versionId}, verified.code);
+        return {error: safeFailure(verified.code, 422)};
+      }
+      return {url: null};
+    };
+    try {
+      const [main, thumb] = await Promise.all([reconcile("main", mainPath), reconcile("thumb", thumbPath)]);
+      if (main.error) return main.error;
+      if (thumb.error) return thumb.error;
+      const denied = await weChatImageWriteAccessFailure(admin, actor);
+      if (denied) return denied;
+      return serviceResult(201, {cacheScope: createProductImageCacheScope(actor.actorKind, actor.actorProfileId), expiresAt, mainUploadUrl: main.url, ok: true, status: "upload_required", thumbUploadUrl: thumb.url, versionId});
+    } catch {
+      return safeFailure("storage_unavailable");
+    }
+  }
   const [mainSigned, thumbSigned] = await Promise.all([
     bucket.createSignedUploadUrl(mainPath),
     bucket.createSignedUploadUrl(thumbPath),
@@ -229,6 +335,7 @@ export async function createProductImageIntent(
     !mainUploadUrl ||
     !thumbUploadUrl
   ) {
+    if (identifiers) return safeFailure("storage_unavailable");
     await markVersionFailed(
       admin,
       actor,
@@ -238,7 +345,12 @@ export async function createProductImageIntent(
     return safeFailure("storage_unavailable");
   }
 
-  if (!(await productImageAccessIsPublishable(admin, actor, "write"))) {
+  const accessFailure = identifiers
+    ? await weChatImageWriteAccessFailure(admin, actor)
+    : !(await productImageAccessIsPublishable(admin, actor, "write"))
+      ? safeFailure("permission_denied", 403) : null;
+  if (accessFailure) {
+    if (accessFailure.status !== 403) return accessFailure;
     await markVersionFailed(
       admin,
       actor,
@@ -315,7 +427,7 @@ async function callFinalizeRpc(
     ? Exclude<T, null>
     : never,
 ) {
-  return admin.rpc("product_image_finalize", {
+  return imageActorRpc(admin, actor, "product_image_finalize", {
     p_actor_kind: actor.actorKind,
     p_actor_profile_id: actor.actorProfileId,
     p_main_bytes: metadata.main.bytes,
@@ -350,7 +462,12 @@ export async function finalizeProductImage(
   let metadata = finalizedMetadata(version);
 
   if (version.status === "ready" && metadata) {
-    const idempotentResult = await callFinalizeRpc(admin, actor, input, metadata);
+    const idempotentResult = await callFinalizeRpc(
+      admin,
+      actor,
+      input,
+      metadata,
+    );
     if (idempotentResult.error) {
       return safeFailure("backend_unavailable");
     }
@@ -427,7 +544,11 @@ export async function finalizeProductImage(
   });
 
   if (!main.ok || !thumb.ok) {
-    const code = !main.ok ? main.code : !thumb.ok ? thumb.code : "validation_failed";
+    const code = !main.ok
+      ? main.code
+      : !thumb.ok
+        ? thumb.code
+        : "validation_failed";
     await markVersionFailed(admin, actor, input, code);
     return safeFailure(code, 422);
   }
@@ -478,13 +599,18 @@ export async function removeProductImage(
     return safeFailure("not_configured");
   }
 
-  const removeResult = await admin.rpc("product_image_remove", {
-    p_actor_kind: actor.actorKind,
-    p_actor_profile_id: actor.actorProfileId,
-    p_expected_version_id: input.expectedVersionId,
-    p_product_id: input.productId,
-    p_shop_id: input.shopId,
-  });
+  const removeResult = await imageActorRpc(
+    admin,
+    actor,
+    "product_image_remove",
+    {
+      p_actor_kind: actor.actorKind,
+      p_actor_profile_id: actor.actorProfileId,
+      p_expected_version_id: input.expectedVersionId,
+      p_product_id: input.productId,
+      p_shop_id: input.shopId,
+    },
+  );
 
   if (removeResult.error) {
     return safeFailure("backend_unavailable");
@@ -535,20 +661,27 @@ export async function removeProductImage(
     return safeFailure("backend_contract_invalid");
   }
 
+  if (!(await productImageAccessIsPublishable(admin, actor, "write")))
+    return safeFailure("permission_denied", 403);
   const storageResult = await admin.storage
     .from(PRODUCT_IMAGE_BUCKET)
     .remove([mainPath, thumbPath]);
 
-  const cleanupRecordResult = await admin.rpc("product_image_record_cleanup", {
-    p_actor_kind: actor.actorKind,
-    p_actor_profile_id: actor.actorProfileId,
-    p_error_code: storageResult.error ? "storage_delete_failed" : undefined,
-    p_product_id: input.productId,
-    p_shop_id: input.shopId,
-    p_source: "api_remove",
-    p_success: !storageResult.error,
-    p_version_id: input.expectedVersionId,
-  });
+  const cleanupRecordResult = await imageActorRpc(
+    admin,
+    actor,
+    "product_image_record_cleanup",
+    {
+      p_actor_kind: actor.actorKind,
+      p_actor_profile_id: actor.actorProfileId,
+      p_error_code: storageResult.error ? "storage_delete_failed" : undefined,
+      p_product_id: input.productId,
+      p_shop_id: input.shopId,
+      p_source: "api_remove",
+      p_success: !storageResult.error,
+      p_version_id: input.expectedVersionId,
+    },
+  );
   const cleanupRecord = asObject(cleanupRecordResult.data);
   const cleanupStatus: "complete" | "pending" =
     !storageResult.error &&
@@ -581,7 +714,9 @@ type ResolvedReadItem = {
 };
 
 function integerField(value: Json | undefined) {
-  return typeof value === "number" && Number.isSafeInteger(value) ? value : null;
+  return typeof value === "number" && Number.isSafeInteger(value)
+    ? value
+    : null;
 }
 
 function parseResolvedReadItems(
@@ -682,12 +817,17 @@ export async function readProductImageUrls(
     return safeFailure("not_configured");
   }
 
-  const resolveResult = await admin.rpc("product_image_resolve_read_paths", {
-    p_actor_kind: actor.actorKind,
-    p_actor_profile_id: actor.actorProfileId,
-    p_refs: input.refs,
-    p_shop_id: input.shopId,
-  });
+  const resolveResult = await imageActorRpc(
+    admin,
+    actor,
+    "product_image_resolve_read_paths",
+    {
+      p_actor_kind: actor.actorKind,
+      p_actor_profile_id: actor.actorProfileId,
+      p_refs: input.refs,
+      p_shop_id: input.shopId,
+    },
+  );
   if (resolveResult.error) {
     return safeFailure("backend_unavailable");
   }
@@ -723,11 +863,7 @@ export async function readProductImageUrls(
 
     for (const [index, signed] of signedResult.data.entries()) {
       const expectedPath = paths[index];
-      if (
-        !expectedPath ||
-        signed.path !== expectedPath ||
-        !signed.signedUrl
-      ) {
+      if (!expectedPath || signed.path !== expectedPath || !signed.signedUrl) {
         return safeFailure("storage_unavailable");
       }
       signedByPath.set(expectedPath, signed.signedUrl);
@@ -774,7 +910,10 @@ export async function readProductImageUrls(
     items,
     ok: true,
   };
-  if (Buffer.byteLength(JSON.stringify(body), "utf8") > PRODUCT_IMAGE_READ_RESPONSE_LIMIT) {
+  if (
+    Buffer.byteLength(JSON.stringify(body), "utf8") >
+    PRODUCT_IMAGE_READ_RESPONSE_LIMIT
+  ) {
     return safeFailure("backend_contract_invalid");
   }
   if (!(await productImageAccessIsPublishable(admin, actor, "read"))) {

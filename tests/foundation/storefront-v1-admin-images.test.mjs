@@ -39,6 +39,12 @@ const cleanupLifecycleMigration = read(
 const imageMigrations = `${migration}\n${fencingMigration}\n${cleanupLifecycleMigration}`;
 const component = read("src/app/shop/storefront/StorefrontImagesControl.tsx");
 const service = read("src/server/shop-admin/storefront-images/service.ts");
+const routeContext = read(
+  "src/server/shop-admin/storefront-images/route-context.ts",
+);
+const adoptRoute = read(
+  "src/app/api/shop/storefront/images/adopt/route.ts",
+);
 const page = read("src/app/shop/storefront/page.tsx");
 const cleanupWorkflow = read(
   ".github/workflows/storefront-v1-image-cleanup.yml",
@@ -332,6 +338,30 @@ test("TASK-009 control plane has no file input and uses private-source to immuta
   assert.doesNotMatch(component, /NEXT_PUBLIC_SUPABASE_URL/);
 });
 
+test("TASK-152 mobile image adoption reuses the verified server pipeline", () => {
+  for (const marker of [
+    "adoptStorefrontSourceImage",
+    "readStorefrontSourceImage",
+    "createStorefrontImageIntent",
+    "finalizeStorefrontImage",
+    "sharp",
+    ".rotate()",
+    "withoutEnlargement: true",
+    "verifyStorefrontWebp",
+    "upsert: false",
+  ]) {
+    assert.match(
+      service,
+      new RegExp(marker.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+    );
+  }
+  assert.match(adoptRoute, /parseStorefrontImageSource/);
+  assert.match(adoptRoute, /resolveStorefrontImageRouteContext\(request, input\.shopId\)/);
+  assert.match(routeContext, /personal_shop_member/);
+  assert.match(routeContext, /storefront\.images\.manage/);
+  assert.doesNotMatch(adoptRoute, /service[_-]?role|SUPABASE_SERVICE_ROLE_KEY/i);
+});
+
 test("TASK-009 SQL boundary is isolated, lease-bound, idempotent, audited and cleanup-safe", () => {
   for (const marker of [
     "storefront-product-images",
@@ -530,11 +560,7 @@ test("Storefront staging migration is exact-SHA guarded and retains the image bo
       workflowInputDefault(workflowDispatch, "expected_predecessor_migration_name"),
       workflowInputDefault(workflowDispatch, "expected_predecessor_migration_file"),
     ],
-    [
-      '"20260811230000"',
-      "storefront_v1_image_finalize_fencing",
-      "20260811230000_storefront_v1_image_finalize_fencing.sql",
-    ],
+    ['""', '""', '""'],
   );
 });
 

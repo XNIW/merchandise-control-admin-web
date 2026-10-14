@@ -1,0 +1,1325 @@
+{
+  "schemaVersion": "admin-pos-import-csharp-real-db-response-bundle-v1",
+  "observedUTC": "2026-10-09T23:41:06.538700+00:00",
+  "actor": "/root/interop_finish",
+  "result": "PASS_EXACT39_SEQUENCE_RESUMED_WITH_ONE_EXACT036_RETRY_AND_LATE_ORIGINAL_FENCE",
+  "scope": "Owned network-none isolated PostgreSQL actual historical apply_v1/v2/U2/MultipartSQL and official Admin parser/handler; synthetic outertrust/session/lease and dependency schema; NOT sharedTEST/deployed authentication",
+  "sourceCorpus": {
+    "repository": "XNIW/Win7POS",
+    "commit": "7e287719d52d854908fd532be86ae45af46aefcf",
+    "zipSha256": "2d348b460ca98ac957e1afdbd4c148d2cac54128fb72aea5da24446b950c5f7e",
+    "manifest": {
+      "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/csharp-wire-corpus-7e28771/extracted/manifest.json",
+      "sha256": "87ae3f329677c3e25aa8c1b848bef6249ba264752b5665563215f321bbddc7e0"
+    },
+    "rawOriginalSHA256": "d4708f17c092948716df60a3fa065b2d249be9c828389e1c161af2fff1c26a3b",
+    "requestBodyBytesUnchanged": true
+  },
+  "sourceVersions": {
+    "BCommit": null,
+    "reason": "Source-only reviewed frozen WIP, no merged/currentdeployedB candidate inferred",
+    "loaderSnapshot": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/admin-loader-snapshot-4b7965d9",
+    "resumedSQLSha256": "bf274d3254701d7343c98ba4666b6863b3153f8a4389ef1a0af04827811e68e0",
+    "TSContractSha256": "3fd82ff2eda5db9366d70f2b98246f79ea20ff180a15c73f16e7e6da32619451",
+    "TSServiceSha256": "08c6759eaa54c4a7b8aa622c0bb2e40c377112ba60e9ff582a0b733fa1d8b16c",
+    "sourcePinsUnchanged": true
+  },
+  "database": "pos_interop_current_uncertain_5000_final",
+  "completedRequestCount": 39,
+  "additionalExactRetryCount": 1,
+  "exchanges": [
+    {
+      "index": 0,
+      "retry": false,
+      "route": "/api/pos/catalog/import-recovery/upload",
+      "action": "upload",
+      "bodySha256": "fe97f3997dc4bf10d7265e58f89d61f744aab4c1d0eb38e47223be04b9064ae7",
+      "bytes": 350848,
+      "startedUTC": "2026-10-09T23:13:49.912Z",
+      "endedUTC": "2026-10-09T23:13:50.031Z",
+      "httpStatus": 200,
+      "status": "uploaded",
+      "code": "success",
+      "parentStatus": null,
+      "receiptSha256": null,
+      "requestFile": "000.upload.request.json",
+      "responseFile": "responses/000.response.json",
+      "responseSha256": "b3339ffaf5e039d4ecccf7f512924a680e6f86512fab844df0c3f6d94c61583b",
+      "originalResponse": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/000-upload-fe97f3997dc4bf10d7265e58f89d61f744aab4c1d0eb38e47223be04b9064ae7.response.json",
+        "sha256": "b3339ffaf5e039d4ecccf7f512924a680e6f86512fab844df0c3f6d94c61583b"
+      },
+      "sourceReceipt": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/handler-db-replay-receipt.json",
+        "sha256": "709782b502319e0d4cb1602b1076eeefe04193484c6af12e60489f0801fe36c2"
+      }
+    },
+    {
+      "index": 1,
+      "retry": false,
+      "route": "/api/pos/catalog/import-recovery/upload",
+      "action": "upload",
+      "bodySha256": "14626bbbbdc5c2e14d91ecbefcfa5efe76c3138dc5b2045b97042504a389a5c0",
+      "bytes": 350848,
+      "startedUTC": "2026-10-09T23:13:50.033Z",
+      "endedUTC": "2026-10-09T23:13:50.137Z",
+      "httpStatus": 200,
+      "status": "uploaded",
+      "code": "success",
+      "parentStatus": null,
+      "receiptSha256": null,
+      "requestFile": "001.upload.request.json",
+      "responseFile": "responses/001.response.json",
+      "responseSha256": "2b9c5b9beaa84d3f7c5ad7091ae1dc302fa40e0d1cdd7732ee172fe16b0af40a",
+      "originalResponse": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/001-upload-14626bbbbdc5c2e14d91ecbefcfa5efe76c3138dc5b2045b97042504a389a5c0.response.json",
+        "sha256": "2b9c5b9beaa84d3f7c5ad7091ae1dc302fa40e0d1cdd7732ee172fe16b0af40a"
+      },
+      "sourceReceipt": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/handler-db-replay-receipt.json",
+        "sha256": "709782b502319e0d4cb1602b1076eeefe04193484c6af12e60489f0801fe36c2"
+      }
+    },
+    {
+      "index": 2,
+      "retry": false,
+      "route": "/api/pos/catalog/import-recovery/upload",
+      "action": "upload",
+      "bodySha256": "5020fb6f7bff7109238713e87c9b904ddcf5fa2351bbbbcf54f8448512530c82",
+      "bytes": 350848,
+      "startedUTC": "2026-10-09T23:13:50.139Z",
+      "endedUTC": "2026-10-09T23:13:50.243Z",
+      "httpStatus": 200,
+      "status": "uploaded",
+      "code": "success",
+      "parentStatus": null,
+      "receiptSha256": null,
+      "requestFile": "002.upload.request.json",
+      "responseFile": "responses/002.response.json",
+      "responseSha256": "9ad3b75906de8262f0b7352f4379652d361b77c09fd62d9a1c447568d7421123",
+      "originalResponse": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/002-upload-5020fb6f7bff7109238713e87c9b904ddcf5fa2351bbbbcf54f8448512530c82.response.json",
+        "sha256": "9ad3b75906de8262f0b7352f4379652d361b77c09fd62d9a1c447568d7421123"
+      },
+      "sourceReceipt": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/handler-db-replay-receipt.json",
+        "sha256": "709782b502319e0d4cb1602b1076eeefe04193484c6af12e60489f0801fe36c2"
+      }
+    },
+    {
+      "index": 3,
+      "retry": false,
+      "route": "/api/pos/catalog/import-recovery/upload",
+      "action": "upload",
+      "bodySha256": "13d115cebe31fd50f03134ae20999422ebbe528f8eec9b0365b48bd9abb9574e",
+      "bytes": 350848,
+      "startedUTC": "2026-10-09T23:13:50.244Z",
+      "endedUTC": "2026-10-09T23:13:50.352Z",
+      "httpStatus": 200,
+      "status": "uploaded",
+      "code": "success",
+      "parentStatus": null,
+      "receiptSha256": null,
+      "requestFile": "003.upload.request.json",
+      "responseFile": "responses/003.response.json",
+      "responseSha256": "98dfb8fb6ee57858d119595081205cd443484aa53af813c58290f8d8fca7f2ab",
+      "originalResponse": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/003-upload-13d115cebe31fd50f03134ae20999422ebbe528f8eec9b0365b48bd9abb9574e.response.json",
+        "sha256": "98dfb8fb6ee57858d119595081205cd443484aa53af813c58290f8d8fca7f2ab"
+      },
+      "sourceReceipt": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/handler-db-replay-receipt.json",
+        "sha256": "709782b502319e0d4cb1602b1076eeefe04193484c6af12e60489f0801fe36c2"
+      }
+    },
+    {
+      "index": 4,
+      "retry": false,
+      "route": "/api/pos/catalog/import-recovery/upload",
+      "action": "upload",
+      "bodySha256": "9198c3e2737423265838ed904ceff4e7a9ca48fe5edd4770043a4c6cfe233411",
+      "bytes": 350848,
+      "startedUTC": "2026-10-09T23:13:50.353Z",
+      "endedUTC": "2026-10-09T23:13:50.502Z",
+      "httpStatus": 200,
+      "status": "uploaded",
+      "code": "success",
+      "parentStatus": null,
+      "receiptSha256": null,
+      "requestFile": "004.upload.request.json",
+      "responseFile": "responses/004.response.json",
+      "responseSha256": "6b99d582934b5494239c7a72cdf2deee1fe04ff7a771970332145523f71ca528",
+      "originalResponse": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/004-upload-9198c3e2737423265838ed904ceff4e7a9ca48fe5edd4770043a4c6cfe233411.response.json",
+        "sha256": "6b99d582934b5494239c7a72cdf2deee1fe04ff7a771970332145523f71ca528"
+      },
+      "sourceReceipt": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/handler-db-replay-receipt.json",
+        "sha256": "709782b502319e0d4cb1602b1076eeefe04193484c6af12e60489f0801fe36c2"
+      }
+    },
+    {
+      "index": 5,
+      "retry": false,
+      "route": "/api/pos/catalog/import-recovery/upload",
+      "action": "upload",
+      "bodySha256": "25dc1213873178230f2d83e9a082024f0ff49b17d96c1179c6cb8744db2aea83",
+      "bytes": 48632,
+      "startedUTC": "2026-10-09T23:13:50.503Z",
+      "endedUTC": "2026-10-09T23:13:50.611Z",
+      "httpStatus": 200,
+      "status": "uploaded",
+      "code": "success",
+      "parentStatus": null,
+      "receiptSha256": null,
+      "requestFile": "005.upload.request.json",
+      "responseFile": "responses/005.response.json",
+      "responseSha256": "f97934fa3b10582e0fa30655f0de72a6bb00e9ed2abcb2b1c27d41b7b6bb7e9a",
+      "originalResponse": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/005-upload-25dc1213873178230f2d83e9a082024f0ff49b17d96c1179c6cb8744db2aea83.response.json",
+        "sha256": "f97934fa3b10582e0fa30655f0de72a6bb00e9ed2abcb2b1c27d41b7b6bb7e9a"
+      },
+      "sourceReceipt": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/handler-db-replay-receipt.json",
+        "sha256": "709782b502319e0d4cb1602b1076eeefe04193484c6af12e60489f0801fe36c2"
+      }
+    },
+    {
+      "index": 6,
+      "retry": false,
+      "route": "/api/pos/catalog/import-recovery/finalize",
+      "action": "finalize",
+      "bodySha256": "609758145434e1723bbbd86dcd09274ec38c8e78af0ee9abed01dbcf4ba004de",
+      "bytes": 343,
+      "startedUTC": "2026-10-09T23:13:50.613Z",
+      "endedUTC": "2026-10-09T23:13:50.946Z",
+      "httpStatus": 200,
+      "status": "verified",
+      "code": "success",
+      "parentStatus": null,
+      "receiptSha256": null,
+      "requestFile": "006.finalize.request.json",
+      "responseFile": "responses/006.response.json",
+      "responseSha256": "811e069ee925375086e566a4743061380ec3958010421e8f4c5352e47765076a",
+      "originalResponse": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/006-finalize-609758145434e1723bbbd86dcd09274ec38c8e78af0ee9abed01dbcf4ba004de.response.json",
+        "sha256": "811e069ee925375086e566a4743061380ec3958010421e8f4c5352e47765076a"
+      },
+      "sourceReceipt": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/handler-db-replay-receipt.json",
+        "sha256": "709782b502319e0d4cb1602b1076eeefe04193484c6af12e60489f0801fe36c2"
+      }
+    },
+    {
+      "index": 7,
+      "retry": false,
+      "route": "/api/pos/catalog/import-recovery/receipt",
+      "action": "receipt",
+      "bodySha256": "0aa44c9c9cfdf0205b4fdd74a3165550e73a5d1ff089f63559fc51ee9253954d",
+      "bytes": 353,
+      "startedUTC": "2026-10-09T23:13:50.948Z",
+      "endedUTC": "2026-10-09T23:13:51.047Z",
+      "httpStatus": 200,
+      "status": "not_found",
+      "code": "success",
+      "parentStatus": null,
+      "receiptSha256": null,
+      "requestFile": "007.receipt.request.json",
+      "responseFile": "responses/007.response.json",
+      "responseSha256": "5330237a588196ba40f1204c4004590edd0c1c07f29791aa14ac25579875b3b5",
+      "originalResponse": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/007-receipt-0aa44c9c9cfdf0205b4fdd74a3165550e73a5d1ff089f63559fc51ee9253954d.response.json",
+        "sha256": "5330237a588196ba40f1204c4004590edd0c1c07f29791aa14ac25579875b3b5"
+      },
+      "sourceReceipt": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/handler-db-replay-receipt.json",
+        "sha256": "709782b502319e0d4cb1602b1076eeefe04193484c6af12e60489f0801fe36c2"
+      }
+    },
+    {
+      "index": 8,
+      "retry": false,
+      "route": "/api/pos/catalog/import-recovery/upload",
+      "action": "upload",
+      "bodySha256": "fe97f3997dc4bf10d7265e58f89d61f744aab4c1d0eb38e47223be04b9064ae7",
+      "bytes": 350848,
+      "startedUTC": "2026-10-09T23:13:51.049Z",
+      "endedUTC": "2026-10-09T23:13:51.157Z",
+      "httpStatus": 200,
+      "status": "uploaded",
+      "code": "success",
+      "parentStatus": null,
+      "receiptSha256": null,
+      "requestFile": "008.upload.request.json",
+      "responseFile": "responses/008.response.json",
+      "responseSha256": "b3339ffaf5e039d4ecccf7f512924a680e6f86512fab844df0c3f6d94c61583b",
+      "originalResponse": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/008-upload-fe97f3997dc4bf10d7265e58f89d61f744aab4c1d0eb38e47223be04b9064ae7.response.json",
+        "sha256": "b3339ffaf5e039d4ecccf7f512924a680e6f86512fab844df0c3f6d94c61583b"
+      },
+      "sourceReceipt": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/handler-db-replay-receipt.json",
+        "sha256": "709782b502319e0d4cb1602b1076eeefe04193484c6af12e60489f0801fe36c2"
+      }
+    },
+    {
+      "index": 9,
+      "retry": false,
+      "route": "/api/pos/catalog/import-recovery/upload",
+      "action": "upload",
+      "bodySha256": "14626bbbbdc5c2e14d91ecbefcfa5efe76c3138dc5b2045b97042504a389a5c0",
+      "bytes": 350848,
+      "startedUTC": "2026-10-09T23:13:51.159Z",
+      "endedUTC": "2026-10-09T23:13:51.282Z",
+      "httpStatus": 200,
+      "status": "uploaded",
+      "code": "success",
+      "parentStatus": null,
+      "receiptSha256": null,
+      "requestFile": "009.upload.request.json",
+      "responseFile": "responses/009.response.json",
+      "responseSha256": "2b9c5b9beaa84d3f7c5ad7091ae1dc302fa40e0d1cdd7732ee172fe16b0af40a",
+      "originalResponse": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/009-upload-14626bbbbdc5c2e14d91ecbefcfa5efe76c3138dc5b2045b97042504a389a5c0.response.json",
+        "sha256": "2b9c5b9beaa84d3f7c5ad7091ae1dc302fa40e0d1cdd7732ee172fe16b0af40a"
+      },
+      "sourceReceipt": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/handler-db-replay-receipt.json",
+        "sha256": "709782b502319e0d4cb1602b1076eeefe04193484c6af12e60489f0801fe36c2"
+      }
+    },
+    {
+      "index": 10,
+      "retry": false,
+      "route": "/api/pos/catalog/import-recovery/upload",
+      "action": "upload",
+      "bodySha256": "5020fb6f7bff7109238713e87c9b904ddcf5fa2351bbbbcf54f8448512530c82",
+      "bytes": 350848,
+      "startedUTC": "2026-10-09T23:13:51.284Z",
+      "endedUTC": "2026-10-09T23:13:51.399Z",
+      "httpStatus": 200,
+      "status": "uploaded",
+      "code": "success",
+      "parentStatus": null,
+      "receiptSha256": null,
+      "requestFile": "010.upload.request.json",
+      "responseFile": "responses/010.response.json",
+      "responseSha256": "9ad3b75906de8262f0b7352f4379652d361b77c09fd62d9a1c447568d7421123",
+      "originalResponse": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/010-upload-5020fb6f7bff7109238713e87c9b904ddcf5fa2351bbbbcf54f8448512530c82.response.json",
+        "sha256": "9ad3b75906de8262f0b7352f4379652d361b77c09fd62d9a1c447568d7421123"
+      },
+      "sourceReceipt": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/handler-db-replay-receipt.json",
+        "sha256": "709782b502319e0d4cb1602b1076eeefe04193484c6af12e60489f0801fe36c2"
+      }
+    },
+    {
+      "index": 11,
+      "retry": false,
+      "route": "/api/pos/catalog/import-recovery/upload",
+      "action": "upload",
+      "bodySha256": "13d115cebe31fd50f03134ae20999422ebbe528f8eec9b0365b48bd9abb9574e",
+      "bytes": 350848,
+      "startedUTC": "2026-10-09T23:13:51.400Z",
+      "endedUTC": "2026-10-09T23:13:51.524Z",
+      "httpStatus": 200,
+      "status": "uploaded",
+      "code": "success",
+      "parentStatus": null,
+      "receiptSha256": null,
+      "requestFile": "011.upload.request.json",
+      "responseFile": "responses/011.response.json",
+      "responseSha256": "98dfb8fb6ee57858d119595081205cd443484aa53af813c58290f8d8fca7f2ab",
+      "originalResponse": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/011-upload-13d115cebe31fd50f03134ae20999422ebbe528f8eec9b0365b48bd9abb9574e.response.json",
+        "sha256": "98dfb8fb6ee57858d119595081205cd443484aa53af813c58290f8d8fca7f2ab"
+      },
+      "sourceReceipt": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/handler-db-replay-receipt.json",
+        "sha256": "709782b502319e0d4cb1602b1076eeefe04193484c6af12e60489f0801fe36c2"
+      }
+    },
+    {
+      "index": 12,
+      "retry": false,
+      "route": "/api/pos/catalog/import-recovery/upload",
+      "action": "upload",
+      "bodySha256": "9198c3e2737423265838ed904ceff4e7a9ca48fe5edd4770043a4c6cfe233411",
+      "bytes": 350848,
+      "startedUTC": "2026-10-09T23:13:51.528Z",
+      "endedUTC": "2026-10-09T23:13:51.641Z",
+      "httpStatus": 200,
+      "status": "uploaded",
+      "code": "success",
+      "parentStatus": null,
+      "receiptSha256": null,
+      "requestFile": "012.upload.request.json",
+      "responseFile": "responses/012.response.json",
+      "responseSha256": "6b99d582934b5494239c7a72cdf2deee1fe04ff7a771970332145523f71ca528",
+      "originalResponse": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/012-upload-9198c3e2737423265838ed904ceff4e7a9ca48fe5edd4770043a4c6cfe233411.response.json",
+        "sha256": "6b99d582934b5494239c7a72cdf2deee1fe04ff7a771970332145523f71ca528"
+      },
+      "sourceReceipt": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/handler-db-replay-receipt.json",
+        "sha256": "709782b502319e0d4cb1602b1076eeefe04193484c6af12e60489f0801fe36c2"
+      }
+    },
+    {
+      "index": 13,
+      "retry": false,
+      "route": "/api/pos/catalog/import-recovery/upload",
+      "action": "upload",
+      "bodySha256": "25dc1213873178230f2d83e9a082024f0ff49b17d96c1179c6cb8744db2aea83",
+      "bytes": 48632,
+      "startedUTC": "2026-10-09T23:13:51.642Z",
+      "endedUTC": "2026-10-09T23:13:51.751Z",
+      "httpStatus": 200,
+      "status": "uploaded",
+      "code": "success",
+      "parentStatus": null,
+      "receiptSha256": null,
+      "requestFile": "013.upload.request.json",
+      "responseFile": "responses/013.response.json",
+      "responseSha256": "f97934fa3b10582e0fa30655f0de72a6bb00e9ed2abcb2b1c27d41b7b6bb7e9a",
+      "originalResponse": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/013-upload-25dc1213873178230f2d83e9a082024f0ff49b17d96c1179c6cb8744db2aea83.response.json",
+        "sha256": "f97934fa3b10582e0fa30655f0de72a6bb00e9ed2abcb2b1c27d41b7b6bb7e9a"
+      },
+      "sourceReceipt": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/handler-db-replay-receipt.json",
+        "sha256": "709782b502319e0d4cb1602b1076eeefe04193484c6af12e60489f0801fe36c2"
+      }
+    },
+    {
+      "index": 14,
+      "retry": false,
+      "route": "/api/pos/catalog/import-recovery/finalize",
+      "action": "finalize",
+      "bodySha256": "609758145434e1723bbbd86dcd09274ec38c8e78af0ee9abed01dbcf4ba004de",
+      "bytes": 343,
+      "startedUTC": "2026-10-09T23:13:51.752Z",
+      "endedUTC": "2026-10-09T23:13:52.087Z",
+      "httpStatus": 200,
+      "status": "verified",
+      "code": "success",
+      "parentStatus": null,
+      "receiptSha256": null,
+      "requestFile": "014.finalize.request.json",
+      "responseFile": "responses/014.response.json",
+      "responseSha256": "811e069ee925375086e566a4743061380ec3958010421e8f4c5352e47765076a",
+      "originalResponse": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/014-finalize-609758145434e1723bbbd86dcd09274ec38c8e78af0ee9abed01dbcf4ba004de.response.json",
+        "sha256": "811e069ee925375086e566a4743061380ec3958010421e8f4c5352e47765076a"
+      },
+      "sourceReceipt": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/handler-db-replay-receipt.json",
+        "sha256": "709782b502319e0d4cb1602b1076eeefe04193484c6af12e60489f0801fe36c2"
+      }
+    },
+    {
+      "index": 15,
+      "retry": false,
+      "route": "/api/pos/catalog/import-recovery/retire",
+      "action": "retire",
+      "bodySha256": "0aa44c9c9cfdf0205b4fdd74a3165550e73a5d1ff089f63559fc51ee9253954d",
+      "bytes": 353,
+      "startedUTC": "2026-10-09T23:13:52.088Z",
+      "endedUTC": "2026-10-09T23:13:52.187Z",
+      "httpStatus": 200,
+      "status": "retired",
+      "code": "success",
+      "parentStatus": null,
+      "receiptSha256": null,
+      "requestFile": "015.retire.request.json",
+      "responseFile": "responses/015.response.json",
+      "responseSha256": "ba74f476a1768810a2adaa14202c876b070c8ed1cafdddd85c40a8c186c08dca",
+      "originalResponse": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/015-retire-0aa44c9c9cfdf0205b4fdd74a3165550e73a5d1ff089f63559fc51ee9253954d.response.json",
+        "sha256": "ba74f476a1768810a2adaa14202c876b070c8ed1cafdddd85c40a8c186c08dca"
+      },
+      "sourceReceipt": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/handler-db-replay-receipt.json",
+        "sha256": "709782b502319e0d4cb1602b1076eeefe04193484c6af12e60489f0801fe36c2"
+      }
+    },
+    {
+      "index": 16,
+      "retry": false,
+      "route": "/api/pos/catalog/import-recovery/upload",
+      "action": "upload",
+      "bodySha256": "fe97f3997dc4bf10d7265e58f89d61f744aab4c1d0eb38e47223be04b9064ae7",
+      "bytes": 350848,
+      "startedUTC": "2026-10-09T23:13:52.189Z",
+      "endedUTC": "2026-10-09T23:13:52.303Z",
+      "httpStatus": 200,
+      "status": "uploaded",
+      "code": "success",
+      "parentStatus": null,
+      "receiptSha256": null,
+      "requestFile": "016.upload.request.json",
+      "responseFile": "responses/016.response.json",
+      "responseSha256": "b3339ffaf5e039d4ecccf7f512924a680e6f86512fab844df0c3f6d94c61583b",
+      "originalResponse": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/016-upload-fe97f3997dc4bf10d7265e58f89d61f744aab4c1d0eb38e47223be04b9064ae7.response.json",
+        "sha256": "b3339ffaf5e039d4ecccf7f512924a680e6f86512fab844df0c3f6d94c61583b"
+      },
+      "sourceReceipt": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/handler-db-replay-receipt.json",
+        "sha256": "709782b502319e0d4cb1602b1076eeefe04193484c6af12e60489f0801fe36c2"
+      }
+    },
+    {
+      "index": 17,
+      "retry": false,
+      "route": "/api/pos/catalog/import-recovery/upload",
+      "action": "upload",
+      "bodySha256": "14626bbbbdc5c2e14d91ecbefcfa5efe76c3138dc5b2045b97042504a389a5c0",
+      "bytes": 350848,
+      "startedUTC": "2026-10-09T23:13:52.304Z",
+      "endedUTC": "2026-10-09T23:13:52.412Z",
+      "httpStatus": 200,
+      "status": "uploaded",
+      "code": "success",
+      "parentStatus": null,
+      "receiptSha256": null,
+      "requestFile": "017.upload.request.json",
+      "responseFile": "responses/017.response.json",
+      "responseSha256": "2b9c5b9beaa84d3f7c5ad7091ae1dc302fa40e0d1cdd7732ee172fe16b0af40a",
+      "originalResponse": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/017-upload-14626bbbbdc5c2e14d91ecbefcfa5efe76c3138dc5b2045b97042504a389a5c0.response.json",
+        "sha256": "2b9c5b9beaa84d3f7c5ad7091ae1dc302fa40e0d1cdd7732ee172fe16b0af40a"
+      },
+      "sourceReceipt": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/handler-db-replay-receipt.json",
+        "sha256": "709782b502319e0d4cb1602b1076eeefe04193484c6af12e60489f0801fe36c2"
+      }
+    },
+    {
+      "index": 18,
+      "retry": false,
+      "route": "/api/pos/catalog/import-recovery/upload",
+      "action": "upload",
+      "bodySha256": "5020fb6f7bff7109238713e87c9b904ddcf5fa2351bbbbcf54f8448512530c82",
+      "bytes": 350848,
+      "startedUTC": "2026-10-09T23:13:52.413Z",
+      "endedUTC": "2026-10-09T23:13:52.526Z",
+      "httpStatus": 200,
+      "status": "uploaded",
+      "code": "success",
+      "parentStatus": null,
+      "receiptSha256": null,
+      "requestFile": "018.upload.request.json",
+      "responseFile": "responses/018.response.json",
+      "responseSha256": "9ad3b75906de8262f0b7352f4379652d361b77c09fd62d9a1c447568d7421123",
+      "originalResponse": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/018-upload-5020fb6f7bff7109238713e87c9b904ddcf5fa2351bbbbcf54f8448512530c82.response.json",
+        "sha256": "9ad3b75906de8262f0b7352f4379652d361b77c09fd62d9a1c447568d7421123"
+      },
+      "sourceReceipt": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/handler-db-replay-receipt.json",
+        "sha256": "709782b502319e0d4cb1602b1076eeefe04193484c6af12e60489f0801fe36c2"
+      }
+    },
+    {
+      "index": 19,
+      "retry": false,
+      "route": "/api/pos/catalog/import-recovery/upload",
+      "action": "upload",
+      "bodySha256": "13d115cebe31fd50f03134ae20999422ebbe528f8eec9b0365b48bd9abb9574e",
+      "bytes": 350848,
+      "startedUTC": "2026-10-09T23:13:52.527Z",
+      "endedUTC": "2026-10-09T23:13:52.638Z",
+      "httpStatus": 200,
+      "status": "uploaded",
+      "code": "success",
+      "parentStatus": null,
+      "receiptSha256": null,
+      "requestFile": "019.upload.request.json",
+      "responseFile": "responses/019.response.json",
+      "responseSha256": "98dfb8fb6ee57858d119595081205cd443484aa53af813c58290f8d8fca7f2ab",
+      "originalResponse": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/019-upload-13d115cebe31fd50f03134ae20999422ebbe528f8eec9b0365b48bd9abb9574e.response.json",
+        "sha256": "98dfb8fb6ee57858d119595081205cd443484aa53af813c58290f8d8fca7f2ab"
+      },
+      "sourceReceipt": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/handler-db-replay-receipt.json",
+        "sha256": "709782b502319e0d4cb1602b1076eeefe04193484c6af12e60489f0801fe36c2"
+      }
+    },
+    {
+      "index": 20,
+      "retry": false,
+      "route": "/api/pos/catalog/import-recovery/upload",
+      "action": "upload",
+      "bodySha256": "9198c3e2737423265838ed904ceff4e7a9ca48fe5edd4770043a4c6cfe233411",
+      "bytes": 350848,
+      "startedUTC": "2026-10-09T23:13:52.639Z",
+      "endedUTC": "2026-10-09T23:13:52.747Z",
+      "httpStatus": 200,
+      "status": "uploaded",
+      "code": "success",
+      "parentStatus": null,
+      "receiptSha256": null,
+      "requestFile": "020.upload.request.json",
+      "responseFile": "responses/020.response.json",
+      "responseSha256": "6b99d582934b5494239c7a72cdf2deee1fe04ff7a771970332145523f71ca528",
+      "originalResponse": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/020-upload-9198c3e2737423265838ed904ceff4e7a9ca48fe5edd4770043a4c6cfe233411.response.json",
+        "sha256": "6b99d582934b5494239c7a72cdf2deee1fe04ff7a771970332145523f71ca528"
+      },
+      "sourceReceipt": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/handler-db-replay-receipt.json",
+        "sha256": "709782b502319e0d4cb1602b1076eeefe04193484c6af12e60489f0801fe36c2"
+      }
+    },
+    {
+      "index": 21,
+      "retry": false,
+      "route": "/api/pos/catalog/import-recovery/upload",
+      "action": "upload",
+      "bodySha256": "25dc1213873178230f2d83e9a082024f0ff49b17d96c1179c6cb8744db2aea83",
+      "bytes": 48632,
+      "startedUTC": "2026-10-09T23:13:52.748Z",
+      "endedUTC": "2026-10-09T23:13:52.846Z",
+      "httpStatus": 200,
+      "status": "uploaded",
+      "code": "success",
+      "parentStatus": null,
+      "receiptSha256": null,
+      "requestFile": "021.upload.request.json",
+      "responseFile": "responses/021.response.json",
+      "responseSha256": "f97934fa3b10582e0fa30655f0de72a6bb00e9ed2abcb2b1c27d41b7b6bb7e9a",
+      "originalResponse": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/021-upload-25dc1213873178230f2d83e9a082024f0ff49b17d96c1179c6cb8744db2aea83.response.json",
+        "sha256": "f97934fa3b10582e0fa30655f0de72a6bb00e9ed2abcb2b1c27d41b7b6bb7e9a"
+      },
+      "sourceReceipt": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/handler-db-replay-receipt.json",
+        "sha256": "709782b502319e0d4cb1602b1076eeefe04193484c6af12e60489f0801fe36c2"
+      }
+    },
+    {
+      "index": 22,
+      "retry": false,
+      "route": "/api/pos/catalog/import-recovery/finalize",
+      "action": "finalize",
+      "bodySha256": "609758145434e1723bbbd86dcd09274ec38c8e78af0ee9abed01dbcf4ba004de",
+      "bytes": 343,
+      "startedUTC": "2026-10-09T23:13:52.847Z",
+      "endedUTC": "2026-10-09T23:13:53.181Z",
+      "httpStatus": 200,
+      "status": "verified",
+      "code": "success",
+      "parentStatus": null,
+      "receiptSha256": null,
+      "requestFile": "022.finalize.request.json",
+      "responseFile": "responses/022.response.json",
+      "responseSha256": "811e069ee925375086e566a4743061380ec3958010421e8f4c5352e47765076a",
+      "originalResponse": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/022-finalize-609758145434e1723bbbd86dcd09274ec38c8e78af0ee9abed01dbcf4ba004de.response.json",
+        "sha256": "811e069ee925375086e566a4743061380ec3958010421e8f4c5352e47765076a"
+      },
+      "sourceReceipt": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/handler-db-replay-receipt.json",
+        "sha256": "709782b502319e0d4cb1602b1076eeefe04193484c6af12e60489f0801fe36c2"
+      }
+    },
+    {
+      "index": 23,
+      "retry": false,
+      "route": "/api/pos/catalog/import-recovery/upload",
+      "action": "upload",
+      "bodySha256": "93107732dac719e0b8d9a7436d730cf203b5d1dccb694287d154e1e5e0822345",
+      "bytes": 351190,
+      "startedUTC": "2026-10-09T23:13:53.182Z",
+      "endedUTC": "2026-10-09T23:13:53.291Z",
+      "httpStatus": 200,
+      "status": "uploaded",
+      "code": "success",
+      "parentStatus": null,
+      "receiptSha256": null,
+      "requestFile": "023.upload.request.json",
+      "responseFile": "responses/023.response.json",
+      "responseSha256": "adb5877217aef7c2d3b0af228a05169ef4eac0c25147ac3f25d6c9beb2504717",
+      "originalResponse": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/023-upload-93107732dac719e0b8d9a7436d730cf203b5d1dccb694287d154e1e5e0822345.response.json",
+        "sha256": "adb5877217aef7c2d3b0af228a05169ef4eac0c25147ac3f25d6c9beb2504717"
+      },
+      "sourceReceipt": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/handler-db-replay-receipt.json",
+        "sha256": "709782b502319e0d4cb1602b1076eeefe04193484c6af12e60489f0801fe36c2"
+      }
+    },
+    {
+      "index": 24,
+      "retry": false,
+      "route": "/api/pos/catalog/import-recovery/upload",
+      "action": "upload",
+      "bodySha256": "1a733c20b0a2cc7b7f16e02c38b03793473cd505c7a4b000261121c98c6b9d10",
+      "bytes": 351190,
+      "startedUTC": "2026-10-09T23:13:53.292Z",
+      "endedUTC": "2026-10-09T23:13:53.406Z",
+      "httpStatus": 200,
+      "status": "uploaded",
+      "code": "success",
+      "parentStatus": null,
+      "receiptSha256": null,
+      "requestFile": "024.upload.request.json",
+      "responseFile": "responses/024.response.json",
+      "responseSha256": "7fe14b269c6489743154e853c35a45281bb91424b86ccceddc7b5ad0cf66bb12",
+      "originalResponse": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/024-upload-1a733c20b0a2cc7b7f16e02c38b03793473cd505c7a4b000261121c98c6b9d10.response.json",
+        "sha256": "7fe14b269c6489743154e853c35a45281bb91424b86ccceddc7b5ad0cf66bb12"
+      },
+      "sourceReceipt": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/handler-db-replay-receipt.json",
+        "sha256": "709782b502319e0d4cb1602b1076eeefe04193484c6af12e60489f0801fe36c2"
+      }
+    },
+    {
+      "index": 25,
+      "retry": false,
+      "route": "/api/pos/catalog/import-recovery/upload",
+      "action": "upload",
+      "bodySha256": "e9faeebd2d7c3deac02e601958075fa472965cef8ee2c22a928faf18fd155e6b",
+      "bytes": 351190,
+      "startedUTC": "2026-10-09T23:13:53.407Z",
+      "endedUTC": "2026-10-09T23:13:53.574Z",
+      "httpStatus": 200,
+      "status": "uploaded",
+      "code": "success",
+      "parentStatus": null,
+      "receiptSha256": null,
+      "requestFile": "025.upload.request.json",
+      "responseFile": "responses/025.response.json",
+      "responseSha256": "db933d25afae647bca5d2ecd9641ec8366d5046aaffd0d33b35485a9bc9b6c59",
+      "originalResponse": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/025-upload-e9faeebd2d7c3deac02e601958075fa472965cef8ee2c22a928faf18fd155e6b.response.json",
+        "sha256": "db933d25afae647bca5d2ecd9641ec8366d5046aaffd0d33b35485a9bc9b6c59"
+      },
+      "sourceReceipt": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/handler-db-replay-receipt.json",
+        "sha256": "709782b502319e0d4cb1602b1076eeefe04193484c6af12e60489f0801fe36c2"
+      }
+    },
+    {
+      "index": 26,
+      "retry": false,
+      "route": "/api/pos/catalog/import-recovery/upload",
+      "action": "upload",
+      "bodySha256": "a99644a8ca55d4e7cc83b45f2ad534404f30426c03f6de5be982f4d797327d50",
+      "bytes": 351190,
+      "startedUTC": "2026-10-09T23:13:53.576Z",
+      "endedUTC": "2026-10-09T23:13:53.704Z",
+      "httpStatus": 200,
+      "status": "uploaded",
+      "code": "success",
+      "parentStatus": null,
+      "receiptSha256": null,
+      "requestFile": "026.upload.request.json",
+      "responseFile": "responses/026.response.json",
+      "responseSha256": "aaff95c754c4e6b0c01c5728e6794013123f0030e92c75ef7e71b4607fd8f28a",
+      "originalResponse": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/026-upload-a99644a8ca55d4e7cc83b45f2ad534404f30426c03f6de5be982f4d797327d50.response.json",
+        "sha256": "aaff95c754c4e6b0c01c5728e6794013123f0030e92c75ef7e71b4607fd8f28a"
+      },
+      "sourceReceipt": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/handler-db-replay-receipt.json",
+        "sha256": "709782b502319e0d4cb1602b1076eeefe04193484c6af12e60489f0801fe36c2"
+      }
+    },
+    {
+      "index": 27,
+      "retry": false,
+      "route": "/api/pos/catalog/import-recovery/upload",
+      "action": "upload",
+      "bodySha256": "e4c07bcff0876471879c1cd863b6dea2f6b7d385790b90da1b55d64d86b5767b",
+      "bytes": 351190,
+      "startedUTC": "2026-10-09T23:13:53.706Z",
+      "endedUTC": "2026-10-09T23:13:53.809Z",
+      "httpStatus": 200,
+      "status": "uploaded",
+      "code": "success",
+      "parentStatus": null,
+      "receiptSha256": null,
+      "requestFile": "027.upload.request.json",
+      "responseFile": "responses/027.response.json",
+      "responseSha256": "32f073c6c0fe907cfad9cbeb9cdf654fe1d170639b3f485ffbf67317e4564a10",
+      "originalResponse": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/027-upload-e4c07bcff0876471879c1cd863b6dea2f6b7d385790b90da1b55d64d86b5767b.response.json",
+        "sha256": "32f073c6c0fe907cfad9cbeb9cdf654fe1d170639b3f485ffbf67317e4564a10"
+      },
+      "sourceReceipt": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/handler-db-replay-receipt.json",
+        "sha256": "709782b502319e0d4cb1602b1076eeefe04193484c6af12e60489f0801fe36c2"
+      }
+    },
+    {
+      "index": 28,
+      "retry": false,
+      "route": "/api/pos/catalog/import-recovery/upload",
+      "action": "upload",
+      "bodySha256": "a9ac8126185ad2240c84cdffcf7ea5197d9190a688514221a3ec9d5f490babc2",
+      "bytes": 351190,
+      "startedUTC": "2026-10-09T23:13:53.810Z",
+      "endedUTC": "2026-10-09T23:13:53.915Z",
+      "httpStatus": 200,
+      "status": "uploaded",
+      "code": "success",
+      "parentStatus": null,
+      "receiptSha256": null,
+      "requestFile": "028.upload.request.json",
+      "responseFile": "responses/028.response.json",
+      "responseSha256": "c5fc3baa84d2b200726f40a0225f89e4ee7485d3a590dbae0be29c0c1dc10192",
+      "originalResponse": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/028-upload-a9ac8126185ad2240c84cdffcf7ea5197d9190a688514221a3ec9d5f490babc2.response.json",
+        "sha256": "c5fc3baa84d2b200726f40a0225f89e4ee7485d3a590dbae0be29c0c1dc10192"
+      },
+      "sourceReceipt": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/handler-db-replay-receipt.json",
+        "sha256": "709782b502319e0d4cb1602b1076eeefe04193484c6af12e60489f0801fe36c2"
+      }
+    },
+    {
+      "index": 29,
+      "retry": false,
+      "route": "/api/pos/catalog/import-recovery/upload",
+      "action": "upload",
+      "bodySha256": "392b5838f021c1b89f70fb4f7e7a76ed58bbda3b64bbcc8de7a5e2275a0a5146",
+      "bytes": 351190,
+      "startedUTC": "2026-10-09T23:13:53.917Z",
+      "endedUTC": "2026-10-09T23:13:54.035Z",
+      "httpStatus": 200,
+      "status": "uploaded",
+      "code": "success",
+      "parentStatus": null,
+      "receiptSha256": null,
+      "requestFile": "029.upload.request.json",
+      "responseFile": "responses/029.response.json",
+      "responseSha256": "7999b16f49917e1429d6c91acaafe5d89e162acb3ff418b4cb399d9c381bbabc",
+      "originalResponse": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/029-upload-392b5838f021c1b89f70fb4f7e7a76ed58bbda3b64bbcc8de7a5e2275a0a5146.response.json",
+        "sha256": "7999b16f49917e1429d6c91acaafe5d89e162acb3ff418b4cb399d9c381bbabc"
+      },
+      "sourceReceipt": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/handler-db-replay-receipt.json",
+        "sha256": "709782b502319e0d4cb1602b1076eeefe04193484c6af12e60489f0801fe36c2"
+      }
+    },
+    {
+      "index": 30,
+      "retry": false,
+      "route": "/api/pos/catalog/import-recovery/upload",
+      "action": "upload",
+      "bodySha256": "1ad71720a21b75635132ac890922e2950772ee4cbfc4c1a1c279d7c24f45a2ec",
+      "bytes": 351190,
+      "startedUTC": "2026-10-09T23:13:54.036Z",
+      "endedUTC": "2026-10-09T23:13:54.143Z",
+      "httpStatus": 200,
+      "status": "uploaded",
+      "code": "success",
+      "parentStatus": null,
+      "receiptSha256": null,
+      "requestFile": "030.upload.request.json",
+      "responseFile": "responses/030.response.json",
+      "responseSha256": "92d2f7332257a703c4b168479232904a99843e8f1ac4477c6a0c7e883c1f4ec4",
+      "originalResponse": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/030-upload-1ad71720a21b75635132ac890922e2950772ee4cbfc4c1a1c279d7c24f45a2ec.response.json",
+        "sha256": "92d2f7332257a703c4b168479232904a99843e8f1ac4477c6a0c7e883c1f4ec4"
+      },
+      "sourceReceipt": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/handler-db-replay-receipt.json",
+        "sha256": "709782b502319e0d4cb1602b1076eeefe04193484c6af12e60489f0801fe36c2"
+      }
+    },
+    {
+      "index": 31,
+      "retry": false,
+      "route": "/api/pos/catalog/import-recovery/upload",
+      "action": "upload",
+      "bodySha256": "b2a2e3426734bbc49740dd0f80c08d9470f9911030a1619a34cd08c22eb768ca",
+      "bytes": 351190,
+      "startedUTC": "2026-10-09T23:13:54.144Z",
+      "endedUTC": "2026-10-09T23:13:54.251Z",
+      "httpStatus": 200,
+      "status": "uploaded",
+      "code": "success",
+      "parentStatus": null,
+      "receiptSha256": null,
+      "requestFile": "031.upload.request.json",
+      "responseFile": "responses/031.response.json",
+      "responseSha256": "18d824ec334179691f5dee8a196c773b0a53ecf9924d0ef22f4cf0753e8fbb17",
+      "originalResponse": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/031-upload-b2a2e3426734bbc49740dd0f80c08d9470f9911030a1619a34cd08c22eb768ca.response.json",
+        "sha256": "18d824ec334179691f5dee8a196c773b0a53ecf9924d0ef22f4cf0753e8fbb17"
+      },
+      "sourceReceipt": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/handler-db-replay-receipt.json",
+        "sha256": "709782b502319e0d4cb1602b1076eeefe04193484c6af12e60489f0801fe36c2"
+      }
+    },
+    {
+      "index": 32,
+      "retry": false,
+      "route": "/api/pos/catalog/import-recovery/upload",
+      "action": "upload",
+      "bodySha256": "9919ebfc6a4499ad90be9f3d46d26ee6df53af5c14ae950a58f68ebc5e2f1a8e",
+      "bytes": 144950,
+      "startedUTC": "2026-10-09T23:13:54.252Z",
+      "endedUTC": "2026-10-09T23:13:54.364Z",
+      "httpStatus": 200,
+      "status": "uploaded",
+      "code": "success",
+      "parentStatus": null,
+      "receiptSha256": null,
+      "requestFile": "032.upload.request.json",
+      "responseFile": "responses/032.response.json",
+      "responseSha256": "8f25bf07bc6fb6386cfb5acc6e4472f1ef09bcc5069816658391d44360346a0d",
+      "originalResponse": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/032-upload-9919ebfc6a4499ad90be9f3d46d26ee6df53af5c14ae950a58f68ebc5e2f1a8e.response.json",
+        "sha256": "8f25bf07bc6fb6386cfb5acc6e4472f1ef09bcc5069816658391d44360346a0d"
+      },
+      "sourceReceipt": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/handler-db-replay-receipt.json",
+        "sha256": "709782b502319e0d4cb1602b1076eeefe04193484c6af12e60489f0801fe36c2"
+      }
+    },
+    {
+      "index": 33,
+      "retry": false,
+      "route": "/api/pos/catalog/import-recovery/plan",
+      "action": "plan",
+      "bodySha256": "5db9f29921a6fba7d19792117ede4ba25d1f41821d12e0fdf790918bc5fda037",
+      "bytes": 343,
+      "startedUTC": "2026-10-09T23:36:06.522Z",
+      "endedUTC": "2026-10-09T23:36:07.860Z",
+      "httpStatus": 200,
+      "status": "planned",
+      "code": "success",
+      "parentStatus": "partial",
+      "receiptSha256": null,
+      "requestFile": "033.plan.request.json",
+      "responseFile": "responses/033.response.json",
+      "responseSha256": "06f0fd696d306b2d8e5a3f2b95befc2102120421ceac3d88acf8c08543e26e40",
+      "originalResponse": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt03/033-plan-5db9f29921a6fba7d19792117ede4ba25d1f41821d12e0fdf790918bc5fda037.response.json",
+        "sha256": "06f0fd696d306b2d8e5a3f2b95befc2102120421ceac3d88acf8c08543e26e40"
+      },
+      "sourceReceipt": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt03/handler-db-replay-receipt.json",
+        "sha256": "cd0c450d6f813a57ac7cc329dc9a92510c067387ffaf2045749cbf4e7486c8ba"
+      }
+    },
+    {
+      "index": 34,
+      "retry": false,
+      "route": "/api/pos/catalog/import-recovery/apply",
+      "action": "apply",
+      "bodySha256": "0a1184306056ce9f035220e3b5f87375b765493e1fb8b7ce2b51c1e7bffc07ec",
+      "bytes": 355,
+      "startedUTC": "2026-10-09T23:36:07.862Z",
+      "endedUTC": "2026-10-09T23:36:09.366Z",
+      "httpStatus": 200,
+      "status": "accepted",
+      "code": "success",
+      "parentStatus": "partial",
+      "receiptSha256": "sha256:61d0b59b9a819dc7e10086369f479a4fded10d9390aae04a88d56e4b4f7f9819",
+      "requestFile": "034.apply.request.json",
+      "responseFile": "responses/034.response.json",
+      "responseSha256": "1b1d9e15697d03d99ff6019906f1f156ea9108a6685482173b74dc9b5675f7d8",
+      "originalResponse": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt03/034-apply-0a1184306056ce9f035220e3b5f87375b765493e1fb8b7ce2b51c1e7bffc07ec.response.json",
+        "sha256": "1b1d9e15697d03d99ff6019906f1f156ea9108a6685482173b74dc9b5675f7d8"
+      },
+      "sourceReceipt": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt03/handler-db-replay-receipt.json",
+        "sha256": "cd0c450d6f813a57ac7cc329dc9a92510c067387ffaf2045749cbf4e7486c8ba"
+      }
+    },
+    {
+      "index": 35,
+      "retry": false,
+      "route": "/api/pos/catalog/import-recovery/apply",
+      "action": "apply",
+      "bodySha256": "bed191ce44a6065eeedbd9dccacf521db3af96208ab8077881d9c33e159c5289",
+      "bytes": 355,
+      "startedUTC": "2026-10-09T23:36:09.368Z",
+      "endedUTC": "2026-10-09T23:36:10.652Z",
+      "httpStatus": 200,
+      "status": "accepted",
+      "code": "success",
+      "parentStatus": "partial",
+      "receiptSha256": "sha256:aa0539f264689853a401cb9e0baf0794df757eaeabdc28d0e2e86e870d55c25c",
+      "requestFile": "035.apply.request.json",
+      "responseFile": "responses/035.response.json",
+      "responseSha256": "647d7777bf2a5a677de0ab965bf12659a74538605c3d37b5b14187533aa30e2e",
+      "originalResponse": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt03/035-apply-bed191ce44a6065eeedbd9dccacf521db3af96208ab8077881d9c33e159c5289.response.json",
+        "sha256": "647d7777bf2a5a677de0ab965bf12659a74538605c3d37b5b14187533aa30e2e"
+      },
+      "sourceReceipt": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt03/handler-db-replay-receipt.json",
+        "sha256": "cd0c450d6f813a57ac7cc329dc9a92510c067387ffaf2045749cbf4e7486c8ba"
+      }
+    },
+    {
+      "index": 36,
+      "retry": false,
+      "route": "/api/pos/catalog/import-recovery/apply",
+      "action": "apply",
+      "bodySha256": "5951ba12d97b32780ccb9c347bb94165270e4d1449850212c913e4c2d1bcbc98",
+      "bytes": 355,
+      "startedUTC": "2026-10-09T23:36:10.654Z",
+      "endedUTC": "2026-10-09T23:36:11.966Z",
+      "httpStatus": 200,
+      "status": "accepted",
+      "code": "success",
+      "parentStatus": "partial",
+      "receiptSha256": "sha256:6f0197350fe15ea03bf315893468058cc30045a9325ee46b32a13ba2794de9e1",
+      "requestFile": "036.apply.request.json",
+      "responseFile": "responses/036.response.json",
+      "responseSha256": "e73267c23f8ae932b751c44ce953dd2dbd6f768f04dada2f28642051d5efe4de",
+      "originalResponse": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt03/036-apply-5951ba12d97b32780ccb9c347bb94165270e4d1449850212c913e4c2d1bcbc98.response.json",
+        "sha256": "e73267c23f8ae932b751c44ce953dd2dbd6f768f04dada2f28642051d5efe4de"
+      },
+      "sourceReceipt": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt03/handler-db-replay-receipt.json",
+        "sha256": "cd0c450d6f813a57ac7cc329dc9a92510c067387ffaf2045749cbf4e7486c8ba"
+      }
+    },
+    {
+      "index": 37,
+      "retry": false,
+      "route": "/api/pos/catalog/import-recovery/apply",
+      "action": "apply",
+      "bodySha256": "67c1739bbc716709f43ac47843019c569b7f401f9bf9322643999c3fa43b4f06",
+      "bytes": 355,
+      "startedUTC": "2026-10-09T23:36:11.969Z",
+      "endedUTC": "2026-10-09T23:36:13.286Z",
+      "httpStatus": 200,
+      "status": "accepted",
+      "code": "success",
+      "parentStatus": "partial",
+      "receiptSha256": "sha256:5e15a9b0096b296431b91729b0dee158b4b032cea27a96a22b6b0efa6ec6d5ad",
+      "requestFile": "037.apply.request.json",
+      "responseFile": "responses/037.response.json",
+      "responseSha256": "2e8787758e7ae101437b0ab28bcdf802b72f70605e3f5d065ece917066aea06e",
+      "originalResponse": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt03/037-apply-67c1739bbc716709f43ac47843019c569b7f401f9bf9322643999c3fa43b4f06.response.json",
+        "sha256": "2e8787758e7ae101437b0ab28bcdf802b72f70605e3f5d065ece917066aea06e"
+      },
+      "sourceReceipt": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt03/handler-db-replay-receipt.json",
+        "sha256": "cd0c450d6f813a57ac7cc329dc9a92510c067387ffaf2045749cbf4e7486c8ba"
+      }
+    },
+    {
+      "index": 38,
+      "retry": false,
+      "route": "/api/pos/catalog/import-recovery/apply",
+      "action": "apply",
+      "bodySha256": "b89e1cc74ce57b46eaf1aeff19135184c9d927f3a5d82d7047a7c1efca956aff",
+      "bytes": 355,
+      "startedUTC": "2026-10-09T23:36:13.289Z",
+      "endedUTC": "2026-10-09T23:36:14.675Z",
+      "httpStatus": 200,
+      "status": "accepted",
+      "code": "success",
+      "parentStatus": "complete",
+      "receiptSha256": "sha256:2d07a3c8d369977eb98235a0daf0965cb6ce99aa50e3612f15c7d0d6c72e1520",
+      "requestFile": "038.apply.request.json",
+      "responseFile": "responses/038.response.json",
+      "responseSha256": "d30b42b445bae129000a78c9eb9f52f6febeb9c1e9379e6e551c65fbde5556e8",
+      "originalResponse": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt03/038-apply-b89e1cc74ce57b46eaf1aeff19135184c9d927f3a5d82d7047a7c1efca956aff.response.json",
+        "sha256": "d30b42b445bae129000a78c9eb9f52f6febeb9c1e9379e6e551c65fbde5556e8"
+      },
+      "sourceReceipt": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt03/handler-db-replay-receipt.json",
+        "sha256": "cd0c450d6f813a57ac7cc329dc9a92510c067387ffaf2045749cbf4e7486c8ba"
+      }
+    },
+    {
+      "index": 36,
+      "retry": true,
+      "route": "/api/pos/catalog/import-recovery/apply",
+      "action": "apply",
+      "bodySha256": "5951ba12d97b32780ccb9c347bb94165270e4d1449850212c913e4c2d1bcbc98",
+      "bytes": 355,
+      "startedUTC": "2026-10-09T23:36:14.800Z",
+      "endedUTC": "2026-10-09T23:36:15.161Z",
+      "httpStatus": 200,
+      "status": "accepted",
+      "code": "success",
+      "parentStatus": "complete",
+      "receiptSha256": "sha256:6f0197350fe15ea03bf315893468058cc30045a9325ee46b32a13ba2794de9e1",
+      "requestFile": "036.apply.request.json",
+      "responseFile": "responses/036.retry.response.json",
+      "responseSha256": "1ed9c9d302441def9999378ecc99e14a44eafe90d6dc8f4ef66577487fac67ab",
+      "originalResponse": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt03/036.retry.response.json",
+        "sha256": "1ed9c9d302441def9999378ecc99e14a44eafe90d6dc8f4ef66577487fac67ab"
+      },
+      "sourceReceipt": {
+        "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt03/handler-db-replay-receipt.json",
+        "sha256": "cd0c450d6f813a57ac7cc329dc9a92510c067387ffaf2045749cbf4e7486c8ba"
+      }
+    }
+  ],
+  "sequence": {
+    "0Through32": "Original completedresponses reused; no resend",
+    "33": "Initial400correlationfailure preserved; secondrequestorphan882.656s canceledexactownedPID; finalunchangedbody200planned",
+    "34Through38": "Fiveactualparts1000each; parentpartialuntil38complete",
+    "retry036": {
+      "durableACKSame": true,
+      "sameReceiptSHA256": "sha256:6f0197350fe15ea03bf315893468058cc30045a9325ee46b32a13ba2794de9e1",
+      "sameReceiptObject": true,
+      "rawBytesSame": false,
+      "changedTopLevelOnly": {
+        "parentStatus": {
+          "original": "partial",
+          "retry": "complete"
+        },
+        "acceptedPartCount": {
+          "original": 3,
+          "retry": 5
+        }
+      },
+      "before": {
+        "prices": 10000,
+        "batches": 5,
+        "database": "pos_interop_current_uncertain_5000_final",
+        "products": 5000,
+        "readOnly": "on",
+        "stock125": 5000,
+        "syncEvents": 10,
+        "observedUTC": "2026-10-09T23:36:14.714888+00:00",
+        "priceDigest": "a809332964d6720985c6bbb1126329a4",
+        "auditSuccess": 5,
+        "completeACKs": 5,
+        "productDigest": "1c4bcf556882f4a1812d39df0087b1d6",
+        "privateAckDigest": "bf05db33d274e9e976c15028a8ad6dd9",
+        "privateACKPriceMaps": 10000,
+        "privateACKProductMaps": 5000
+      },
+      "after": {
+        "prices": 10000,
+        "batches": 5,
+        "database": "pos_interop_current_uncertain_5000_final",
+        "products": 5000,
+        "readOnly": "on",
+        "stock125": 5000,
+        "syncEvents": 10,
+        "observedUTC": "2026-10-09T23:36:15.200865+00:00",
+        "priceDigest": "a809332964d6720985c6bbb1126329a4",
+        "auditSuccess": 5,
+        "completeACKs": 5,
+        "productDigest": "1c4bcf556882f4a1812d39df0087b1d6",
+        "privateAckDigest": "bf05db33d274e9e976c15028a8ad6dd9",
+        "privateACKPriceMaps": 10000,
+        "privateACKProductMaps": 5000
+      },
+      "allCountsDigestsSame": true
+    }
+  },
+  "dbValuesAndMaps": {
+    "observedUTC": "2026-10-09T23:40:10.028500+00:00",
+    "actor": "/root/interop_finish",
+    "result": "PASS_REAL_DB_PRICES_AND_UNIQUE_ACK_MAPS_MATCH_EXACT_CSHARP_PLAN",
+    "rawPlanSHA256": "11e9af9d7d7486177ec4d9df893e798c08ee1c2680456ead3a999bb75b4f22e7",
+    "scope": "All5replacementparts5000rows, exactC#serializedchunks23..32 reconstruction for comparison only; no source/requestbyteedit",
+    "expected": [
+      {
+        "type": "PURCHASE",
+        "count": 5000,
+        "price": 900
+      },
+      {
+        "type": "RETAIL",
+        "count": 4999,
+        "price": 1200
+      },
+      {
+        "type": "RETAIL",
+        "count": 1,
+        "price": 1300
+      }
+    ],
+    "observed": {
+      "observedUTC": "2026-10-09T23:40:09.524167+00:00",
+      "distribution": [
+        {
+          "type": "PURCHASE",
+          "count": 5000,
+          "price": 900
+        },
+        {
+          "type": "RETAIL",
+          "count": 4999,
+          "price": 1200
+        },
+        {
+          "type": "RETAIL",
+          "count": 1,
+          "price": 1300
+        }
+      ]
+    },
+    "uniqueMaps": {
+      "database": "pos_interop_current_uncertain_5000_final",
+      "readOnly": "on",
+      "planCount": 1,
+      "retail1200": 0,
+      "observedUTC": "2026-10-09T23:39:11.107827+00:00",
+      "purchase900": 0,
+      "planPartCount": 5,
+      "missingACKPrices": 0,
+      "uniqueACKPriceIDs": 10000,
+      "missingACKProducts": 0,
+      "uniqueACKProductIDs": 5000,
+      "uniqueACKPriceClientTypes": 10000,
+      "uniqueACKProductClientIDs": 5000
+    },
+    "limits": "First supplemental count used lowercase price types and correctly returned0; retained as harness assumption, not businessFAIL. Correct distribution uses actual uppercaseRETAIL/PURCHASE."
+  },
+  "lateOriginalFence": {
+    "result": "PASS_ACTUAL_LATE_ORIGINAL_RETIRED_FENCE_ZERO_EXTRA_DML",
+    "response": {
+      "ok": false,
+      "code": "conflict",
+      "reason": "identity_retired"
+    },
+    "allCountsDigestsSame": true
+  },
+  "proofRefs": [
+    {
+      "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/late-original-fence-receipt.json",
+      "sha256": "ea08ece136ef3a7bd77a2e9d46048a3c81c084d25c2a7614f9c41321775e1529",
+      "bundleFile": "proofs/late-original-fence-receipt.json"
+    },
+    {
+      "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/late-original-before-readonly.stdout.json",
+      "sha256": "683d2f83e6db0cccf1a9a303bced5a3f61d4b3b120a7fa63021cb1074115ebd0",
+      "bundleFile": "proofs/late-original-before-readonly.stdout.json"
+    },
+    {
+      "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/late-original-after-readonly.stdout.json",
+      "sha256": "201122484d8e27d82502ab15de41960ddae084a7bf453a10f6a8882c8c95a71e",
+      "bundleFile": "proofs/late-original-after-readonly.stdout.json"
+    },
+    {
+      "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/late-original-fenced-rpc.stdout.json",
+      "sha256": "e7b9eafc0bdc4dd09dfa9d6fc25a5c56f45afe8485039af821f284d580247431",
+      "bundleFile": "proofs/late-original-fenced-rpc.stdout.json"
+    },
+    {
+      "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/late-original-fenced-rpc.sql",
+      "sha256": "bac251d1dc65c9f5016265c0f586043012201e742fa331d60bd764091dc37664",
+      "bundleFile": "proofs/late-original-fenced-rpc.sql"
+    },
+    {
+      "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/final-value-map-proof.json",
+      "sha256": "b659ca136ed5686be9a399688558fde579e12eab7a9e7f174f50053658479d80",
+      "bundleFile": "proofs/final-value-map-proof.json"
+    },
+    {
+      "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/final-unique-map-value-readonly.json",
+      "sha256": "9a9d6f15de01c75c070fbb91e726e13d26c3c491b0b7f8a39d3c7b6f1414499c",
+      "bundleFile": "proofs/final-unique-map-value-readonly.json"
+    },
+    {
+      "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/final-price-distribution-readonly.json",
+      "sha256": "4e9ef8433ffd0e34a0c32fc45dba869a03e8b9bb9765c1d41688618770503fc0",
+      "bundleFile": "proofs/final-price-distribution-readonly.json"
+    },
+    {
+      "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/mr11-function-replacement-receipt.json",
+      "sha256": "0383c3ea18c2d1e70c16f971ad5f0f16db48c973553d8939c79b939ebbccf9f9",
+      "bundleFile": "proofs/mr11-function-replacement-receipt.json"
+    },
+    {
+      "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/mr11-function-replacement-delta.sql",
+      "sha256": "b7074a62a60966d3aedeea756a75d39f9d01c65e3dddb3e98ce2e090506df265",
+      "bundleFile": "proofs/mr11-function-replacement-delta.sql"
+    },
+    {
+      "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/mr11-null-kind-equivalence.json",
+      "sha256": "58bb68de781b53765ce662fa800df51610f16aeb8de2fc8d12441692b6592e81",
+      "bundleFile": "proofs/mr11-null-kind-equivalence.json"
+    },
+    {
+      "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/mr11-plan-guard-explain-receipt.json",
+      "sha256": "9266e7b516267cd3370a656da1f5ea181ea0878e44f13c9f9678a3a928d417e2",
+      "bundleFile": "proofs/mr11-plan-guard-explain-receipt.json"
+    },
+    {
+      "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/mr11-plan-guard-explain.stdout.json",
+      "sha256": "d43b87f952c9991e3e85e9df5b3984f7fdcc5e4bd5e75420f9a722b7096d0146",
+      "bundleFile": "proofs/mr11-plan-guard-explain.stdout.json"
+    },
+    {
+      "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/guarded-runner-preparation.json",
+      "sha256": "e90d0010faf05b814934fc8fc917ff91ba895f2c914c9d0c93c2d6e986b6e904",
+      "bundleFile": "proofs/guarded-runner-preparation.json"
+    },
+    {
+      "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt03/handler-db-replay-receipt.json",
+      "sha256": "cd0c450d6f813a57ac7cc329dc9a92510c067387ffaf2045749cbf4e7486c8ba",
+      "bundleFile": "proofs/actual-resumed-handler-db-replay-receipt.json"
+    },
+    {
+      "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt03/postcheck-before-retry.json",
+      "sha256": "38cdcad1b3c91f47cc766fe766696337972cf7cb16fb624d6013d86f1a29e4bb",
+      "bundleFile": "proofs/postcheck-before-retry.json"
+    },
+    {
+      "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt03/postcheck-after-retry.json",
+      "sha256": "3fba599001820a51d87debfba6811f9c8f2b056bf501bac862675769dc6d7c9c",
+      "bundleFile": "proofs/postcheck-after-retry.json"
+    }
+  ],
+  "historicalFailures": [
+    {
+      "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/handler-db-replay-receipt.json",
+      "sha256": "709782b502319e0d4cb1602b1076eeefe04193484c6af12e60489f0801fe36c2",
+      "bundleFile": "historical-failures/handler-attempt01-handler-db-replay-receipt.json"
+    },
+    {
+      "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt01/033-plan-5db9f29921a6fba7d19792117ede4ba25d1f41821d12e0fdf790918bc5fda037.response.json",
+      "sha256": "423b7060df7c4b16f94376f5033861a32bee5cb36ccff8652370818dd6a00b77",
+      "bundleFile": "historical-failures/handler-attempt01-033-plan-5db9f29921a6fba7d19792117ede4ba25d1f41821d12e0fdf790918bc5fda037.response.json"
+    },
+    {
+      "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt02/handler-db-replay-receipt.json",
+      "sha256": "680745add6799b93e262c34bc05cafac566b36510d22ac456e9608cd1325366c",
+      "bundleFile": "historical-failures/handler-attempt02-handler-db-replay-receipt.json"
+    },
+    {
+      "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/handler-attempt02/003-pos_catalog_import_recovery_v1.sql",
+      "sha256": "78aacbd35b750d0b5e0329a4685271862871c9e23e5fc14fa471b8b4c6232cbe",
+      "bundleFile": "historical-failures/handler-attempt02-003-pos_catalog_import_recovery_v1.sql"
+    },
+    {
+      "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/stalled-owned-plan-cancel-receipt.json",
+      "sha256": "5204e75e87e6d1c745ed1d21d21c585806a743ac70062d73710ac25ab1695ada",
+      "bundleFile": "historical-failures/stalled-owned-plan-cancel-receipt.json"
+    },
+    {
+      "path": "/Users/minxiang/Projects/MerchandiseControl-Ecosistema/evidence/operational-completion-20261003/asus-pos-readiness-20261004/post-pr122-admin-20261009/postgres-interop/current-uncertain-5000-final/stalled-owned-plan-postcancel-readonly.json",
+      "sha256": "bf82ca517ca36e0e7fe2803d83d4b487df7c0945d0848364228747f1fe855166",
+      "bundleFile": "historical-failures/stalled-owned-plan-postcancel-readonly.json"
+    }
+  ],
+  "nonClaims": {
+    "liveAuthentication": "NOT_RUN",
+    "deployedRuntime": "NOT_RUN",
+    "sharedTESTDDL": "NOT_EXECUTED",
+    "WorkerDeploy": "NOT_EXECUTED",
+    "boundedLargeProtocol": "NOT_QUALIFIED_BY_THIS_UNDER4MIB_CORPUS",
+    "economicLiveAcceptance": "NOT_RUN",
+    "READY": "NOT_ISSUED"
+  }
+}

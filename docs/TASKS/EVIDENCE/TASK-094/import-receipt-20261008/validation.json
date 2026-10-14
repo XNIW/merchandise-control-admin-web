@@ -1,0 +1,114 @@
+{
+  "observedUTC": "2026-10-08T20:52:57.071105+00:00",
+  "actor": "Codex /root/import_receipt_writer",
+  "revision": "02ea44b95d4a05baddbf46f24251f0d5f0dea294 + source-freeze.json immutable working patch",
+  "scope": "isolated source-only Admin; synthetic credentials/dataset; no external DB/deploy/mobile",
+  "gates": {
+    "foundation": {
+      "status": "PASS",
+      "total": 1079,
+      "pass": 1071,
+      "skip": 8,
+      "fail": 0,
+      "log": "foundation-final.txt",
+      "testedSourceFreezeSha256": "ae8257fee13401428522e8e079f4f93da6f4d67acd436fb10800fb435f9f21b9"
+    },
+    "scopedServiceRuntime": {
+      "status": "PASS",
+      "count": 28,
+      "includedInFoundation": true,
+      "testedSourceFreezeSha256": "ae8257fee13401428522e8e079f4f93da6f4d67acd436fb10800fb435f9f21b9"
+    },
+    "ownedSyntheticPostgreSQL": {
+      "status": "PASS",
+      "checks": 69,
+      "log": "sql-final-69.txt",
+      "legacyApply": "economic-write sentinel",
+      "leaseOwner": "synthetic scope/lease dependency stub",
+      "ownedContainer": "cmc-pos-receipt-20d218a8f3",
+      "normalStopRemove": null,
+      "observedAbsent": true,
+      "closureReadback": "owned-container-closure-readback.json",
+      "cleanupLimit": "stop/remove returncodes were not recorded by original69-runner; later exact-container absence observed",
+      "testedSourceFreezeSha256": "ae8257fee13401428522e8e079f4f93da6f4d67acd436fb10800fb435f9f21b9"
+    },
+    "lint": "PASS",
+    "routeTypeGeneration": "PASS",
+    "typecheck": "PASS",
+    "nextBuild": {
+      "status": "PASS",
+      "exitCode": 0,
+      "log": "build-final.txt",
+      "publicGoogleFontsFetch": true,
+      "historicalSetupFailuresPreserved": true,
+      "rawLog": {
+        "path": "build-final.raw.log.gz",
+        "gzipSha256": "648c3236788e57cb093adc867e9e2f3f92379bf89635cb838066c392196c8e91",
+        "uncompressedSha256": "e011cf98a3d7af2959e8aa073c7e806ecd53db29ab333445a4ac8129aee3642e",
+        "textProjection": "build-final.txt",
+        "projection": "LF and whitespace normalized for Git diff; raw bytes retained"
+      },
+      "testedSourceFreezeSha256": "ae8257fee13401428522e8e079f4f93da6f4d67acd436fb10800fb435f9f21b9"
+    },
+    "precisionOnlyDelta": {
+      "status": "PASS",
+      "targetedTests": 1,
+      "log": "precision-delta-test.txt",
+      "scope": "large finite correction snapshot lookup/retirement; unsafe original still400",
+      "typecheck": "PASS",
+      "typecheckLog": "precision-delta-typecheck.txt",
+      "sourceFreezeSha256": "be08e689d17ba53865c18bce5307237c93d01da07626fe8da62f0f7fe62fdc50"
+    },
+    "finalExactHeadRemoteCI": {
+      "status": "NOT_RUN",
+      "reason": "normal PR/CI owned by coordinator after commit; old full gates plus focused delta are preserved separately"
+    }
+  },
+  "limits": [
+    "No live TEST authentication/recovery/acceptance",
+    "No DB migration application or Worker deployment",
+    "No entire historic apply_v1 semantics qualification",
+    "No physical device/Win7/peripheral acceptance",
+    "No READY or QA runId"
+  ],
+  "originalRefs": {
+    "build-final.raw.log.gz": "648c3236788e57cb093adc867e9e2f3f92379bf89635cb838066c392196c8e91",
+    "build-final.txt": "367138503021c86d2a235b5448ab028e590706df45cee3028b076f0b2e1abbef",
+    "dependency-layout.json": "52b2953bc508fb49b866cc9855af8b8722bc56bdb39d86deb49ea4aa7dc5d7a7",
+    "final-reviews.json": "350eba135a017246f14707a5076a77e4164e99efe5b07f248c41ef3c3efd0d2d",
+    "foundation-final.txt": "01094fcf09476924eab7538487d0e693afbad4819fc018a48c834bc02ddab8d5",
+    "historical-build-font-access-failure.txt": "4888cd685d2f9abcbea2e6a58564e490c36a40d70706b466c03fa9a77c8060ad",
+    "historical-sql-parse-failure.txt": "ebeadcfd5f2b84402de56862a8190f06ffa839abae3e3c27ff848a04f17ec3a6",
+    "historical-sql-pid1-guard-failure.txt": "d2c382b9244a2207b4d37b7d1502db61a0cf45d58063bc67f4ff4604598ebbab",
+    "historical-sql-temporary-init-failure.txt": "d9ad55686a8d99dd932294be1eed00f18bcf5fbb8dc720ca71984bb78bd1183f",
+    "http-review-base.json": "355a084b1b6a4af334457b555d42291917d415012bac7deca4cea26d288d1440",
+    "local-sql.txt": "5bc2325bcbe0d9728968040d5e61fc2054b29c458baa1d292664e6282e4675cd",
+    "owned-container-closure-readback.json": "39579d3292fbc042aea4c48268215b5f35ffb0c52c772606c966925c4fb2a14f",
+    "pre-correction-sql-49.txt": "0b1114150624b54146cc1c8467c4b33fe4d3f959600f6b413dfb96d892f9e7be",
+    "pre-final-lifecycle-sql-62.txt": "48f96e44ceb1ea7da8d45f354f5efb543ea0f7356572784b8c45c49c62084fdb",
+    "precision-delta-test.txt": "3f1eb3ebb45c47561519d1af223eb3e8f9364bbf071cfec8bc3a529b4171c2cf",
+    "precision-delta-typecheck.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "source-freeze-final.json": "be08e689d17ba53865c18bce5307237c93d01da07626fe8da62f0f7fe62fdc50",
+    "source-freeze.json": "ae8257fee13401428522e8e079f4f93da6f4d67acd436fb10800fb435f9f21b9",
+    "sql-final-69.txt": "5b1002aaaaadb7df3415308c07bc7408000fb052ea084dde0940ca65a591e41d",
+    "sql-review.json": "e1d6dc796bb7298dbc3a318b8c1d07de618ad81692559c1750ae8838ff1ca3fb",
+    "typescript-pre-fullgate.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "verify-prior-build-layout-failure.txt": "fb8ce2dbcd30b7f2e663479e91634091fde4c5b82051c8f678714158d5a8ad91",
+    "wire-fixture-hashes.json": "f48b682016a4ecc6da99d22182da5f07bb5ddebfe7c50e1c4aae0a98bd11f2fb"
+  },
+  "repositorySecurityChecks": "PASS",
+  "formalPluginSecurityScan": {
+    "status": "NOT_RUN",
+    "reason": "MCP capability unavailable; repository security script PASS is a separate gate"
+  },
+  "baseReviewedSourceFreezeSha256": "ae8257fee13401428522e8e079f4f93da6f4d67acd436fb10800fb435f9f21b9",
+  "finalSourceFreezeSha256": "be08e689d17ba53865c18bce5307237c93d01da07626fe8da62f0f7fe62fdc50",
+  "runnerClosureDelta": {
+    "syntax": "PASS",
+    "testRerun": "NOT_RUN",
+    "reason": "only future cleanup logging hardened; immutable69 SQL tests not repeated",
+    "currentOwnedContainerReadback": "owned-container-closure-readback.json",
+    "observedAbsent": true,
+    "previousShutdownExitCodes": null
+  }
+}

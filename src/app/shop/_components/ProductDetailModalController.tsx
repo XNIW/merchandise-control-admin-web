@@ -765,7 +765,7 @@ function ProductOverviewForm({
               min="0"
               name="stockQuantity"
               onChange={(event) => updateDraft("stockQuantity", event.currentTarget.value)}
-              step="1"
+              step="any"
               type="number"
               value={draft.stockQuantity}
             />

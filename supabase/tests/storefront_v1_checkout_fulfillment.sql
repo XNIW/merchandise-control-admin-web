@@ -408,6 +408,13 @@ select is(
   'public fulfillment discovery remains available before configuration'
 );
 
+select is(
+  public.storefront_fulfillment_options_v1('checkout-fixture-a')
+    ->> 'timeZone',
+  'America/Santiago',
+  'fulfillment snapshot carries the canonical shop timezone atomically'
+);
+
 set local role authenticated;
 select set_config(
   'request.jwt.claims',

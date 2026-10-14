@@ -1,0 +1,134 @@
+{
+  "state": "PROPOSED_SOURCE_IMPLEMENTATION_NOT_DEPLOYED",
+  "schemaVersion": "pos-catalog-import-recovery-multipart-v1",
+  "actionsUnchanged": true,
+  "limits": {
+    "httpBodyBytes": 524288,
+    "chunkBytes": 262144,
+    "rawTotalBytes": 536870912,
+    "maxChunks": 2048,
+    "manifestPageDescriptors": 256,
+    "maxOriginalRows": 60000,
+    "maxPlanChildren": 1024,
+    "maxAncestry": 128,
+    "normalizationPageItems": 1000,
+    "normalizationPageJsonBytes": 262144,
+    "compatibilityAutoRawBytes": 4194304,
+    "wholePrivateRpcFrameBytes": 2097152,
+    "headerJsonBytes": 16384,
+    "relatedProjectionPageJsonBytes": 262144,
+    "deviceRetainedUploadCount": 512,
+    "deviceRetainedDeclaredRawBytes": 8589934592,
+    "deviceIncompleteUploadCount": 32,
+    "deviceIncompleteDeclaredRawBytes": 2147483648,
+    "futurePlanReservationBytesPerLogicalRoot": 536870912
+  },
+  "upload": {
+    "manifest": {
+      "phase": "manifest",
+      "uploadId": "UUID",
+      "mode": "original|plan",
+      "originalKind": "ordinary|correction only original",
+      "declaredPayloadHash": "immutable external outbox declaration only original",
+      "totalByteLength": "integer",
+      "rawSha256": "sha256:HEX",
+      "partCount": "integer1..2048",
+      "manifestSha256": "sha256:HEX of existing manifest JSON.stringify",
+      "offset": "integer contiguous descriptor cursor",
+      "parts": "<=256 {index,byteLength,sha256}; whole index order",
+      "verifiedOriginalId": "required only plan: verified ordinary root UUID, scoped/authenticated, matched raw plan root and logical capacity credit"
+    },
+    "seal": {
+      "phase": "seal",
+      "uploadId": "UUID",
+      "manifestSha256": "sha256:HEX"
+    },
+    "bytes": {
+      "phase": "bytes",
+      "uploadId": "UUID",
+      "manifestSha256": "sha256:HEX",
+      "partIndex": "integer",
+      "sha256": "sha256:HEX of part",
+      "contentBase64": "exact <=256KiB raw bytes"
+    },
+    "notes": [
+      "Manifest registration/seal precedes bytes. Retry exact immutable page allowed; mismatch conflicts. DB rechecks descriptor counts/sum/full manifest hash and complete original raw hash.",
+      "Legacy full manifest+bytes supported only within original small bounds, never transfers >4MiB upload to Worker."
+    ]
+  },
+  "finalize": {
+    "prepare": {
+      "phase": "prepare",
+      "uploadId": "UUID"
+    },
+    "normalize": {
+      "phase": "normalize",
+      "uploadId": "UUID",
+      "cursor": "server-returned exact integer offset",
+      "rawSha256": "prepare returned sha256:HEX"
+    },
+    "complete": {
+      "phase": "complete",
+      "uploadId": "UUID",
+      "rawSha256": "prepare returned sha256:HEX"
+    },
+    "response": {
+      "status": "normalizing|verified|conflict",
+      "nextCursor": "integer|null",
+      "totalItemCount": "integer",
+      "rawSha256": "immutable raw hash",
+      "phase": "items|correction|complete"
+    },
+    "canonicalNotes": [
+      "Private DB parses entire exact raw original. Worker only receives bounded DB-derived header/item pages. Original saved JSON and outbox declaration remain unchanged.",
+      "Official forensic parser normalizes every item. Ordered exact JSON.stringify normalized item fragments plus official header canonical prefix/suffix produce full server hash identical to existing ordinary parser; no caller declared hash is trusted.",
+      "Global IDs, identity trim collisions, write-barcode uniqueness and full count are checked before verified. Correction nested root is independently normalized/proved; wrapper originalReceipt remains local untrusted evidence."
+    ]
+  },
+  "plan": {
+    "prepare": {
+      "phase": "prepare",
+      "uploadId": "UUID"
+    },
+    "normalize": {
+      "phase": "normalize",
+      "uploadId": "UUID",
+      "stage": "children|coverage",
+      "cursor": "server-returned exact integer",
+      "rawSha256": "prepare returned sha256:HEX"
+    },
+    "complete": {
+      "phase": "complete",
+      "uploadId": "UUID",
+      "rawSha256": "prepare returned sha256:HEX"
+    },
+    "response": {
+      "status": "normalizing|planned|conflict",
+      "nextCursor": "integer|null",
+      "stage": "children|coverage|complete"
+    },
+    "notes": [
+      "Server reads bounded child requests or coverage pages from exact raw plan stored in DB. Original root selection is <=1000 relevant rows; no full original Worker hydration.",
+      "Each child retains original ordinary<=1000 and full HTTP512KiB including current trust; correction CAS/fields rules unchanged. Global root\u2194child bijection and economic collisions validated in DB complete.",
+      "Planning does not retire identities. Supported product capacity is certified before original retirement; explicit retirement, immutable linear ancestry and ALL predecessor unACKed child fences remain mandatory."
+    ]
+  },
+  "offline": [
+    "New/never_sent imports may split locally and remain offline; no upload/proof/retire is imposed."
+  ],
+  "journal": [
+    "Client must durably journal immutable staged plan identities before its first plan request. Edited draft requires explicit successor after retiring all unACKed children."
+  ],
+  "runtime": "NOT_RUN; phase shape awaiting source/tests/review freeze",
+  "quota": {
+    "counting": "ALL retained verified/proof/plan raw included in 8GiB/512 count; incomplete/nonterminal admission separately capped2GiB/32. Exact retry free. No automatic delete/cleanup or completion release of retained storage.",
+    "retirement": "Before original or unACKed planned-child fence, atomically reserve one future-plan512MiB credit per same logical root. Refuse quota before fence. Plan manifest root binding consumes/converts that exact credit only after valid registration; mismatched/partial manifest cannot spend it.",
+    "order": "Quota admission lock precedes root/plan/identity locks; apply does not change quota.",
+    "failure": "typed quota_exceeded, no original/child retirement or economic changes",
+    "meaning": "Ancestry128 structural limit is not a guarantee128maximum-density histories fitfinite storage; capacity refusal before fence remains non-destructive."
+  },
+  "canonicalNotes": [
+    "Whole private RPC frame <=2MiB including headers/proof/root projections; each item fragment/projection <=256KiB and1000, header<=16KiB. No page accumulation in Worker.",
+    "UTF8fatal/BOM behavior aligned: rawSHA unchanged, at most one leading UTF8BOM stripped only in parser view. Unsupported PG JSON unicode null/unpaired surrogates must explicitly fail before retirement."
+  ]
+}

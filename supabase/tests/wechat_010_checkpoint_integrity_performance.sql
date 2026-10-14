@@ -1,0 +1,13 @@
+begin;
+select plan(9);
+select is((select provolatile::text from pg_proc where oid='public.shop_sync_recovery_checkpoint_v1(uuid,text,text,text)'::regprocedure),'v','checkpoint keeps VOLATILE lease/recovery contract');
+select is((select md5(prosrc) from pg_proc where oid='app_private.sync_legacy_timestamp_is_canonical_v1(text)'::regprocedure),'90d09a640033bff8d7dce8ea23fe42ce','timestamp predicate byte-identical');
+select is((select md5(prosrc) from pg_proc where oid='app_private.sync_price_value_is_canonical_v1(double precision)'::regprocedure),'1c3cefae1916d272440b19b6d94283bd','price predicate byte-identical');
+select is((select md5(prosrc) from pg_proc where oid='app_private.sync_product_number_is_materializable_v1(double precision)'::regprocedure),'3cfa0ab9a25faed8d845891386dcbd70','product predicate byte-identical');
+select is(app_private.sync_product_number_is_materializable_v1(null),true,'NULL product number remains allowed');
+select is(app_private.sync_price_value_is_canonical_v1(null),false,'NULL price remains invalid');
+select is(app_private.sync_legacy_timestamp_is_canonical_v1(null),false,'NULL price timestamp remains invalid');
+select is(app_private.sync_product_number_is_materializable_v1('NaN'),false,'NaN product number rejected');
+select is(app_private.sync_product_number_is_materializable_v1('-0'),true,'negative zero allowed unchanged');
+select * from finish();
+rollback;

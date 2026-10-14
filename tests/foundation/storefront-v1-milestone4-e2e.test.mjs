@@ -12,7 +12,7 @@ test("Milestone 4 integrated SQL follows one rollback-safe customer order", () =
   assert.equal((sql.match(/'M4-\d{2} /g) || []).length, 40);
 
   for (const marker of [
-    "admin_storefront_publication_mutate_v1",
+    "storefront_publication_authoring_mutate_v1",
     "storefront_product_detail_v1",
     "customer_register_device_v1",
     "customer_reservation_hold_create_v1",

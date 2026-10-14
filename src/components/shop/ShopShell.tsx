@@ -32,6 +32,7 @@ type ShopShellShop = {
 type ShopShellProps = {
   availableShops: readonly ShopShellShop[];
   children: ReactNode;
+  courierOnly: boolean;
   labels: Dictionary["shopShell"];
   languageSwitcherLabel: string;
   loadingLabel: string;
@@ -39,6 +40,7 @@ type ShopShellProps = {
   logoutLabel: string;
   navigationSections: readonly ShopNavigationSection[];
   principalKind: "personal_account" | "pos_staff_manager";
+  principalRoleLabel?: string;
   sectionDescriptions: Readonly<Partial<Record<ShopSectionKey, string>>>;
   sectionEyebrows: Readonly<Partial<Record<ShopSectionKey, string>>>;
   sectionTitles: Readonly<Partial<Record<ShopSectionKey, string>>>;
@@ -143,6 +145,14 @@ function ShopNavigationIcon({ itemKey }: { itemKey: ShopSectionKey }) {
     viewBox: "0 0 24 24",
   };
   const paths: Record<ShopSectionKey, ReactNode> = {
+    afterSales: (
+      <>
+        <path d="M6 4h12v16H6z" />
+        <path d="M9 9h6" />
+        <path d="M9 13h3" />
+        <path d="m14 16 1.5 1.5L19 14" />
+      </>
+    ),
     audit: (
       <>
         <path d="M9 5h6" />
@@ -155,6 +165,15 @@ function ShopNavigationIcon({ itemKey }: { itemKey: ShopSectionKey }) {
       <>
         <path d="M4 6h7l2 2h7v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6Z" />
         <path d="M8 13h8" />
+      </>
+    ),
+    courier: (
+      <>
+        <path d="M4 16h16" />
+        <path d="M6 16V9h8l4 4v3" />
+        <path d="M14 9v4h4" />
+        <circle cx="8" cy="18" r="2" />
+        <circle cx="17" cy="18" r="2" />
       </>
     ),
     devices: (
@@ -209,6 +228,11 @@ function ShopNavigationIcon({ itemKey }: { itemKey: ShopSectionKey }) {
         <path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z" />
         <path d="M4.5 7.5 12 12l7.5-4.5" />
         <path d="M12 12v9" />
+      </>
+    ),
+    reviews: (
+      <>
+        <path d="m12 3 2.5 5 5.5.8-4 3.9.9 5.5L12 15.6 7.1 18.2l.9-5.5-4-3.9L9.5 8 12 3Z" />
       </>
     ),
     roles: (
@@ -409,7 +433,7 @@ function ShopNavigation({
         data-prefetch-ready={prefetchedItems.has(item.key)}
         data-shop-nav-item={item.key}
         className={[
-          "inline-flex min-h-11 shrink-0 items-center gap-2 rounded-md border-l-2 px-3 py-2 text-sm font-medium outline-none transition lg:min-h-0 lg:px-2.5 lg:py-1.5",
+          "inline-flex min-h-12 shrink-0 items-center gap-2 rounded-md border-l-2 px-3 py-2 text-sm font-medium outline-none transition lg:px-2.5 lg:py-1.5",
           "whitespace-nowrap",
           "focus-visible:ring-2 focus-visible:ring-emerald-800 focus-visible:ring-offset-2",
           isActive
@@ -456,6 +480,7 @@ function ShopNavigation({
 export function ShopShell({
   availableShops,
   children,
+  courierOnly,
   labels,
   languageSwitcherLabel,
   loadingLabel,
@@ -463,6 +488,7 @@ export function ShopShell({
   logoutLabel,
   navigationSections,
   principalKind,
+  principalRoleLabel,
   sectionDescriptions,
   sectionEyebrows,
   sectionTitles,
@@ -528,6 +554,8 @@ export function ShopShell({
       : labels.adminConsole;
   const currentPageDescription =
     currentPageKey !== null ? sectionDescriptions[currentPageKey] : null;
+  const courierRouteAllowed =
+    pathname === "/shop/courier" || pathname.startsWith("/shop/courier/");
 
   function buildShopHref(href: string) {
     if (!selectedShop) {
@@ -548,8 +576,12 @@ export function ShopShell({
     router.push(`${pathname}?${nextSearchParams.toString()}`);
   }
 
-  const scheduleCurrentShopRouteRefresh = useCallback(() => {
-    if (document.visibilityState !== "visible" || activeElementIsFormField()) {
+  const scheduleCurrentShopRouteRefresh = useCallback((pending?: {
+    isCurrent: () => boolean;
+    onRefresh: () => void;
+  }) => {
+    if (!navigator.onLine || document.visibilityState !== "visible" || activeElementIsFormField() ||
+        (pending && !pending.isCurrent())) {
       return;
     }
 
@@ -565,10 +597,19 @@ export function ShopShell({
       window.clearTimeout(focusRefreshTimerRef.current);
     }
 
-    focusRefreshTimerRef.current = window.setTimeout(() => {
+    const refreshTimer = window.setTimeout(() => {
+      if (focusRefreshTimerRef.current !== refreshTimer) {
+        return;
+      }
       focusRefreshTimerRef.current = null;
+      if (!navigator.onLine || document.visibilityState !== "visible" || activeElementIsFormField() ||
+          (pending && !pending.isCurrent())) {
+        return;
+      }
       router.refresh();
+      pending?.onRefresh();
     }, 200);
+    focusRefreshTimerRef.current = refreshTimer;
   }, [router]);
 
   useEffect(() => {
@@ -585,6 +626,10 @@ export function ShopShell({
   }, [pendingNavigation, pendingNavigationTargetReached]);
 
   useEffect(() => {
+    function handleFocus() {
+      scheduleCurrentShopRouteRefresh();
+    }
+
     function handleVisibilityChange() {
       if (document.visibilityState === "visible") {
         scheduleCurrentShopRouteRefresh();
@@ -597,12 +642,12 @@ export function ShopShell({
       }
     }
 
-    window.addEventListener("focus", scheduleCurrentShopRouteRefresh);
+    window.addEventListener("focus", handleFocus);
     window.addEventListener("pageshow", handlePageShow);
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
-      window.removeEventListener("focus", scheduleCurrentShopRouteRefresh);
+      window.removeEventListener("focus", handleFocus);
       window.removeEventListener("pageshow", handlePageShow);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
 
@@ -611,10 +656,10 @@ export function ShopShell({
         focusRefreshTimerRef.current = null;
       }
     };
-  }, [scheduleCurrentShopRouteRefresh]);
+  }, [activeShopId, courierOnly, scheduleCurrentShopRouteRefresh]);
 
   useEffect(() => {
-    if (!activeShopId) {
+    if (!activeShopId || courierOnly) {
       return;
     }
 
@@ -657,10 +702,17 @@ export function ShopShell({
         }
 
         if (lastMarker === null || payload.eventMarker !== lastMarker) {
-          scheduleCurrentShopRouteRefresh();
+          const marker = payload.eventMarker;
+          scheduleCurrentShopRouteRefresh({
+            isCurrent: () => !stopped,
+            onRefresh: () => {
+              if (!stopped) {
+                lastMarker = marker;
+              }
+            },
+          });
         }
 
-        lastMarker = payload.eventMarker;
         failureCount = 0;
         schedule(3_000);
       } catch {
@@ -681,7 +733,15 @@ export function ShopShell({
         window.clearTimeout(timer);
       }
     };
-  }, [activeShopId, scheduleCurrentShopRouteRefresh]);
+  }, [activeShopId, courierOnly, scheduleCurrentShopRouteRefresh]);
+
+  useEffect(() => {
+    if (!courierOnly || courierRouteAllowed) return;
+    const nextSearchParams = new URLSearchParams();
+    if (activeShopId) nextSearchParams.set("shop_id", activeShopId);
+    const query = nextSearchParams.toString();
+    router.replace(`/shop/courier${query ? `?${query}` : ""}`);
+  }, [activeShopId, courierOnly, courierRouteAllowed, router]);
 
   function handleNavigation(input: {
     event: MouseEvent<HTMLAnchorElement>;
@@ -841,7 +901,7 @@ export function ShopShell({
                 ) : null}
 
                 {!canSwitchShops && selectedShop ? (
-                  <p className="inline-flex min-h-11 items-center rounded-md border border-zinc-200 bg-zinc-50 px-3 text-sm font-medium text-zinc-700 md:min-h-0 md:px-2.5 md:py-1 md:text-xs">
+                  <p className="inline-flex min-h-12 items-center rounded-md border border-zinc-200 bg-zinc-50 px-3 text-sm font-medium text-zinc-700 md:min-h-0 md:px-2.5 md:py-1 md:text-xs">
                     {labels.singleShopWorkspace}
                   </p>
                 ) : null}
@@ -852,9 +912,9 @@ export function ShopShell({
                   tone="emerald"
                 />
                 <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-800">
-                  {selectedShop
+                  {principalRoleLabel ?? (selectedShop
                     ? formatRole(selectedShop.role, labels)
-                    : labels.adminConsole}
+                    : labels.adminConsole)}
                 </span>
                 <span className="rounded-md border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-800">
                   {labels.serverVerified}
@@ -868,7 +928,7 @@ export function ShopShell({
                   method="post"
                 >
                   <button
-                    className="min-h-11 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-700 outline-none transition hover:border-zinc-400 hover:bg-zinc-50 hover:text-zinc-950 focus-visible:ring-2 focus-visible:ring-zinc-950 focus-visible:ring-offset-2 md:min-h-0 md:px-2.5 md:py-1 md:text-xs"
+                    className="min-h-12 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-700 outline-none transition hover:border-zinc-400 hover:bg-zinc-50 hover:text-zinc-950 focus-visible:ring-2 focus-visible:ring-zinc-950 focus-visible:ring-offset-2 md:min-h-0 md:px-2.5 md:py-1 md:text-xs"
                     type="submit"
                   >
                     {logoutLabel}
@@ -885,7 +945,13 @@ export function ShopShell({
             data-shop-navigation-pending={visiblePendingNavigation ? "true" : "false"}
             data-shop-navigation-target={visiblePendingNavigation?.key}
           >
-            {visiblePendingNavigation ? (
+            {courierOnly && !courierRouteAllowed ? (
+              <ShopPendingNavigationSkeleton
+                itemKey="courier"
+                label={principalRoleLabel ?? labels.adminConsole}
+                loadingLabel={loadingLabel}
+              />
+            ) : visiblePendingNavigation ? (
               <ShopPendingNavigationSkeleton
                 itemKey={visiblePendingNavigation.key}
                 label={visiblePendingNavigation.label}

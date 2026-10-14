@@ -1,0 +1,71 @@
+PASS actual migration parses and commits on owned PostgreSQL
+PASS missing receipt is snapshot only
+PASS lookup writes no ledger or economic row
+PASS existing apply produces accepted durable ACK
+PASS lookup returns persisted ACK exactly
+PASS repeated receipt leaves ACK unchanged
+PASS hash mismatch conflicts
+PASS clientImportId mismatch conflicts
+PASS idempotencyKey mismatch conflicts
+PASS retirement returns ACK when apply already committed
+PASS legacy incomplete ACK fails closed
+PASS failed legacy import cannot be retired
+PASS catalog.import denial prevents reading receipt
+PASS catalog.import denial prevents retirement
+PASS revoked runtime lease denies lookup
+PASS cross-shop request cannot enumerate ledger
+PASS cross-device request cannot enumerate ledger
+PASS retirement commits private identity fence
+PASS retirement repeats idempotently with exact timestamp
+PASS retired lookup is conflict not false absence
+PASS late original rejects before delegated economic writes
+PASS new replacement operation remains independently admissible
+PASS late original after replacement is still rejected
+PASS retirement changed hash conflicts
+PASS retirement clashing key conflicts
+PASS direct legacy v1 cannot bypass retirement
+PASS private prior implementation is not callable by service_role
+PASS anon/authenticated cannot lookup or retire
+PASS session expiry while waiting on identity lock denies lookup
+PASS retirement waits for in-flight apply and returns accepted ACK
+PASS late original waits for retirement then rejects
+PASS retirement-win race has zero additional economic writes
+PASS session expiry while waiting on permission lock denies lookup
+PASS selective current snapshots contain only original ACK products
+PASS linked correction atomically updates requested prices and relative stock
+PASS correction ACK maps use current barcode without changing original product identity
+PASS remote metadata edited since original ACK is preserved
+PASS new ACK includes fresh six-digit product revision
+PASS correction replay precedes stale revision check and preserves exact ACK
+PASS replayed correction creates no duplicate price history or stock delta
+PASS normal import cannot consume a correction identity
+PASS correction child lookup returns persisted ACK instead of false absence
+PASS normal lookup with wrong canonical hash conflicts in correction namespace
+PASS retirement returns accepted ACK if correction already committed
+PASS correction hash mismatch conflicts
+PASS any stale row aborts all correction rows before DML
+PASS duplicate product/item correction is refused before DML
+PASS correction requires exact original client-item/product mapping
+PASS unchanged included price writes no duplicate history
+PASS durable no-effect ACK proves unchanged price without new price ID
+PASS late constraint rolls back earlier row, price history and whole batch
+PASS failed correction stores no successful receipt
+PASS accepted and absent receipt plus apply-won retirement write no economic tables
+PASS masked snapshot mismatch refuses whole correction before any economic write
+PASS direct RPC rejects prices beyond existing three-decimal precision
+PASS correction identity cannot clash with a normal accepted import key
+PASS failed correction child lookup remains a noncommittable snapshot
+PASS explicit child retirement stores permanent correction identity fence
+PASS delayed retired correction is refused before economic writes
+PASS new correction identity with fresh base succeeds after child retirement
+PASS late retired correction remains blocked after replacement
+PASS future corrective timestamp rejects before price history
+PASS old corrective timestamp rejects before price history
+PASS available snapshot preserves nullable purchase price
+PASS price-only correction preserves large legacy stock without numeric overflow
+PASS session expiry while waiting on product lock denies correction
+PASS child retirement waits for correction winner and returns accepted ACK
+PASS late child correction waits for retirement winner and rejects
+PASS revocation while identity wait is denied after lock release
+{"result": "PASS", "checks": 69, "migrationSha256": "dfbdd58c3a0ca4700a24996cdf2c69e4724cff249562bd1fff0d7a61c8ac6a20", "correctionMigrationSha256": "dd1a12f7d36ff8a8efb5499fa197cd972ac03b2812fefad8fea142df2217d631", "scope": "owned synthetic PostgreSQL model; no external DB; legacy apply sentinel", "checksPassed": ["actual migration parses and commits on owned PostgreSQL", "missing receipt is snapshot only", "lookup writes no ledger or economic row", "existing apply produces accepted durable ACK", "lookup returns persisted ACK exactly", "repeated receipt leaves ACK unchanged", "hash mismatch conflicts", "clientImportId mismatch conflicts", "idempotencyKey mismatch conflicts", "retirement returns ACK when apply already committed", "legacy incomplete ACK fails closed", "failed legacy import cannot be retired", "catalog.import denial prevents reading receipt", "catalog.import denial prevents retirement", "revoked runtime lease denies lookup", "cross-shop request cannot enumerate ledger", "cross-device request cannot enumerate ledger", "retirement commits private identity fence", "retirement repeats idempotently with exact timestamp", "retired lookup is conflict not false absence", "late original rejects before delegated economic writes", "new replacement operation remains independently admissible", "late original after replacement is still rejected", "retirement changed hash conflicts", "retirement clashing key conflicts", "direct legacy v1 cannot bypass retirement", "private prior implementation is not callable by service_role", "anon/authenticated cannot lookup or retire", "session expiry while waiting on identity lock denies lookup", "retirement waits for in-flight apply and returns accepted ACK", "late original waits for retirement then rejects", "retirement-win race has zero additional economic writes", "session expiry while waiting on permission lock denies lookup", "selective current snapshots contain only original ACK products", "linked correction atomically updates requested prices and relative stock", "correction ACK maps use current barcode without changing original product identity", "remote metadata edited since original ACK is preserved", "new ACK includes fresh six-digit product revision", "correction replay precedes stale revision check and preserves exact ACK", "replayed correction creates no duplicate price history or stock delta", "normal import cannot consume a correction identity", "correction child lookup returns persisted ACK instead of false absence", "normal lookup with wrong canonical hash conflicts in correction namespace", "retirement returns accepted ACK if correction already committed", "correction hash mismatch conflicts", "any stale row aborts all correction rows before DML", "duplicate product/item correction is refused before DML", "correction requires exact original client-item/product mapping", "unchanged included price writes no duplicate history", "durable no-effect ACK proves unchanged price without new price ID", "late constraint rolls back earlier row, price history and whole batch", "failed correction stores no successful receipt", "accepted and absent receipt plus apply-won retirement write no economic tables", "masked snapshot mismatch refuses whole correction before any economic write", "direct RPC rejects prices beyond existing three-decimal precision", "correction identity cannot clash with a normal accepted import key", "failed correction child lookup remains a noncommittable snapshot", "explicit child retirement stores permanent correction identity fence", "delayed retired correction is refused before economic writes", "new correction identity with fresh base succeeds after child retirement", "late retired correction remains blocked after replacement", "future corrective timestamp rejects before price history", "old corrective timestamp rejects before price history", "available snapshot preserves nullable purchase price", "price-only correction preserves large legacy stock without numeric overflow", "session expiry while waiting on product lock denies correction", "child retirement waits for correction winner and returns accepted ACK", "late child correction waits for retirement winner and rejects", "revocation while identity wait is denied after lock release"]}
+OWNED_CONTAINER_CLOSED cmc-pos-receipt-20d218a8f3

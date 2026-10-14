@@ -1,5 +1,6 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
@@ -29,6 +30,14 @@ function finiteInteger(value: number | undefined) {
   return value !== undefined && Number.isSafeInteger(value) ? value : undefined;
 }
 
+const uuidPattern =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function idempotencyKey(formData: FormData) {
+  const value = optionalFormString(formData, "idempotencyKey");
+  return value && uuidPattern.test(value) ? value : randomUUID();
+}
+
 function resultRedirect(
   result: ShopAdminActionResult,
   shopId?: string,
@@ -55,7 +64,15 @@ export async function saveStorefrontPublicationAction(formData: FormData) {
     optionalFormNumber(formData, "compareAtPriceClp"),
   );
   const sortRank = finiteInteger(optionalFormNumber(formData, "sortRank"));
-  if (retailPriceClp === undefined || sortRank === undefined) {
+  const expectedVersion = finiteInteger(
+    optionalFormNumber(formData, "expectedVersion"),
+  );
+  if (
+    retailPriceClp === undefined ||
+    sortRank === undefined ||
+    expectedVersion === undefined ||
+    expectedVersion < 0
+  ) {
     resultRedirect(
       shopAdminActionResult("validation_failed", { ok: false }),
       shopId,
@@ -65,7 +82,9 @@ export async function saveStorefrontPublicationAction(formData: FormData) {
   const result = await upsertStorefrontPublication({
     compareAtPriceClp,
     deliveryEnabled: checked(formData, "deliveryEnabled"),
+    expectedVersion,
     featured: checked(formData, "featured"),
+    idempotencyKey: idempotencyKey(formData),
     pickupEnabled: checked(formData, "pickupEnabled"),
     priceSourceMode: formString(formData, "priceSourceMode"),
     promotionEndsAt: optionalFormString(formData, "promotionEndsAt"),
@@ -89,16 +108,24 @@ export async function saveStorefrontPublicationAction(formData: FormData) {
 }
 
 async function bulkAction(
-  operation: "bulk_pause" | "bulk_publish",
+  operation: "bulk_hide" | "bulk_publish",
   formData: FormData,
 ) {
   const shopId = requestedShopId(formData);
-  const publicationIds = formData
-    .getAll("publicationIds")
-    .filter((value): value is string => typeof value === "string");
+  const items = formData.getAll("publicationItems").flatMap((value) => {
+    if (typeof value !== "string") return [];
+    const separator = value.lastIndexOf(":");
+    const publicationId = value.slice(0, separator);
+    const expectedVersion = Number(value.slice(separator + 1));
+    return separator > 0 && uuidPattern.test(publicationId) &&
+      Number.isSafeInteger(expectedVersion) && expectedVersion >= 0
+      ? [{ expectedVersion, publicationId }]
+      : [];
+  });
   const result = await bulkSetStorefrontPublicationStatus({
+    idempotencyKey: idempotencyKey(formData),
+    items,
     operation,
-    publicationIds,
     requestedShopId: shopId,
   });
   resultRedirect(result, shopId);
@@ -109,7 +136,7 @@ export async function bulkPublishStorefrontAction(formData: FormData) {
 }
 
 export async function bulkPauseStorefrontAction(formData: FormData) {
-  return bulkAction("bulk_pause", formData);
+  return bulkAction("bulk_hide", formData);
 }
 
 export async function saveStorefrontPromotionAction(formData: FormData) {

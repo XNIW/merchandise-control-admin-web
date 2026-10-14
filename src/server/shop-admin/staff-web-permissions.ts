@@ -13,6 +13,7 @@ export const SHOP_STAFF_WEB_PERMISSION_TREE = [
       { key: "storefront.view", label: "View Storefront" },
       { key: "storefront.edit", label: "Edit Storefront products" },
       { key: "storefront.publish", label: "Publish Storefront products" },
+      { key: "storefront.pricing.manage", label: "Manage Storefront prices" },
       { key: "storefront.bulk_publish", label: "Bulk publish Storefront products" },
       { key: "storefront.promotions.manage", label: "Manage Storefront promotions" },
       { key: "storefront.images.manage", label: "Manage Storefront images" },
@@ -26,6 +27,9 @@ export const SHOP_STAFF_WEB_PERMISSION_TREE = [
     permissions: [
       { key: "orders.view", label: "View customer orders" },
       { key: "orders.manage", label: "Manage customer orders" },
+      { key: "orders.delivery.view", label: "View delivery tracking" },
+      { key: "orders.delivery.manage", label: "Manage delivery tracking" },
+      { key: "orders.delivery.track", label: "Publish assigned courier location" },
     ],
   },
   {
@@ -97,6 +101,7 @@ export const OWNER_ONLY_STAFF_WEB_PERMISSIONS: ReadonlySet<ShopStaffWebPermissio
 
 export type ShopStaffWebRoleKey =
   | "cashier"
+  | "courier"
   | "manager"
   | "pos_admin"
   | "viewer";
@@ -122,6 +127,7 @@ export const SHOP_STAFF_WEB_ROLE_TEMPLATES = {
     "storefront.view",
     "storefront.edit",
     "storefront.publish",
+    "storefront.pricing.manage",
     "storefront.bulk_publish",
     "storefront.promotions.manage",
     "storefront.images.manage",
@@ -129,6 +135,8 @@ export const SHOP_STAFF_WEB_ROLE_TEMPLATES = {
     "storefront.audit.view",
     "orders.view",
     "orders.manage",
+    "orders.delivery.view",
+    "orders.delivery.manage",
   ],
   catalog_manager: [
     "catalog.read",
@@ -139,6 +147,7 @@ export const SHOP_STAFF_WEB_ROLE_TEMPLATES = {
     "storefront.view",
     "storefront.edit",
     "storefront.publish",
+    "storefront.pricing.manage",
     "storefront.bulk_publish",
   ],
   staff_manager: ["staff.read", "staff.write", "audit.read"],
@@ -153,7 +162,9 @@ export const SHOP_STAFF_WEB_ROLE_TEMPLATES = {
     "storefront.view",
     "storefront.audit.view",
     "orders.view",
+    "orders.delivery.view",
   ],
+  courier_tracking: ["orders.delivery.track"],
 } as const satisfies Record<string, readonly ShopStaffWebPermission[]>;
 
 export type ShopStaffWebRoleTemplateKey =
@@ -291,9 +302,18 @@ function staffPermissionForShopAdminPermission(
   }
 
   if (
+    permission === "orders.delivery.view" ||
+    permission === "orders.delivery.manage" ||
+    permission === "orders.delivery.track"
+  ) {
+    return permission;
+  }
+
+  if (
     permission === "storefront.view" ||
     permission === "storefront.edit" ||
     permission === "storefront.publish" ||
+    permission === "storefront.pricing.manage" ||
     permission === "storefront.bulk_publish" ||
     permission === "storefront.promotions.manage" ||
     permission === "storefront.images.manage" ||

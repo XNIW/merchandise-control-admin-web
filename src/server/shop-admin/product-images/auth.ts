@@ -1,6 +1,6 @@
 import "server-only";
 
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import {
   createSupabaseAdminClient,
   resolveSupabaseAdminConfig,
@@ -10,14 +10,26 @@ import {
   createSupabaseServerClient,
   resolveSupabaseServerConfig,
 } from "@/lib/supabase/server";
+import { resolveWeChatRuntimeConfig } from "@/server/auth/wechat-config";
+import {
+  resolveWeChatMiniSession,
+  type MiniSessionProof,
+} from "@/server/auth/wechat-mini-session";
 import { canShopAdmin, type ShopAdminPermission } from "../permissions";
 
 export type ProductImageActorKind = "personal_account" | "platform_admin";
+
+export type ProductImageActorPolicy =
+  | "personal_catalog_member"
+  | "personal_shop_member"
+  | "platform_admin_or_personal_catalog_member";
 
 export type ProductImageRequestActor = {
   actorKind: ProductImageActorKind;
   actorProfileId: string;
   shopId: string;
+  supabase: SupabaseClient<Database> | null;
+  miniProof?: MiniSessionProof;
 };
 
 export type ProductImageActorResolution =
@@ -47,13 +59,13 @@ async function resolveAuthenticatedUserId(request: Request) {
   const serverConfig = resolveSupabaseServerConfig();
 
   if (serverConfig.status !== "configured") {
-    return { code: "not_configured" as const, userId: null };
+    return { client: null, code: "not_configured" as const, userId: null };
   }
 
   const bearer = readBearerToken(request.headers.get("authorization"));
 
   if (bearer.present && !bearer.token) {
-    return { code: "unauthorized" as const, userId: null };
+    return { client: null, code: "unauthorized" as const, userId: null };
   }
 
   const client = bearer.token
@@ -73,29 +85,63 @@ async function resolveAuthenticatedUserId(request: Request) {
     : await createSupabaseServerClient(serverConfig);
 
   if (!client) {
-    return { code: "not_configured" as const, userId: null };
+    return { client: null, code: "not_configured" as const, userId: null };
   }
 
   const userResult = await client.auth.getUser();
 
   return userResult.error || !userResult.data.user?.id
-    ? { code: "unauthorized" as const, userId: null }
-    : { code: "authorized" as const, userId: userResult.data.user.id };
+    ? { client: null, code: "unauthorized" as const, userId: null }
+    : {
+        client,
+        code: "authorized" as const,
+        userId: userResult.data.user.id,
+      };
+}
+
+async function resolveBearerAuthenticatedUserId(
+  request: Request,
+  shopId: string,
+) {
+  const session = await resolveWeChatMiniSession({
+    authorization: request.headers.get("authorization"),
+    config: resolveWeChatRuntimeConfig(),
+    deviceId: request.headers.get("x-wechat-device-id"),
+    shopId,
+  });
+  if (!session.ok) {
+    return {
+      code:
+        session.code === "backend_temporary"
+          ? ("not_configured" as const)
+          : ("unauthorized" as const),
+      userId: null,
+      client: null,
+    };
+  }
+  return {
+    client: null,
+    code: "authorized" as const,
+    userId: session.actorProfileId,
+    miniProof: session.proof,
+  };
 }
 
 export async function resolveProductImageRequestActor(
   request: Request,
   shopId: string,
-  permission: Extract<ShopAdminPermission, "products.read" | "products.write">,
+  permission: ShopAdminPermission,
+  policy: ProductImageActorPolicy = "platform_admin_or_personal_catalog_member",
 ): Promise<ProductImageActorResolution> {
-  const identity = await resolveAuthenticatedUserId(request);
+  const identity =
+    policy === "personal_catalog_member"
+      ? await resolveBearerAuthenticatedUserId(request, shopId)
+      : await resolveAuthenticatedUserId(request);
 
   if (!identity.userId) {
     return {
       code:
-        identity.code === "not_configured"
-          ? "not_configured"
-          : "unauthorized",
+        identity.code === "not_configured" ? "not_configured" : "unauthorized",
       status: "blocked",
     };
   }
@@ -132,13 +178,15 @@ export async function resolveProductImageRequestActor(
         .eq("profile_id", identity.userId)
         .eq("shop_id", shopId)
         .maybeSingle(),
-      admin
-        .from("platform_admins")
-        .select("status,revoked_at")
-        .eq("profile_id", identity.userId)
-        .eq("status", "active")
-        .is("revoked_at", null)
-        .maybeSingle(),
+      policy === "platform_admin_or_personal_catalog_member"
+        ? admin
+            .from("platform_admins")
+            .select("status,revoked_at")
+            .eq("profile_id", identity.userId)
+            .eq("status", "active")
+            .is("revoked_at", null)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
     ]);
 
   if (
@@ -165,12 +213,16 @@ export async function resolveProductImageRequestActor(
     };
   }
 
-  if (platformResult.data) {
+  if (
+    policy === "platform_admin_or_personal_catalog_member" &&
+    platformResult.data
+  ) {
     return {
       actor: {
         actorKind: "platform_admin",
         actorProfileId: identity.userId,
         shopId,
+        supabase: identity.client,
       },
       status: "authorized",
     };
@@ -202,6 +254,8 @@ export async function resolveProductImageRequestActor(
       actorKind: "personal_account",
       actorProfileId: identity.userId,
       shopId,
+      supabase: identity.client,
+      ...("miniProof" in identity ? { miniProof: identity.miniProof } : {}),
     },
     status: "authorized",
   };

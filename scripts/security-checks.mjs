@@ -309,11 +309,20 @@ function checkReadOnlyContracts() {
     ...listFiles("src/server/auth"),
     ...listFiles("src/server/shop-admin"),
     ...listFiles("src/server/platform-admin"),
+    ...listFiles("src/server/wechat"),
     ...listFiles("src/lib/supabase"),
   ];
   const directMutationPattern = /\.(insert|update|delete|upsert)\s*\(/;
   const rpcPattern = /\.rpc\s*\(\s*["']([^"']+)["']/g;
   const allowedRpcsByFile = new Map([
+    [
+      "src/server/auth/wechat-exchange.ts",
+      new Set([
+        "wechat_auth_audit_v1",
+        "wechat_auth_challenge_issue_v1",
+        "wechat_auth_challenge_consume_v1",
+      ]),
+    ],
     [
       "src/server/platform-admin/shop-actions.ts",
       new Set([
@@ -427,7 +436,9 @@ function checkReadOnlyContracts() {
         "staff_web_audit_event_v1",
         "staff_web_history_mutate_v1",
         "admin_storefront_publications_read_v1",
-        "admin_storefront_publication_mutate_v1",
+        "storefront_publications_authoring_read_v1",
+        "storefront_publication_authoring_mutate_v1",
+        "admin_storefront_publication_bulk_mutate_v2",
         "admin_storefront_promotions_read_v1",
         "admin_storefront_promotion_mutate_v1",
         "admin_storefront_images_read_v1",
@@ -437,12 +448,22 @@ function checkReadOnlyContracts() {
         "admin_storefront_payment_mutate_v1",
         "admin_customer_orders_read_v1",
         "admin_customer_order_transition_v1",
+        "admin_customer_after_sales_read_v1",
+        "admin_customer_after_sales_evidence_read_v1",
+        "admin_customer_after_sales_transition_v1",
+        "admin_customer_reviews_read_v1",
+        "admin_customer_review_moderate_v1",
+        "admin_delivery_tracking_read_v1",
+        "admin_delivery_tracking_manage_v1",
+        "storefront_courier_tracking_control_v1",
+        "storefront_courier_location_upsert_v1",
       ]),
     ],
     [
       "src/server/shop-admin/storefront-read-model.ts",
       new Set([
         "admin_storefront_publications_read_v1",
+        "storefront_publications_authoring_read_v1",
         "admin_storefront_promotions_read_v1",
         "admin_storefront_images_read_v1",
         "admin_storefront_fulfillment_read_v1",
@@ -452,7 +473,8 @@ function checkReadOnlyContracts() {
     [
       "src/server/shop-admin/storefront-mutations.ts",
       new Set([
-        "admin_storefront_publication_mutate_v1",
+        "storefront_publication_authoring_mutate_v1",
+        "admin_storefront_publication_bulk_mutate_v2",
         "admin_storefront_promotion_mutate_v1",
         "admin_storefront_fulfillment_mutate_v1",
         "admin_storefront_payment_mutate_v1",
@@ -465,6 +487,32 @@ function checkReadOnlyContracts() {
     [
       "src/server/shop-admin/order-mutations.ts",
       new Set(["admin_customer_order_transition_v1"]),
+    ],
+    [
+      "src/server/shop-admin/customer-commerce-evidence.ts",
+      new Set([
+        "admin_customer_after_sales_evidence_read_v1",
+        "service_after_sales_evidence_cleanup_claim_v1",
+        "service_after_sales_evidence_cleanup_ack_v1",
+      ]),
+    ],
+    [
+      "src/server/shop-admin/customer-commerce-mutations.ts",
+      new Set([
+        "admin_customer_after_sales_transition_v1",
+        "admin_customer_review_moderate_v1",
+      ]),
+    ],
+    [
+      "src/server/shop-admin/customer-commerce-read-model.ts",
+      new Set([
+        "admin_customer_after_sales_read_v1",
+        "admin_customer_reviews_read_v1",
+      ]),
+    ],
+    [
+      "src/server/shop-admin/delivery-tracking.ts",
+      new Set(["admin_delivery_tracking_read_v1"]),
     ],
     [
       "src/server/shop-admin/storefront-images/service.ts",
@@ -493,6 +541,7 @@ function checkReadOnlyContracts() {
         "product_image_fail_version",
         "product_image_record_denied",
         "product_image_create_intent",
+        "product_image_create_intent_wechat_v1",
         "product_image_finalize",
         "product_image_remove",
         "product_image_record_cleanup",
@@ -518,10 +567,49 @@ function checkReadOnlyContracts() {
     "src/server/shop-admin/product-images/runtime-core.ts",
     "src/server/shop-admin/product-images/service.ts",
     "src/server/shop-admin/storefront-images/webp-validator.ts",
+    // Server-only Storefront adoption writes immutable, hash-bound WebP
+    // derivatives after the audited intent RPC and before server finalization.
+    "src/server/shop-admin/storefront-images/service.ts",
+    "src/server/auth/wechat-exchange.ts",
+    "src/server/auth/wechat-link-saga.ts",
+    "src/server/auth/wechat-mini-session.ts",
+    "src/server/auth/wechat-code2session.ts",
+    "src/server/auth/wechat-mini-direct.ts",
+  ]);
+  const postgrestRpcPattern = /\/rest\/v1\/rpc\/([a-z0-9_]+)/g;
+  const postgrestRpcPrefixPattern = /\/rest\/v1\/rpc\//g;
+  const allowedPostgrestRpcsByFile = new Map([
+    [
+      "src/server/auth/wechat-mini-session.ts",
+      new Set([
+        "wechat_link_attempt_begin_v1",
+        "wechat_link_attempt_fail_v1",
+        "wechat_link_attempt_finalize_v1",
+        "wechat_link_attempt_reconcile_v1",
+        "wechat_mini_read_v1",
+        "wechat_mini_session_issue_v1",
+        "wechat_mini_session_resolve_v1",
+        "wechat_mini_session_revoke_v1",
+        "wechat_mini_sync_checkpoint_v1",
+        "wechat_mini_sync_delta_v1",
+        "wechat_mini_proof_create_v1",
+        "wechat_mini_proof_claim_v1",
+        "wechat_mini_proof_verify_v1",
+        "wechat_mini_pair_claim_v1",
+        "wechat_mini_pair_confirm_v1",
+        "wechat_mini_direct_issue_v1",
+        "wechat_mini_business_v1",
+      ]),
+    ],
+    [
+      "src/server/wechat/catalog-mutation-gateway.ts",
+      new Set(["wechat_catalog_mutate_v1", "wechat_mini_business_v1"]),
+    ],
   ]);
 
   for (const file of serverFiles) {
     const contents = read(file);
+    const approvedPostgrestRpcs = allowedPostgrestRpcsByFile.get(file);
 
     if (
       directMutationPattern.test(contents) &&
@@ -538,6 +626,24 @@ function checkReadOnlyContracts() {
         addFailure(
           `${file} contains an unapproved Supabase RPC call: ${rpcName}`,
         );
+      }
+    }
+
+    for (const match of contents.matchAll(postgrestRpcPattern)) {
+      const rpcName = match[1];
+      if (!approvedPostgrestRpcs?.has(rpcName)) {
+        addFailure(
+          `${file} contains an unapproved PostgREST RPC call: ${rpcName}`,
+        );
+      }
+    }
+
+    if (approvedPostgrestRpcs) {
+      const rpcPrefixCount = [...contents.matchAll(postgrestRpcPrefixPattern)]
+        .length;
+      const literalRpcCount = [...contents.matchAll(postgrestRpcPattern)].length;
+      if (rpcPrefixCount !== literalRpcCount) {
+        addFailure(`${file} contains a dynamic PostgREST RPC call`);
       }
     }
 
@@ -4113,6 +4219,10 @@ function checkTask019PosAuthFoundationImplementation() {
     "src/app/api/pos/auth/first-login/route.ts",
     "src/app/api/pos/catalog/article-mutations/route.ts",
     "src/app/api/pos/catalog/import-sync/route.ts",
+    "src/app/api/pos/catalog/import-receipt/route.ts",
+    "src/app/api/pos/catalog/import-retire/route.ts",
+    "src/app/api/pos/catalog/import-correction/route.ts",
+    "src/app/api/pos/catalog/import-recovery/[action]/route.ts",
     "src/app/api/pos/catalog/product-images/finalize/route.ts",
     "src/app/api/pos/catalog/product-images/intent/route.ts",
     "src/app/api/pos/catalog/product-images/read-urls/route.ts",
@@ -4276,6 +4386,10 @@ function checkTask020Win7PosIntegrationPlanning() {
     "src/app/api/pos/auth/first-login/route.ts",
     "src/app/api/pos/catalog/article-mutations/route.ts",
     "src/app/api/pos/catalog/import-sync/route.ts",
+    "src/app/api/pos/catalog/import-receipt/route.ts",
+    "src/app/api/pos/catalog/import-retire/route.ts",
+    "src/app/api/pos/catalog/import-correction/route.ts",
+    "src/app/api/pos/catalog/import-recovery/[action]/route.ts",
     "src/app/api/pos/catalog/product-images/finalize/route.ts",
     "src/app/api/pos/catalog/product-images/intent/route.ts",
     "src/app/api/pos/catalog/product-images/read-urls/route.ts",
@@ -4405,6 +4519,10 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
     firstLoginRoutePath,
     "src/app/api/pos/catalog/article-mutations/route.ts",
     "src/app/api/pos/catalog/import-sync/route.ts",
+    "src/app/api/pos/catalog/import-receipt/route.ts",
+    "src/app/api/pos/catalog/import-retire/route.ts",
+    "src/app/api/pos/catalog/import-correction/route.ts",
+    "src/app/api/pos/catalog/import-recovery/[action]/route.ts",
     "src/app/api/pos/catalog/product-images/finalize/route.ts",
     "src/app/api/pos/catalog/product-images/intent/route.ts",
     "src/app/api/pos/catalog/product-images/read-urls/route.ts",

@@ -1,0 +1,35 @@
+{
+  "scope": "static source and bookkeeping; no live acceptance",
+  "sourceFreezeBaseSha256": "ae8257fee13401428522e8e079f4f93da6f4d67acd436fb10800fb435f9f21b9",
+  "sourceFreezeFinalSha256": "be08e689d17ba53865c18bce5307237c93d01da07626fe8da62f0f7fe62fdc50",
+  "reviews": [
+    {
+      "reviewer": "/root/import_receipt_contract_review",
+      "observedUTC": "2026-10-08T20:34:33Z",
+      "status": "APPROVED_STATIC_SQL",
+      "findings": [],
+      "scope": "two immutable SQL migrations,69 saved model checks"
+    },
+    {
+      "reviewer": "/root/import_receipt_http_review",
+      "observedUTC": "2026-10-08T20:38:45Z",
+      "status": "APPROVED_STATIC_HTTP_CONTRACT",
+      "findings": [],
+      "scope": "baseae825 HTTP/parser/contract"
+    },
+    {
+      "reviewer": "/root/import_receipt_http_review",
+      "observedUTC": "2026-10-08T20:44:44Z",
+      "status": "APPROVED_STATIC_HTTP_DELTA",
+      "findings": [],
+      "scope": "finalbe08 precision delta and unchanged golden contract"
+    },
+    {
+      "reviewer": "/root/source_handoff_evidence_review",
+      "observedUTC": "2026-10-08T20:45:02Z",
+      "status": "APPROVED_BOOKKEEPING_AND_RUNNER_SCOPE",
+      "findings": [],
+      "scope": "finalbe08 provenance, scoped task, actual runner closure limits"
+    }
+  ]
+}
