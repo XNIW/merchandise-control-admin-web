@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { createRequire } from "node:module";
 import { dirname, extname, join, relative } from "node:path";
 import { test } from "node:test";
 import vm from "node:vm";
+import { csharpSourceViews, maskCSharpComments } from "../../scripts/lib/csharp-source.mjs";
 
 const require = createRequire(import.meta.url);
 const ts = require("typescript");
@@ -92,6 +94,34 @@ function parsePosTranslationEntries() {
 
   return entries;
 }
+
+test("C# comment masking preserves literal markers, escapes and source positions", () => {
+  for (const literal of [
+    String.raw`"https://synthetic.invalid/a//b/*text*/"`,
+    String.raw`"escaped \"//text\" and /*text*/"`,
+    String.raw`@"C:\synthetic//path/*text*/"`,
+    String.raw`@"quoted ""//text"" and /*text*/"`,
+    String.raw`$"https://synthetic.invalid/{name}/*text*/"`,
+    String.raw`$@"C:\{name}//text/*text*/"`,
+    String.raw`@$"C:\{name}//text/*text*/"`,
+    String.raw`$"{Pick("https://synthetic.invalid/*text*/")} //text"`,
+    String.raw`$"{value://literal} /*text*/"`,
+    String.raw`"""https://synthetic.invalid//text/*text*/"""`,
+    String.raw`'\''`,
+    String.raw`'/'`,
+  ]) {
+    const prefix = `var value = ${literal}; `;
+    const source = `${prefix}// removed\r\n/* removed\nblock */ next();`;
+    const expected = `${prefix}${" ".repeat("// removed".length)}\r\n${" ".repeat("/* removed".length)}\n${" ".repeat("block */".length)} next();`;
+    assert.equal(maskCSharpComments(source), expected);
+    assert.equal(maskCSharpComments(source).length, source.length);
+    assert.equal(csharpSourceViews(source).code.includes("synthetic"), false);
+  }
+  assert.equal(maskCSharpComments('var value = $"{name /* active */} //literal";'), 'var value = $"{name             } //literal";');
+  assert.ok(csharpSourceViews('$"{PosLocalization.T("prefix" + code)}"').code.includes("PosLocalization.T"));
+  assert.equal(csharpSourceViews('"""PosLocalization.T("prefix" + code)"""').code.includes("PosLocalization.T"), false);
+  assert.throws(() => csharpSourceViews('$"""{PosLocalization.T("prefix" + code)}"""'), /Unsupported C# raw interpolated string/);
+});
 
 test("i18n contract validates Admin Web and Win7POS locales", (t) => {
   if (shouldSkipMissingWin7PosRepo()) {
@@ -191,6 +221,122 @@ test("i18n contract scanner fails on missing keys and placeholder mismatches", (
         return true;
       },
     );
+  }
+});
+
+test("i18n scanner validates runtime registration forms and bounded dynamic families", async (t) => {
+  if (shouldSkipMissingWin7PosRepo()) {
+    t.skip("SKIPPED_EXTERNAL_REPO_NOT_AVAILABLE: Win7POS repo is not available");
+    return;
+  }
+  const fixture = mkdtempSync(join(tmpdir(), "admin-pos-i18n-"));
+  const wpf = "src/Win7POS.Wpf/";
+  const recovery = `${wpf}Localization/PosLocalization.ImportRecovery.cs`;
+  const direct = `${wpf}Localization/PosLocalization.SupplierImportCompletion.cs`;
+  const presentation = `${wpf}Pos/Dialogs/ImportRecoveryPresentation.cs`;
+  const hardware = `${wpf}Localization/PosLocalization.Hardware.cs`;
+  const run = () => execFileSync(process.execPath, ["scripts/i18n-contract-scan.mjs"], {
+    cwd: root,
+    encoding: "utf8",
+    env: { ...process.env, WIN7POS_REPO_PATH: fixture, REQUIRE_WIN7POS_REPO: "1" },
+    stdio: "pipe",
+  });
+  try {
+    cpSync(join(posRoot, wpf), join(fixture, wpf), {
+      recursive: true,
+      filter: (path) => !/(?:^|[\\/])(?:bin|obj)(?:[\\/]|$)/.test(path) &&
+        (statSync(path).isDirectory() || /\.(?:cs|xaml)$/.test(path)),
+    });
+    for (const path of [
+      "src/Win7POS.Core/Pos/CustomerDisplaySettings.cs",
+      "src/Win7POS.Core/Hardware/SingleFlightDiagnostic.cs",
+      "src/Win7POS.Data/Operations/SettingsOperationsService.cs",
+    ]) {
+      cpSync(join(posRoot, path), join(fixture, path), { recursive: true });
+    }
+    const result = JSON.parse(run());
+    assert.equal(result.status, "pass");
+    assert.equal(result.POS_CORE_UI_HARDCODED.count, 0);
+    const directFile = join(fixture, direct);
+    const originalDirect = readFileSync(directFile, "utf8");
+    try {
+      writeFileSync(directFile, originalDirect.replace('"Cancelando la operación de importación..."', '"https://synthetic.invalid/a//b/*literal*/"'));
+      assert.equal(JSON.parse(run()).status, "pass", "comment markers in an actual translation value remain literal text");
+    } finally { writeFileSync(directFile, originalDirect); }
+    const diagnosticFile = join(fixture, `${wpf}Pos/Dialogs/PrinterSettingsViewModel.cs`);
+    const originalDiagnostic = readFileSync(diagnosticFile, "utf8");
+    try {
+      writeFileSync(diagnosticFile, `${originalDiagnostic}\nclass LiteralDecoy { string Text() => """PosLocalization.T("hardware.diagnostic." + (result.Completed ? "unavailable" : result.ResultCode))"""; }`);
+      assert.equal(JSON.parse(run()).status, "pass", "a noninterpolated raw literal is not an executable sink");
+    } finally { writeFileSync(diagnosticFile, originalDiagnostic); }
+    for (const [path, edit, expected] of [
+      [recovery, (source) => source.replace(/^.*RecoveryText\(catalog, "title",.*\n/m, ""), /missing loc key importRecovery\.title/],
+      [recovery, (source) => source.replace('catalog["es"]["importRecovery." + key] = es;', ""), /unsupported RecoveryText registration for es/],
+      [direct, (source) => source.replace(/^.*\["supplierExcelImport.statusOperationCancelling"\].*\n/gm, ""), /missing loc key supplierExcelImport\.statusOperationCancelling/],
+      [direct, (source) => source.replace(/^.*catalog\["es"\]\["supplierExcelImport.statusOperationCancelling"\].*\n/m, ""), /pos:es: missing value for supplierExcelImport\.statusOperationCancelling/],
+      [direct, (source) => source.replace('"Cancelando la operación de importación..."', '"Cancelando la operación {99}..."'), /pos:es: placeholder mismatch in supplierExcelImport\.statusOperationCancelling/],
+      [recovery, (source) => source.replace('"Admin confirmó {0}/{1} filas · {2}/{3} partes."', '"Admin confirmó filas."'), /pos:es: placeholder mismatch in importRecovery\.planProgress/],
+      [direct, (source) => source.replace(/(.*catalog\["en"\]\["supplierExcelImport.statusOperationCancelling"\].*\n)/, "$1$1"), /duplicate translation key supplierExcelImport\.statusOperationCancelling for en/],
+      [hardware, (source) => source.replace(/^.*new TranslationEntry\("hardware.diagnostic.busy",.*\n/m, ""), /missing dynamic translation key hardware\.diagnostic\.busy/],
+      ["src/Win7POS.Core/Pos/CustomerDisplaySettings.cs", (source) => source.replace("CustomerDisplayLogoPosition { Left, Center }", "CustomerDisplayLogoPosition { Left, Center, Right }"), /dynamic translation domain changed/],
+      [presentation, (source) => source.replace('"importRecovery." + FieldKey(issue.Field)', '"importRecovery." + unboundedSuffix'), /missing loc key importRecovery\./],
+      [`${wpf}UnexpectedDynamicUsage.cs`, () => 'class UnexpectedDynamicUsage { string Lookup() => PosLocalization.T("hardware.diagnostic." + code); }', /missing loc key hardware\.diagnostic\./],
+      [`${wpf}Pos/Dialogs/CustomerDisplaySettingsDialog.xaml.cs`, (source) => source.replace("PNG / JPEG / BMP|*.png;*.jpg;*.jpeg;*.bmp", "Choose a picture|*.png"), /hardcoded UI text.*Choose a picture/],
+      [`${wpf}Pos/PosWorkflowService.cs`, (source) => source.replace('InvalidOperationException("Backup result="', 'InvalidOperationException("Backup did not finish="'), /hardcoded UI text.*Backup did not finish=/],
+      [`${wpf}Localization/PosLocalization.cs`, (source) => source.replace("AddImportRecoveryTranslations(catalog);", ""), /unregistered locale provider/],
+      [`${wpf}Localization/PosLocalization.cs`, (source) => source.replace("AddImportRecoveryTranslations(catalog);", "// AddImportRecoveryTranslations(catalog);"), /unregistered locale provider/],
+      [`${wpf}Localization/PosLocalization.cs`, (source) => source.replace("AddImportRecoveryTranslations(catalog);", "/* AddImportRecoveryTranslations(catalog); */"), /unregistered locale provider/],
+      [`${wpf}Localization/PosLocalization.cs`, (source) => source.replace("AddImportRecoveryTranslations(catalog);", 'var note = "AddImportRecoveryTranslations(catalog);";'), /unregistered locale provider/],
+      [recovery, (source) => source.replace('catalog["es"]["importRecovery." + key] = es;', '// catalog["es"]["importRecovery." + key] = es;'), /unsupported RecoveryText registration for es/],
+      [recovery, (source) => source.replace('catalog["es"]["importRecovery." + key] = es;', '/* catalog["es"]["importRecovery." + key] = es; */'), /unsupported RecoveryText registration for es/],
+      [recovery, (source) => source.replace(/^(.*RecoveryText\(catalog, "title",.*)$/m, "// $1"), /missing loc key importRecovery\.title/],
+      [recovery, (source) => source.replace(/^(.*RecoveryText\(catalog, "title",.*)$/m, "/* $1 */"), /missing loc key importRecovery\.title/],
+      [direct, (source) => source.replace(/^(.*catalog\["es"\]\["supplierExcelImport.statusOperationCancelling"\].*)$/m, "// $1"), /pos:es: missing value for supplierExcelImport\.statusOperationCancelling/],
+      [direct, (source) => source.replace(/^(.*catalog\["es"\]\["supplierExcelImport.statusOperationCancelling"\].*)$/m, "/* $1 */"), /pos:es: missing value for supplierExcelImport\.statusOperationCancelling/],
+      [direct, (source) => source.replace(/^(.*catalog\["es"\]\["supplierExcelImport.statusOperationCancelling"\].*)$/m, 'var note = """$1""";'), /pos:es: missing value for supplierExcelImport\.statusOperationCancelling/],
+      [presentation, (source) => source.replace('return PosLocalization.T("importRecovery." + key);', 'key = code; return PosLocalization.T("importRecovery." + key);'), /unsupported dynamic translation binding FriendlyCause/],
+      [presentation, (source) => source.replace('? "network" :', '? "network" + code :'), /unsupported dynamic translation binding FriendlyCause/],
+      [`${wpf}Pos/Dialogs/CatalogImportRecoveryDialog.xaml.cs`, (source) => source.replace('return PosLocalization.T("importRecovery." + field)', 'field = message; return PosLocalization.T("importRecovery." + field)'), /unsupported dynamic translation binding PreviewFieldError/],
+      [presentation, (source) => source.replace('var barcode = new string', 'field = code; var barcode = new string'), /unsupported dynamic translation binding DescribePlanRowError.field/],
+      [`${wpf}Pos/Dialogs/CustomerDisplaySettingsViewModel.cs`, (source) => source.replace('Choices(Type type, string group) => Enum.GetValues(type)', 'Choices(Type type, string group) => Enum.GetValues(typeof(CustomerDisplayFontScale))'), /unsupported dynamic translation binding Choices/],
+      [`${wpf}Pos/Dialogs/DbMaintenanceViewModel.cs`, (source) => source.replace('LastBackupResult = PosLocalization.T("backupAutomation.result." + key)', 'key = parts[1]; LastBackupResult = PosLocalization.T("backupAutomation.result." + key)'), /unsupported dynamic translation binding backup result whitelist to sink/],
+      [`${wpf}Pos/Dialogs/DbMaintenanceViewModel.cs`, (source) => source.replace('foreach (var code in BackupResultCodes)', 'foreach (var code in new[] { ex.Message })'), /unsupported dynamic translation binding backup result whitelist to sink/],
+      [`${wpf}Pos/Dialogs/DbMaintenanceViewModel.cs`, (source) => source.replace('preview.SafetyAdjustments.Select(x => PosLocalization.T("settingsProfile.safety." + x))', 'preview.SafetyAdjustments.Select(x => { x = DateTime.Now.ToString(); return PosLocalization.T("settingsProfile.safety." + x); })'), /unsupported dynamic translation binding SafetyAdjustments producer to sink/],
+      ["src/Win7POS.Core/Hardware/SingleFlightDiagnostic.cs", (source) => source.replace('ResultCode = "busy"', 'ResultCode = "busy" + key'), /unsupported dynamic translation binding diagnostic result to sink/],
+      [`${wpf}Pos/Dialogs/DbMaintenanceViewModel.cs`, (source) => source.replace('"live_database_missing", "busy" };', '"live_database_missing", "busy", Environment.UserName };'), /dynamic translation domain changed/],
+      [`${wpf}Pos/Dialogs/DbMaintenanceViewModel.cs`, (source) => `${source}\nclass UnknownSink { string Lookup(string code) => PosLocalization.T("backupAutomation.result." + code); }`, /unsupported dynamic translation binding backupAutomation\.result\. recognized sink count/],
+      ["src/Win7POS.Data/Operations/SettingsOperationsService.cs", (source) => source.replace('adjustments.Add("hardware_activation_local");', '// adjustments.Add("hardware_activation_local");'), /dynamic translation domain changed/],
+      ["src/Win7POS.Data/Operations/SettingsOperationsService.cs", (source) => source.replace('adjustments.Add("hardware_activation_local");', '/* adjustments.Add("hardware_activation_local"); */'), /dynamic translation domain changed/],
+      ["src/Win7POS.Core/Hardware/SingleFlightDiagnostic.cs", (source) => source.replace('public bool Completed => ResultCode == "completed";', 'public bool Completed => ResultCode == "complete";'), /unsupported dynamic translation binding diagnostic result to sink/],
+      ["src/Win7POS.Data/Operations/SettingsOperationsService.cs", (source) => source.replace('public IReadOnlyList<string> SafetyAdjustments { get; }', 'private IReadOnlyList<string> _safe; public IReadOnlyList<string> SafetyAdjustments { get { return _safe.Select(code => code.ToUpperInvariant()).ToArray(); } private set { _safe = value; } }'), /unsupported dynamic translation binding SafetyAdjustments producer to sink/],
+      [`${wpf}Pos/Dialogs/DbMaintenanceViewModel.cs`, (source) => source.replace(': "backup_failed";', ': "backup_ failed";'), /unsupported dynamic translation binding backup result whitelist to sink/],
+      ...[
+        '$"{PosLocalization.T("hardware.diagnostic." + (result.Completed ? "unavailable" : result.ResultCode))}"',
+        '$@"{PosLocalization.T("hardware.diagnostic." + (result.Completed ? "unavailable" : result.ResultCode))}"',
+        '@$"{PosLocalization.T("hardware.diagnostic." + (result.Completed ? "unavailable" : result.ResultCode))}"',
+        '$"{string.Concat($"{PosLocalization.T("hardware.diagnostic." + (result.Completed ? "unavailable" : result.ResultCode))}")}"',
+      ].map((expression) => [`${wpf}Pos/Dialogs/PrinterSettingsViewModel.cs`, (source) => `${source}\nclass UnboundedCarrier { string UnboundedDiagnostic(string unbounded) { var result = new { Completed = false, ResultCode = unbounded }; return ${expression}; } }`, /unsupported dynamic translation binding hardware\.diagnostic\. recognized sink count/]),
+      [`${wpf}Pos/Dialogs/PrinterSettingsViewModel.cs`, (source) => `${source}\nclass UnboundedRawCarrier { string UnboundedDiagnostic(string unbounded) { var result = new { Completed = false, ResultCode = unbounded }; return $"""{PosLocalization.T("hardware.diagnostic." + (result.Completed ? "unavailable" : result.ResultCode))}"""; } }`, /Unsupported C# raw interpolated string/],
+    ]) {
+      await t.test(`${path}: ${expected.source}`, () => {
+        const file = join(fixture, path);
+        const original = existsSync(file) ? readFileSync(file, "utf8") : null;
+        const changed = edit(original ?? "");
+        assert.notEqual(changed, original, "mutation must change actual fixture source");
+        try {
+          writeFileSync(file, changed);
+          assert.throws(run, (error) => {
+            assert.match(`${error.stdout ?? ""}\n${error.stderr ?? ""}`, expected);
+            return true;
+          });
+        } finally {
+          if (original === null) rmSync(file);
+          else writeFileSync(file, original);
+        }
+      });
+    }
+  } finally {
+    rmSync(fixture, { recursive: true, force: true });
   }
 });
 
