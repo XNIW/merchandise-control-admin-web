@@ -1,5 +1,19 @@
 # MerchandiseControl Admin Web - Master Plan
 
+## Chiusura integrazione Git — 14 ottobre 2026
+
+Il mandato utente recupera sul branch esistente l'harness manuale per il conflitto
+di revisione Admin e una ricevuta concisa delle evidence dense59999 del commit
+locale `4027dc17`; i sette file grezzi restano nell'archivio locale non versionato.
+Lo storico mantiene i suoi vincoli e i propri source binding;
+le correzioni PR135–138 restano intatte. Il runner SQL dell'harness usa stdin,
+senza valori fixture negli argomenti del processo, con regressione dedicata.
+I nuovi workflow di accettazione sono soltanto manuali; push e merge eseguono
+CI/build, senza deploy, apply, cleanup remoto o attivazione di ambienti.
+Le prove live e la qualificazione uniforme/risorse restano separate e non eseguite
+da questa chiusura. PR133 resta draft come provenienza della variante staging.
+[Ricevuta storica delle evidence](TASKS/TASK-094-pos-catalog-import-receipt-and-retirement.md#evidence-storiche-recuperate-nella-chiusura-git-del-14-ottobre-2026).
+
 ## TASK-094 REVIEW — cache degli array del piano, 13 ottobre 2026 UTC
 
 FIX circoscritto autorizzato nel worktree `admin-post-pr123-plan-array-cache-20261013`,

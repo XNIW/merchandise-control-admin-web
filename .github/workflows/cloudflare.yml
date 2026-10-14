@@ -178,7 +178,9 @@ jobs:
           export CLOUDFLARE_API_TOKEN="$(printf '%s' "$CLOUDFLARE_API_TOKEN" | tr -d '\r\n')"
           printf '%s' "$TASK150_QA_HMAC_KEY" |
             npx wrangler secret put TASK150_QA_HMAC_KEY --env staging
-          npx wrangler deploy --env staging --keep-vars --minify
+          npx wrangler deploy --env staging --keep-vars --minify \
+            --tag "$GITHUB_SHA" \
+            --message "github-sha:$GITHUB_SHA"
 
       - name: Verify TASK-150 staging route is configured
         env:
