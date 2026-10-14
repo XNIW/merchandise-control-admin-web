@@ -169,7 +169,7 @@ function optionalEnv(name: string) {
 }
 
 function routeSampleCount() {
-  const parsed = Number.parseInt(optionalEnv("TASK077_ROUTE_SAMPLE_COUNT") ?? "1", 10);
+  const parsed = Number(optionalEnv("TASK077_ROUTE_SAMPLE_COUNT") ?? "1");
 
   if (!Number.isInteger(parsed) || parsed < 1 || parsed > 20) {
     throw new Error(
@@ -845,6 +845,43 @@ async function measureRouteNavigation(
   };
 }
 
+function summarizeLatency(values: readonly (number | null)[]) {
+  const sorted = values
+    .filter((value): value is number => value !== null)
+    .sort((left, right) => left - right);
+  const percentile = (value: number) =>
+    sorted.length === 0
+      ? null
+      : sorted[Math.max(0, Math.ceil(sorted.length * value) - 1)];
+
+  return {
+    count: sorted.length,
+    max: sorted.at(-1) ?? null,
+    p50: percentile(0.5),
+    p95: percentile(0.95),
+  };
+}
+
+function summarizeMeasurements(measurements: readonly RouteMeasurement[]) {
+  const summarizeSet = (items: readonly RouteMeasurement[]) => ({
+    finalMs: summarizeLatency(items.map((item) => item.finalMs)),
+    ttfbMs: summarizeLatency(items.map((item) => item.ttfbMs)),
+    visualReplacementMs: summarizeLatency(
+      items.map((item) => item.visualReplacementMs),
+    ),
+  });
+
+  return {
+    overall: summarizeSet(measurements),
+    routes: Object.fromEntries(
+      Array.from(new Set(measurements.map((item) => item.path))).map((path) => [
+        path,
+        summarizeSet(measurements.filter((item) => item.path === path)),
+      ]),
+    ),
+  };
+}
+
 function writeReport(input: {
   measurements: readonly RouteMeasurement[];
   phase: string;
@@ -857,6 +894,11 @@ function writeReport(input: {
     generatedAt: new Date().toISOString(),
     measurements: input.measurements,
     phase: input.phase,
+    sampling: {
+      requestedSamplesPerRoute: routeSampleCount(),
+      serverQueryTrace: "not_inferred_by_browser_measurements",
+    },
+    summaries: summarizeMeasurements(input.measurements),
     shop: {
       id: "redacted",
       priceCount: input.target.priceCount,

@@ -438,6 +438,9 @@ const env = {
   TASK077A_PERF_PHASE:
     process.env.TASK077A_PERF_PHASE ||
     (appTarget === "local-cloud" ? "local-cloud-before" : "staging-before"),
+  TASK077A_SAMPLE_COUNT:
+    process.env.TASK077A_SAMPLE_COUNT ||
+    (appTarget === "local-cloud" ? "3" : "1"),
   TEST_TARGET: "staging",
 };
 env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY =
@@ -486,6 +489,15 @@ if (env.CONFIRM_TASK077A_PLATFORM_READONLY !== "yes") {
   );
 }
 
+const sampleCount = Number(env.TASK077A_SAMPLE_COUNT);
+
+if (!Number.isInteger(sampleCount) || sampleCount < 1 || sampleCount > 20) {
+  fail(
+    "BLOCKED_TASK077A_SAMPLE_COUNT",
+    "TASK077A_SAMPLE_COUNT must be an integer from 1 to 20.",
+  );
+}
+
 const extraArgs = process.argv.slice(2);
 const reportPath = reportPathForPhase(env.TASK077A_PERF_PHASE);
 const traces = [];
@@ -498,6 +510,7 @@ console.log(
 );
 console.log(`[task-077a-platform-performance] app_target=${appTarget}`);
 console.log(`[task-077a-platform-performance] phase=${env.TASK077A_PERF_PHASE}`);
+console.log(`[task-077a-platform-performance] samples_per_route=${sampleCount}`);
 
 try {
   if (appTarget === "local-cloud") {

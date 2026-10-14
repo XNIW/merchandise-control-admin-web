@@ -38,6 +38,7 @@ type RouteMeasurement = {
   label: string;
   navigationError?: string;
   path: string;
+  sample: number;
   pendingMs: number | null;
   pendingStatus: "observed" | "not_observed" | "final_under_300ms";
   rscBytes?: number | null;
@@ -141,6 +142,19 @@ function requiredEnv(name: string) {
   }
 
   return value;
+}
+
+function configuredSampleCount() {
+  const raw = process.env.TASK077A_SAMPLE_COUNT?.trim() || "1";
+  const count = Number(raw);
+
+  if (!Number.isInteger(count) || count < 1 || count > 20) {
+    throw new Error(
+      "BLOCKED_TASK077A_SAMPLE_COUNT: TASK077A_SAMPLE_COUNT must be an integer from 1 to 20.",
+    );
+  }
+
+  return count;
 }
 
 function optionalEnv(name: string) {
@@ -458,6 +472,7 @@ async function measureRouteNavigation(
   context: BrowserContext,
   route: RouteCheck,
   consoleErrors: readonly string[],
+  sample: number,
 ): Promise<RouteMeasurement> {
   const ttfb = await measureTtfb(context, route.path);
   const link = page.locator(`a[href="${route.path}"]`).first();
@@ -514,6 +529,7 @@ async function measureRouteNavigation(
       navigationError:
         error instanceof Error ? error.message.slice(0, 180) : "click_failed",
       path: route.path,
+      sample,
       pendingMs: null,
       pendingStatus: "not_observed",
       rscBytes: null,
@@ -572,6 +588,7 @@ async function measureRouteNavigation(
     key: route.key,
     label: route.label,
     path: route.path,
+    sample,
     pendingMs,
     pendingStatus,
     rscBytes: rscPayloads.reduce((total, payload) => total + payload.bytes, 0),
@@ -581,6 +598,62 @@ async function measureRouteNavigation(
     visualReplacementMs: pendingMs,
     visualReplacementStatus: pendingStatus,
   };
+}
+
+function summarizeLatency(values: readonly (number | null)[]) {
+  const sorted = values
+    .filter((value): value is number => value !== null)
+    .sort((left, right) => left - right);
+  const percentile = (value: number) =>
+    sorted.length === 0
+      ? null
+      : sorted[Math.max(0, Math.ceil(sorted.length * value) - 1)];
+
+  return {
+    count: sorted.length,
+    max: sorted.at(-1) ?? null,
+    p50: percentile(0.5),
+    p95: percentile(0.95),
+  };
+}
+
+function summarizeMeasurements(measurements: readonly RouteMeasurement[]) {
+  const summarizeSet = (items: readonly RouteMeasurement[]) => ({
+    finalMs: summarizeLatency(items.map((item) => item.finalMs)),
+    ttfbMs: summarizeLatency(items.map((item) => item.ttfbMs)),
+    visualReplacementMs: summarizeLatency(
+      items.map((item) => item.visualReplacementMs),
+    ),
+  });
+
+  return {
+    overall: summarizeSet(measurements),
+    routes: Object.fromEntries(
+      Array.from(new Set(measurements.map((item) => item.path))).map((path) => [
+        path,
+        summarizeSet(measurements.filter((item) => item.path === path)),
+      ]),
+    ),
+  };
+}
+
+async function prepareRepeatedSingleRouteSample(
+  page: Page,
+  routes: readonly RouteCheck[],
+  sample: number,
+) {
+  if (sample === 1 || routes.length !== 1) {
+    return;
+  }
+
+  const alternate = routeChecks.find((route) => route.path !== routes[0]?.path);
+
+  if (!alternate) {
+    return;
+  }
+
+  await page.goto(routeUrl(alternate.path).toString());
+  await expectRouteHeading(page, alternate.heading);
 }
 
 function writeReport(input: {
@@ -599,6 +672,10 @@ function writeReport(input: {
     generatedAt: new Date().toISOString(),
     measurements: input.measurements,
     phase: input.phase,
+    sampling: {
+      requestedSamplesPerRoute: configuredSampleCount(),
+      serverQueryTrace: "not_inferred_by_browser_measurements",
+    },
     platformAdmin: {
       source: input.target.source,
       user: "redacted",
@@ -608,6 +685,7 @@ function writeReport(input: {
       class: "cloud-supabase-readonly",
       testTarget: process.env.TEST_TARGET,
     },
+    summaries: summarizeMeasurements(input.measurements),
   };
 
   writeFileSync(`${outputPath}.tmp`, `${JSON.stringify(payload, null, 2)}\n`);
@@ -624,7 +702,9 @@ test("TASK-077A measures Platform Master Console cloud data latency", async ({
   context,
   page,
 }) => {
-  test.setTimeout(180_000);
+  const sampleCount = configuredSampleCount();
+
+  test.setTimeout(Math.min(900_000, 60_000 + sampleCount * 120_000));
   expect(process.env.CONFIRM_TASK077A_PLATFORM_READONLY).toBe("yes");
 
   const target = await resolvePlatformAdminTarget(createAdminClient());
@@ -643,19 +723,28 @@ test("TASK-077A measures Platform Master Console cloud data latency", async ({
 
   await signInWithMagicLink(page, target);
 
-  for (const route of routes) {
-    routeConsoleErrors.length = 0;
-    measurements.push(
-      await measureRouteNavigation(page, context, route, routeConsoleErrors),
-    );
-    writeReport({
-      measurements,
-      phase: process.env.TASK077A_PERF_PHASE ?? "local-cloud-before",
-      target,
-    });
+  for (let sample = 1; sample <= sampleCount; sample += 1) {
+    for (const route of routes) {
+      await prepareRepeatedSingleRouteSample(page, routes, sample);
+      routeConsoleErrors.length = 0;
+      measurements.push(
+        await measureRouteNavigation(
+          page,
+          context,
+          route,
+          routeConsoleErrors,
+          sample,
+        ),
+      );
+      writeReport({
+        measurements,
+        phase: process.env.TASK077A_PERF_PHASE ?? "local-cloud-before",
+        target,
+      });
+    }
   }
 
-  expect(measurements).toHaveLength(routes.length);
+  expect(measurements).toHaveLength(routes.length * sampleCount);
 
   if (process.env.TASK077A_ENFORCE_THRESHOLDS === "yes") {
     expect(
