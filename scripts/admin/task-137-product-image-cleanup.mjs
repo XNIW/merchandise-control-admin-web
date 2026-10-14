@@ -29,6 +29,8 @@ const storagePageSize = 100;
 const maximumLifecycleRows = 50_000;
 const maximumStorageObjects = 50_000;
 const maximumStoragePrefixes = 100_000;
+const cleanupLeaseSeconds = 30 * 60;
+const cleanupLeaseRenewIntervalMilliseconds = 60 * 1_000;
 const uuidSegment =
   "[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}";
 const uuidPattern = new RegExp(`^${uuidSegment}$`, "i");
@@ -37,9 +39,18 @@ const canonicalObjectPathPattern = new RegExp(
   "i",
 );
 
+class CleanupFailure extends Error {
+  constructor(code, message) {
+    super(message);
+    this.code = code;
+    this.name = "CleanupFailure";
+  }
+}
+
+let cleanupRunContext = null;
+
 function fail(code, message) {
-  console.error(`[task137-image-cleanup] FAIL ${code}: ${message}`);
-  process.exit(2);
+  throw new CleanupFailure(code, message);
 }
 
 function info(message) {
@@ -52,6 +63,104 @@ function hashId(value) {
 
 function isRecord(value) {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+function alertStatus(metrics, status) {
+  if (status === "failed" || metrics.failedCount > 0) return "critical";
+  if (
+    metrics.candidateCount > 0 ||
+    metrics.skippedAfterRecheck > 0
+  ) {
+    return "warning";
+  }
+  return "ok";
+}
+
+function emitRunMetrics(context, status, alert, errorCode = null) {
+  console.log(
+    `[task139-image-cleanup-metrics] ${JSON.stringify({
+      alertStatus: alert,
+      candidateBytes: context.metrics.candidateBytes,
+      candidateCount: context.metrics.candidateCount,
+      completedBytes: context.metrics.completedBytes,
+      completedObjectCount: context.metrics.completedObjectCount,
+      durationMilliseconds: Math.max(0, Date.now() - context.startedAt),
+      errorCode,
+      failedCount: context.metrics.failedCount,
+      mode: execute ? "execute" : "dry-run",
+      shopHash: hashId(shopId),
+      skippedAfterRecheck: context.metrics.skippedAfterRecheck,
+      status,
+      target,
+    })}`,
+  );
+}
+
+async function finishCleanupRun(status, errorCode = null) {
+  const context = cleanupRunContext;
+  if (!context || context.finished) return;
+  const alert = alertStatus(context.metrics, status);
+  const result = await context.supabase.rpc("product_image_finish_cleanup_run", {
+    p_alert_status: alert,
+    p_candidate_bytes: context.metrics.candidateBytes,
+    p_candidate_count: context.metrics.candidateCount,
+    p_completed_bytes: context.metrics.completedBytes,
+    p_completed_object_count: context.metrics.completedObjectCount,
+    p_error_code: errorCode ?? undefined,
+    p_failed_count: context.metrics.failedCount,
+    p_run_id: context.runId,
+    p_skipped_after_recheck: context.metrics.skippedAfterRecheck,
+    p_status: status,
+  });
+  if (result.error || result.data?.ok !== true) {
+    throw new CleanupFailure(
+      "CLEANUP_RUN_RECORD_FAILED",
+      "The redacted cleanup run ledger could not be finalized.",
+    );
+  }
+  context.finished = true;
+  emitRunMetrics(context, status, alert, errorCode);
+}
+
+async function ensureCleanupLease(force = false) {
+  if (!execute) return;
+  const context = cleanupRunContext;
+  if (!context || context.finished) {
+    throw new CleanupFailure(
+      "CLEANUP_RUN_LEASE_LOST",
+      "The cleanup run no longer owns an active lease.",
+    );
+  }
+  if (
+    !force &&
+    Date.now() - context.lastLeaseRenewedAt <
+      cleanupLeaseRenewIntervalMilliseconds
+  ) {
+    return;
+  }
+  if (!context.renewalPromise) {
+    context.renewalPromise = (async () => {
+      const result = await context.supabase.rpc(
+        "product_image_renew_cleanup_run",
+        {
+          p_lease_seconds: cleanupLeaseSeconds,
+          p_run_id: context.runId,
+        },
+      );
+      if (result.error || result.data?.ok !== true) {
+        throw new CleanupFailure(
+          "CLEANUP_RUN_LEASE_LOST",
+          "The cleanup run no longer owns an active lease.",
+        );
+      }
+      context.lastLeaseRenewedAt = Date.now();
+    })();
+  }
+  try {
+    await context.renewalPromise;
+  } finally {
+    context.renewalPromise = null;
+  }
 }
 
 function localEnv() {
@@ -168,6 +277,7 @@ function parseOrphanPath(path) {
 async function readLifecycleCandidates(client) {
   const candidates = [];
   for (let offset = 0; ; offset += scanLimit) {
+    await ensureCleanupLease();
     const result = await client
       .from("inventory_product_image_versions")
       .select(
@@ -201,6 +311,7 @@ async function readLifecycleCandidates(client) {
 async function readLifecyclePaths(client) {
   const paths = new Set();
   for (let offset = 0; ; offset += databasePageSize) {
+    await ensureCleanupLease();
     const result = await client
       .from("inventory_product_image_versions")
       .select("main_path,thumb_path")
@@ -239,6 +350,7 @@ async function readStorageObjects(bucket) {
     }
     const prefix = prefixes[prefixIndex];
     for (let offset = 0; ; offset += storagePageSize) {
+      await ensureCleanupLease();
       const result = await bucket.list(prefix, {
         limit: storagePageSize,
         offset,
@@ -318,6 +430,44 @@ async function main() {
       },
     },
   );
+  if (execute) {
+    const beginRun = await supabase.rpc("product_image_begin_cleanup_run", {
+      p_lease_seconds: cleanupLeaseSeconds,
+      p_mode: "execute",
+      p_shop_id: shopId,
+      p_target: target,
+    });
+    if (
+      beginRun.error ||
+      !isRecord(beginRun.data) ||
+      beginRun.data.ok !== true ||
+      typeof beginRun.data.run_id !== "string" ||
+      !uuidPattern.test(beginRun.data.run_id)
+    ) {
+      fail(
+        beginRun.data?.code === "cleanup_run_already_active"
+          ? "CLEANUP_RUN_ALREADY_ACTIVE"
+          : "CLEANUP_RUN_ACQUIRE_FAILED",
+        "A bounded cleanup run lock could not be acquired for this shop.",
+      );
+    }
+    cleanupRunContext = {
+      finished: false,
+      lastLeaseRenewedAt: Date.now(),
+      metrics: {
+        candidateBytes: 0,
+        candidateCount: 0,
+        completedBytes: 0,
+        completedObjectCount: 0,
+        failedCount: 0,
+        skippedAfterRecheck: 0,
+      },
+      runId: beginRun.data.run_id,
+      renewalPromise: null,
+      startedAt: Date.now(),
+      supabase,
+    };
+  }
   const bucket = supabase.storage.from("product-images");
   const [candidates, lifecyclePaths, storageObjects] = await Promise.all([
     readLifecycleCandidates(supabase),
@@ -353,6 +503,12 @@ async function main() {
     0,
   );
 
+  if (cleanupRunContext) {
+    cleanupRunContext.metrics.candidateCount =
+      candidates.length + orphanCandidates.length;
+    cleanupRunContext.metrics.candidateBytes = candidateBytes + orphanBytes;
+  }
+
   info(`target=${target}`);
   info(`mode=${execute ? "execute" : "dry-run"}`);
   info(`shop_hash=${hashId(shopId)}`);
@@ -370,6 +526,7 @@ async function main() {
   );
 
   if (!execute || (candidates.length === 0 && orphanCandidates.length === 0)) {
+    await finishCleanupRun("succeeded");
     info(
       execute ? "PASS no eligible residue" : "PASS dry-run; no objects changed",
     );
@@ -380,8 +537,17 @@ async function main() {
   let completedBytes = 0;
   let failed = 0;
   let skippedAfterRecheck = 0;
+  const updateRunMetrics = () => {
+    if (!cleanupRunContext) return;
+    cleanupRunContext.metrics.completedObjectCount = completed;
+    cleanupRunContext.metrics.completedBytes = completedBytes;
+    cleanupRunContext.metrics.skippedAfterRecheck = skippedAfterRecheck;
+    cleanupRunContext.metrics.failedCount = failed;
+  };
 
   for (const row of candidates) {
+    updateRunMetrics();
+    await ensureCleanupLease(true);
     const preparedResult = await supabase.rpc("product_image_prepare_cleanup", {
       p_product_id: row.product_id,
       p_shop_id: shopId,
@@ -412,11 +578,13 @@ async function main() {
       continue;
     }
 
+    await ensureCleanupLease(true);
     const [mainRemoved, thumbRemoved] = await Promise.all([
       removeOne(bucket, prepared.main_path),
       removeOne(bucket, prepared.thumb_path),
     ]);
     const success = mainRemoved && thumbRemoved;
+    await ensureCleanupLease(true);
     const recordResult = await supabase.rpc("product_image_record_cleanup", {
       p_actor_kind: "platform_admin",
       p_actor_profile_id: null,
@@ -442,11 +610,13 @@ async function main() {
   }
 
   for (const object of orphanCandidates) {
+    updateRunMetrics();
     const parsed = parseOrphanPath(object.path);
     if (!parsed) {
       failed += 1;
       continue;
     }
+    await ensureCleanupLease(true);
     const preparedResult = await supabase.rpc(
       "product_image_prepare_orphan_cleanup",
       { p_object_path: object.path, p_shop_id: shopId },
@@ -472,7 +642,9 @@ async function main() {
       continue;
     }
 
+    await ensureCleanupLease(true);
     const success = await removeOne(bucket, object.path);
+    await ensureCleanupLease(true);
     const recordResult = await supabase.rpc(
       "product_image_record_orphan_cleanup",
       {
@@ -493,6 +665,7 @@ async function main() {
     }
   }
 
+  updateRunMetrics();
   info(`completed_object_count=${completed}`);
   info(`completed_bytes=${completedBytes}`);
   info(`skipped_after_recheck=${skippedAfterRecheck}`);
@@ -503,6 +676,7 @@ async function main() {
       "One or more scoped candidates remain retryable.",
     );
   }
+  await finishCleanupRun("succeeded");
   info("PASS cleanup batch completed");
 }
 
@@ -510,10 +684,27 @@ if (
   process.argv[1] &&
   import.meta.url === pathToFileURL(process.argv[1]).href
 ) {
-  main().catch(() => {
-    fail(
-      "UNEXPECTED_FAILURE",
-      "Cleanup stopped without exposing internal details.",
-    );
+  main().catch(async (error) => {
+    const code =
+      error instanceof CleanupFailure
+        ? error.code
+        : "UNEXPECTED_FAILURE";
+    const message =
+      error instanceof CleanupFailure
+        ? error.message
+        : "Cleanup stopped without exposing internal details.";
+    if (cleanupRunContext && !cleanupRunContext.finished) {
+      cleanupRunContext.metrics.failedCount = Math.max(
+        1,
+        cleanupRunContext.metrics.failedCount,
+      );
+      try {
+        await finishCleanupRun("failed", code.toLowerCase());
+      } catch {
+        // Preserve the original redacted failure; the lease will expire safely.
+      }
+    }
+    console.error(`[task137-image-cleanup] FAIL ${code}: ${message}`);
+    process.exitCode = 2;
   });
 }

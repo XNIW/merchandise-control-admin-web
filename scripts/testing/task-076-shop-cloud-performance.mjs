@@ -121,6 +121,7 @@ const env = {
 env.SUPABASE_ANON_KEY =
   env.SUPABASE_ANON_KEY || env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 env.TASK076_PERF_PHASE = env.TASK076_PERF_PHASE || "manual";
+env.TASK076_SAMPLE_COUNT = env.TASK076_SAMPLE_COUNT || "1";
 
 const missing = requiredEnvNames.filter((name) => !env[name]?.trim());
 if (missing.length > 0) {
@@ -135,6 +136,15 @@ if (env.SUPABASE_PROJECT_REF.trim() !== refFromUrl) {
   fail(
     "BLOCKED_TASK076_PROJECT_REF_MISMATCH",
     "SUPABASE_PROJECT_REF must match the Supabase URL project ref.",
+  );
+}
+
+const sampleCount = Number(env.TASK076_SAMPLE_COUNT);
+
+if (!Number.isInteger(sampleCount) || sampleCount < 1 || sampleCount > 20) {
+  fail(
+    "BLOCKED_TASK076_SAMPLE_COUNT",
+    "TASK076_SAMPLE_COUNT must be an integer from 1 to 20.",
   );
 }
 
@@ -168,6 +178,7 @@ console.log(
   `[task-076-cloud-performance] target_ref=${redactRef(env.SUPABASE_PROJECT_REF)}`,
 );
 console.log(`[task-076-cloud-performance] phase=${env.TASK076_PERF_PHASE}`);
+console.log(`[task-076-cloud-performance] samples_per_route=${sampleCount}`);
 
 const result = spawnSync(
   process.execPath,

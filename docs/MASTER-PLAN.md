@@ -14,6 +14,18 @@ Le prove live e la qualificazione uniforme/risorse restano separate e non esegui
 da questa chiusura. PR133 resta draft come provenienza della variante staging.
 [Ricevuta storica delle evidence](TASKS/TASK-094-pos-catalog-import-receipt-and-retirement.md#evidence-storiche-recuperate-nella-chiusura-git-del-14-ottobre-2026).
 
+Il successivo recupero selettivo del WIP immagini conserva il validatore server
+corrente e rimuove soltanto metadata JPEG emessi da Canvas/OffscreenCanvas,
+che la prova browser indipendente ha riprodotto come causa di rifiuto degli
+output nativi. [Evidence e regressioni](TASKS/EVIDENCE/TASK-138/git-closeout-jpeg-20261014.md).
+
+Il medesimo candidato recupera il campionamento descrittivo dei harness076/077(A)
+e collega il CLI cleanup privato al run ledger già presente, soltanto in execute.
+Dry-run, validatori, guard recenti e failure storiche restano preservati.
+[Sampling](TASKS/EVIDENCE/TASK-076/git-closeout-sampling-20261014.md) e
+[cleanup](TASKS/EVIDENCE/TASK-137/git-closeout-cleanup-20261014.md) documentano i
+confini delle prove sintetiche, distinti dall'accettazione live.
+
 ## TASK-094 REVIEW — cache degli array del piano, 13 ottobre 2026 UTC
 
 FIX circoscritto autorizzato nel worktree `admin-post-pr123-plan-array-cache-20261013`,

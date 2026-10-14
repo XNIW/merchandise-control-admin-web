@@ -2,6 +2,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join, resolve } from "node:path";
 import vm from "node:vm";
+import { csharpSourceViews, maskCSharpComments } from "./lib/csharp-source.mjs";
 
 const require = createRequire(import.meta.url);
 const ts = require("typescript");
@@ -72,6 +73,226 @@ const allowedPosDynamicKeyUsages = new Map([
     },
   ],
 ]);
+
+// These contracts bind a finite key family to the actual composing callsite.
+// An unrecognized path or expression remains a missing literal-key error.
+const importRecoveryCauseKeys = [
+  "authentication", "backupFailed", "batchLimit", "conflict", "historyConflict",
+  "invalidData", "network", "overlapPending", "preparedPlanConflict",
+  "productChanged", "quantityConflict", "receiptConflict", "recoveryCapacity",
+  "saveFailed", "unknownBlocked",
+];
+const importRecoveryFieldKeys = ["purchase", "retail", "quantity", "data"];
+const backupResultKeys = [
+  "backup_verified", "backup_verified_retention_warning", "access_denied",
+  "network_unavailable", "cancelled", "backup_failed", "configuration_invalid",
+  "published_identity_invalid", "backup_finalize_pending", "live_database_missing", "busy",
+];
+for (const [prefix, contract] of [
+  ["importRecovery.", {
+    requiredKeys: [...importRecoveryCauseKeys, ...importRecoveryFieldKeys].map((key) => `importRecovery.${key}`),
+    usages: [
+      { path: "src/Win7POS.Wpf/Pos/Dialogs/CatalogImportRecoveryDialog.xaml.cs", suffix: /^\s*\+\s*field\s*\)/, count: 1 },
+      { path: "src/Win7POS.Wpf/Pos/Dialogs/ImportRecoveryPresentation.cs", suffix: /^\s*\+\s*FieldKey\(issue\.Field\)\s*\)/, count: 1 },
+      { path: "src/Win7POS.Wpf/Pos/Dialogs/ImportRecoveryPresentation.cs", suffix: /^\s*\+\s*key\s*\)/, count: 1 },
+    ],
+  }],
+  ["customerDisplay.polish.", {
+    requiredKeys: ["logoPosition.Left", "logoPosition.Center", "idleMode.Welcome", "idleMode.CustomMessage", "idleMode.Clock", "barcodeMode.Hidden", "barcodeMode.Last4", "barcodeMode.Full"].map((key) => `customerDisplay.polish.${key}`),
+    usages: [{ path: "src/Win7POS.Wpf/Pos/Dialogs/CustomerDisplaySettingsViewModel.cs", suffix: /^\s*\+\s*group\s*\+\s*"\."\s*\+\s*value\s*\)/, count: 1 }],
+  }],
+  ["settingsProfile.safety.", {
+    requiredKeys: ["settingsProfile.safety.hardware_activation_local", "settingsProfile.safety.backup_target_invalid"],
+    usages: [{ path: "src/Win7POS.Wpf/Pos/Dialogs/DbMaintenanceViewModel.cs", suffix: /^\s*\+\s*x\s*\)/, count: 1 }],
+  }],
+  ["backupAutomation.result.", {
+    requiredKeys: backupResultKeys.map((key) => `backupAutomation.result.${key}`),
+    usages: [
+      { path: "src/Win7POS.Wpf/Pos/Dialogs/DbMaintenanceViewModel.cs", suffix: /^\s*\+\s*key\s*\)/, count: 1 },
+      { path: "src/Win7POS.Wpf/Pos/Dialogs/DbMaintenanceViewModel.cs", suffix: /^\s*\+\s*code\s*\)/, count: 1 },
+    ],
+  }],
+  ["supplierExcelImport.field", {
+    requiredKeys: ["Barcode", "ProductName", "SecondProductName", "ItemNumber", "Supplier", "Category", "PurchasePrice", "RetailPrice", "Quantity"].map((key) => `supplierExcelImport.field${key}`),
+    usages: [{ path: "src/Win7POS.Wpf/Pos/Dialogs/ImportRecoveryPresentation.cs", suffix: /^\s*\+\s*field\s*\)/, count: 2 }],
+  }],
+  ["hardware.diagnostic.", {
+    requiredKeys: ["hardware.diagnostic.unavailable", "hardware.diagnostic.timeout", "hardware.diagnostic.busy"],
+    usages: [{ path: "src/Win7POS.Wpf/Pos/Dialogs/PrinterSettingsViewModel.cs", suffix: /^\s*\+\s*\(result\.Completed\s*\?\s*"unavailable"\s*:\s*result\.ResultCode\)\s*\)/, count: 1 }],
+  }],
+]) {
+  allowedPosDynamicKeyUsages.set(prefix, contract);
+}
+
+// A changed enum/result domain needs review instead of silently broadening a prefix.
+function validatePosDynamicDomains(errors) {
+  function check(path, pattern, values, expected) {
+    const source = maskCSharpComments(readFileSync(join(posRoot, path), "utf8"));
+    const match = pattern.exec(source);
+    const actual = match ? values(match[1]) : [];
+    if (JSON.stringify([...new Set(actual)].sort()) !== JSON.stringify([...new Set(expected)].sort())) {
+      errors.push(`pos: dynamic translation domain changed in ${path}`);
+    }
+  }
+  const strings = (source) => {
+    const values = Array.from(source.matchAll(/"([^"\\]+)"/g), (match) => match[1]);
+    return csharpSourceViews(source).code.replace(/[,\s]/g, "") ? [...values, "<unsupported array expression>"] : values;
+  };
+  const ternaryValues = (source) => Array.from(source.matchAll(/[?:]\s*"([^"\\]+)"/g), (match) => match[1]);
+  const customerSettings = "src/Win7POS.Core/Pos/CustomerDisplaySettings.cs";
+  for (const [name, values] of [
+    ["LogoPosition", ["Left", "Center"]],
+    ["IdleMode", ["Welcome", "CustomMessage", "Clock"]],
+    ["BarcodeMode", ["Hidden", "Last4", "Full"]],
+  ]) {
+    check(customerSettings, new RegExp(`enum CustomerDisplay${name}\\s*\\{([^}]+)\\}`), (source) => source.split(",").map((value) => value.trim()), values);
+  }
+  check("src/Win7POS.Wpf/Pos/Dialogs/CustomerDisplaySettingsViewModel.cs", /([\s\S]*)/, (source) => Array.from(source.matchAll(/Choices\(typeof\((CustomerDisplay\w+)\),\s*"([^"\\]+)"\)/g), (match) => `${match[1]}|${match[2]}`), ["CustomerDisplayLogoPosition|logoPosition", "CustomerDisplayIdleMode|idleMode", "CustomerDisplayBarcodeMode|barcodeMode"]);
+  check("src/Win7POS.Wpf/Pos/Dialogs/DbMaintenanceViewModel.cs", /BackupResultCodes\s*=\s*\{([^}]+)\}/, strings, backupResultKeys);
+  check("src/Win7POS.Data/Operations/SettingsOperationsService.cs", /([\s\S]*)/, (source) => Array.from(source.matchAll(/adjustments\.Add\("([^"\\]+)"\)/g), (match) => match[1]), ["hardware_activation_local", "backup_target_invalid"]);
+  check("src/Win7POS.Core/Hardware/SingleFlightDiagnostic.cs", /([\s\S]*)/, (source) => Array.from(source.matchAll(/ResultCode\s*=\s*"([^"\\]+)"/g), (match) => match[1]), ["busy", "timeout", "completed", "unavailable"]);
+  check("src/Win7POS.Wpf/Pos/Dialogs/CatalogImportRecoveryDialog.xaml.cs", /var field =([\s\S]*?);/, ternaryValues, importRecoveryFieldKeys);
+  check("src/Win7POS.Wpf/Pos/Dialogs/ImportRecoveryPresentation.cs", /var key =([\s\S]*?);/, ternaryValues, importRecoveryCauseKeys);
+  check("src/Win7POS.Wpf/Pos/Dialogs/ImportRecoveryPresentation.cs", /internal static string FieldKey\(string field\)([\s\S]*?)internal static string FriendlyCause/, (source) => Array.from(source.matchAll(/return "([^"\\]+)"/g), (match) => match[1]), importRecoveryFieldKeys);
+  check("src/Win7POS.Wpf/Pos/Dialogs/ImportRecoveryPresentation.cs", /internal static string DescribePlanRowError([\s\S]*)/, (source) => Array.from(source.matchAll(/field = "([^"\\]+)"/g), (match) => match[1]), ["Barcode", "ProductName", "SecondProductName", "ItemNumber", "Supplier", "Category", "PurchasePrice", "RetailPrice", "Quantity"]);
+}
+
+// Recognize the current finite producer -> sink forms. Unrecognized writes,
+// extra uses or statements require review; a set of literals alone is insufficient.
+function validatePosDynamicBindings(errors) {
+  const read = (path) => csharpSourceViews(readFileSync(join(posRoot, path), "utf8"));
+  const fail = (path, name) => errors.push(`pos: unsupported dynamic translation binding ${name} in ${path}`);
+  for (const [prefix, contract] of allowedPosDynamicKeyUsages) {
+    for (const usage of contract.usages ?? []) {
+      const view = read(usage.path);
+      const matches = Array.from(view.active.matchAll(/PosLocalization\.(?:Current\.(?:Text|Format)|T|F)\(\s*"([^"\\]+)"/g));
+      const actual = matches.filter((match) => match[1] === prefix && view.code.startsWith("PosLocalization", match.index) && usage.suffix.test(view.active.slice(match.index + match[0].length))).length;
+      if (actual !== usage.count) fail(usage.path, `${prefix} recognized sink count`);
+    }
+  }
+  const sameSet = (left, right) => left && JSON.stringify([...new Set(left)].sort()) === JSON.stringify([...new Set(right)].sort());
+  const count = (code, name) => Array.from(code.matchAll(new RegExp(`\\b${name}\\b`, "g"))).length;
+  const body = (view, name) => {
+    const match = new RegExp(`\\b${name}\\([^;{}]*\\)\\s*\\{`, "g").exec(view.code);
+    if (!match) return { active: "", code: "", literal: new Uint8Array() };
+    const start = match.index + match[0].length;
+    let depth = 1; let end = start;
+    while (end < view.code.length && depth) {
+      if (view.code[end] === "{") depth += 1;
+      if (view.code[end] === "}") depth -= 1;
+      end += 1;
+    }
+    return { active: view.active.slice(start, end - 1), code: view.code.slice(start, end - 1), literal: view.literal.slice(start, end - 1) };
+  };
+  const assignments = (view, name, terminators = ";") => Array.from(view.code.matchAll(
+    new RegExp(`\\b${name}\\s*(\\?\\?=|[+*/%&|^\\-]?=)(?!=)([^${terminators}]*?)[${terminators}]`, "gd"),
+  ), (match) => ({ operator: match[1], value: view.active.slice(...match.indices[2]), end: match.indices[0][1] }));
+  const escaped = (view, name) => new RegExp(`\\b(?:ref|out)\\s+${name}\\b|\\b${name}\\s*(?:\\+\\+|--)`).test(view.code);
+  const contains = (view, expected) => {
+    const compact = (value) => {
+      let active = ""; let code = "";
+      for (let index = 0; index < value.active.length; index += 1) {
+        if (/\s/.test(value.active[index]) && !value.literal[index]) continue;
+        active += value.active[index]; code += value.code[index];
+      }
+      return { active, code };
+    };
+    const { active, code } = compact(view);
+    const fragment = compact(csharpSourceViews(expected)).active;
+    let offset = active.indexOf(fragment);
+    while (offset >= 0) {
+      if (code[offset] === fragment[0]) return true;
+      offset = active.indexOf(fragment, offset + 1);
+    }
+    return false;
+  };
+  function finiteStrings(expression) {
+    const text = expression.trim();
+    if (/^"(?:[^"\\]|\\.)*"$/.test(text)) return [JSON.parse(text)];
+    const code = csharpSourceViews(text).code;
+    let depth = 0; let question = -1; let colon = -1; let pending = 0;
+    for (let index = 0; index < code.length; index += 1) {
+      if ("([{<".includes(code[index])) depth += 1;
+      if (")]}>".includes(code[index])) depth -= 1;
+      if (depth !== 0) continue;
+      if (code[index] === "?" && code[index - 1] !== "?" && code[index + 1] !== "?") {
+        if (question < 0) question = index;
+        pending += 1;
+      }
+      if (code[index] === ":" && question >= 0 && --pending === 0) { colon = index; break; }
+    }
+    if (question <= 0 || colon < 0) return null;
+    const yes = finiteStrings(text.slice(question + 1, colon));
+    const no = finiteStrings(text.slice(colon + 1));
+    return yes && no ? [...yes, ...no] : null;
+  }
+  const wpf = "src/Win7POS.Wpf/";
+  const presentationPath = `${wpf}Pos/Dialogs/ImportRecoveryPresentation.cs`;
+  const presentation = read(presentationPath);
+  for (const [path, method, variable, expected] of [
+    [presentationPath, "FriendlyCause", "key", importRecoveryCauseKeys],
+    [`${wpf}Pos/Dialogs/CatalogImportRecoveryDialog.xaml.cs`, "PreviewFieldError", "field", importRecoveryFieldKeys],
+  ]) {
+    const methodBody = body(read(path), method);
+    const writes = assignments(methodBody, variable);
+    const sink = new RegExp(`^\\s*return\\s+PosLocalization\\.T\\("importRecovery\\."\\s*\\+\\s*${variable}\\)`);
+    if (writes.length !== 1 || writes[0].operator !== "=" || !sameSet(finiteStrings(writes[0].value), expected) ||
+        !sink.test(methodBody.active.slice(writes[0].end)) || escaped(methodBody, variable)) fail(path, method);
+  }
+  const fieldBody = body(presentation, "FieldKey");
+  const fieldReturns = Array.from(fieldBody.active.matchAll(/return\s+"([^"\\]+)"\s*;/g), (match) => match[1]);
+  if (count(fieldBody.code, "return") !== fieldReturns.length || !sameSet(fieldReturns, importRecoveryFieldKeys)) fail(presentationPath, "FieldKey");
+  const rowBody = body(presentation, "DescribePlanRowError");
+  const fieldWrites = assignments(rowBody, "field");
+  const fieldValues = fieldWrites.map((write) => write.operator === "=" ? finiteStrings(write.value) : null);
+  if (fieldValues.some((values) => !values || values.length !== 1) || escaped(rowBody, "field") ||
+      !sameSet(fieldValues.flat(), ["Barcode", "ProductName", "SecondProductName", "ItemNumber", "Supplier", "Category", "PurchasePrice", "RetailPrice", "Quantity"]) ||
+      !contains(rowBody, 'return PosLocalization.F("importRecovery.rowError", row, barcode, invalidUnicode ? PosLocalization.F("importRecovery.fieldInvalidUnicode", PosLocalization.T("supplierExcelImport.field" + field)) : PosLocalization.F("importRecovery.fieldTooLong", PosLocalization.T("supplierExcelImport.field" + field), maximum));')) fail(presentationPath, "DescribePlanRowError.field");
+
+  const customerPath = `${wpf}Pos/Dialogs/CustomerDisplaySettingsViewModel.cs`;
+  const customer = read(customerPath);
+  if (count(customer.code, "Choices") !== 4 || !contains(customer,
+    'private static IEnumerable<CustomerDisplayOption> Choices(Type type, string group) => Enum.GetValues(type).Cast<object>().Select(value => new CustomerDisplayOption { Value = value, Label = PosLocalization.Current.Text("customerDisplay.polish." + group + "." + value) });')) fail(customerPath, "Choices");
+
+  const maintenancePath = `${wpf}Pos/Dialogs/DbMaintenanceViewModel.cs`;
+  const maintenance = read(maintenancePath);
+  const refresh = body(maintenance, "RefreshBackupResultAsync");
+  const backup = body(maintenance, "BackupNowAsync");
+  if (count(maintenance.code, "BackupResultCodes") !== 3 || !contains(refresh,
+    'var key = Array.IndexOf(BackupResultCodes, parts[0]) >= 0 ? parts[0] : "backup_failed"; LastBackupResult = PosLocalization.T("backupAutomation.result." + key)') ||
+    !contains(backup, 'foreach (var code in BackupResultCodes) { if (ex is InvalidOperationException && ex.Message == "Backup result=" + code) { detail = PosLocalization.T("backupAutomation.result." + code); break; } }')) fail(maintenancePath, "backup result whitelist to sink");
+
+  const settingsPath = "src/Win7POS.Data/Operations/SettingsOperationsService.cs";
+  const settings = read(settingsPath);
+  const safety = body(settings, "ApplySafety");
+  const preview = body(settings, "PreviewImportAsync");
+  const previewConstructor = body(settings, "SettingsProfilePreview");
+  const consumer = body(maintenance, "PreviewProfileAsync");
+  const previewWrites = assignments(consumer, "preview");
+  if (count(safety.code, "adjustments") !== 4 || !contains(safety, "var adjustments = new List<string>();") || !contains(safety, "return adjustments;") ||
+      count(preview.code, "adjustments") !== 2 || !contains(preview, 'var adjustments = ApplySafety(before, merged); var values = AddAliases(merged); return new SettingsProfilePreview(this, before, values, adjustments);') ||
+      count(settings.code, "SafetyAdjustments") !== 2 || !contains(settings, "public IReadOnlyList<string> SafetyAdjustments { get; }") ||
+      count(previewConstructor.code, "adjustments") !== 1 || !contains(previewConstructor, "SafetyAdjustments = adjustments.ToArray();") ||
+      count(consumer.code, "preview") !== 5 || previewWrites.length !== 1 || count(consumer.code, "return") !== 3 ||
+      !contains(consumer, "return await service.PreviewImportAsync(bytes).ConfigureAwait(false);") ||
+      !contains(consumer, 'preview.SafetyAdjustments.Select(x => PosLocalization.T("settingsProfile.safety." + x))')) fail(settingsPath, "SafetyAdjustments producer to sink");
+
+  const flightPath = "src/Win7POS.Core/Hardware/SingleFlightDiagnostic.cs";
+  const flightSource = read(flightPath);
+  const flight = body(flightSource, "RunAsync");
+  const resultWrites = assignments(flight, "ResultCode", ";},");
+  const diagnosticPath = `${wpf}Pos/Dialogs/PrinterSettingsViewModel.cs`;
+  const diagnostics = body(read(diagnosticPath), "ReadQueueDiagnosticsAsync");
+  const adapter = body(read(`${wpf}Printing/WindowsPrinterDiagnostics.cs`), "ReadAsync");
+  if (!contains(flightSource, 'public bool Completed => ResultCode == "completed";') ||
+      !contains(flightSource, "public string ResultCode { get; internal set; }") ||
+      resultWrites.length !== 4 || resultWrites.some((write) => write.operator !== "=" || !finiteStrings(write.value) || finiteStrings(write.value).length !== 1) ||
+      !sameSet(resultWrites.flatMap((write) => finiteStrings(write.value) ?? []), ["busy", "timeout", "completed", "unavailable"]) ||
+      count(adapter.code, "return") !== 3 || !contains(adapter, "return Flight.RunAsync(name, () =>") ||
+      count(diagnostics.code, "result") !== 5 || assignments(diagnostics, "result").length !== 1 ||
+      !contains(diagnostics, 'PosLocalization.T("hardware.diagnostic." + (result.Completed ? "unavailable" : result.ResultCode))') ||
+      !contains(diagnostics, "var result = await WindowsPrinterDiagnostics.ReadAsync(ResolveReceiptPrinter()?.Name ?? PrinterName).ConfigureAwait(true);")) fail(diagnosticPath, "diagnostic result to sink");
+}
 
 const requiredAdminExactKeys = [
   "Select product",
@@ -304,6 +525,16 @@ const technicalLiteralReasons = new Map([
   ["×", "icon-like close/control label"],
   ["→", "icon-like navigation glyph"],
 ]);
+const scopedTechnicalCsharpLiterals = new Map([
+  ["src/Win7POS.Wpf/Pos/Dialogs/CustomerDisplaySettingsDialog.xaml.cs|PNG / JPEG / BMP|*.png;*.jpg;*.jpeg;*.bmp", {
+    context: /new OpenFileDialog\s*\{\s*Filter = "PNG \/ JPEG \/ BMP\|\*\.png;\*\.jpg;\*\.jpeg;\*\.bmp"/,
+    reason: "image format names and file extension patterns in logo picker",
+  }],
+  ["src/Win7POS.Wpf/Pos/PosWorkflowService.cs|Backup result=", {
+    context: /throw new InvalidOperationException\("Backup result="\s*\+\s*result\.Code\)/,
+    reason: "internal backup result sentinel; DbMaintenanceViewModel maps known codes to localized copy and otherwise uses a localized fallback",
+  }],
+]);
 const xamlAllowedLiteralPattern =
   /^(?:\s*|[#0-9,.:;_\-/\s*()]+|\+ ?[0-9]+|\.{2,}|-|–|—|\?|…|☰|🔒|🔓)$/;
 
@@ -391,6 +622,7 @@ function samePlaceholders(left, right) {
 
 function parsePosEntries(sources, errors) {
   const entries = new Map();
+  const builderSource = csharpSourceViews(sources.find(([path]) => posRelativePath(path) === "src/Win7POS.Wpf/Localization/PosLocalization.cs")?.[1] ?? "").code;
   const entryPattern =
     /new TranslationEntry\(\s*"((?:[^"\\]|\\.)*)"\s*,\s*"((?:[^"\\]|\\.)*)"\s*,\s*"((?:[^"\\]|\\.)*)"\s*,\s*"((?:[^"\\]|\\.)*)"\s*,\s*"((?:[^"\\]|\\.)*)"\s*\)/g;
 
@@ -409,6 +641,49 @@ function parsePosEntries(sources, errors) {
         it: JSON.parse(`"${match[4]}"`),
         "zh-CN": JSON.parse(`"${match[5]}"`),
       });
+    }
+  }
+
+  const literal = '"((?:[^"\\\\]|\\\\.)*)"';
+  const decode = (value) => JSON.parse(`"${value}"`);
+  const directPattern = new RegExp(`catalog\\[${literal}\\]\\[${literal}\\]\\s*=\\s*${literal}\\s*;`, "g");
+  const recoveryPattern = new RegExp(`RecoveryText\\(catalog,\\s*${Array(5).fill(literal).join("\\s*,\\s*")}\\s*\\)`, "g");
+  const setLocale = (key, locale, value, filePath) => {
+    const values = entries.get(key) ?? {};
+    if (Object.hasOwn(values, locale)) {
+      errors.push(`pos: duplicate translation key ${key} for ${locale} in ${filePath}`);
+      return;
+    }
+    values[locale] = value;
+    entries.set(key, values);
+  };
+  for (const [filePath, source] of sources) {
+    const activeCode = csharpSourceViews(source).code;
+    const directMatches = Array.from(source.matchAll(directPattern)).filter((match) => activeCode.startsWith("catalog", match.index));
+    const recoveryMatches = posRelativePath(filePath) === "src/Win7POS.Wpf/Localization/PosLocalization.ImportRecovery.cs"
+      ? Array.from(source.matchAll(recoveryPattern)).filter((match) => activeCode.startsWith("RecoveryText", match.index)) : [];
+    if (directMatches.length || recoveryMatches.length) {
+      const provider = /private static void (Add\w+Translations)\(Dictionary<string, Dictionary<string, string>> catalog\)/.exec(source)?.[1];
+      if (!provider || !builderSource.includes(`${provider}(catalog);`)) {
+        errors.push(`pos: unregistered locale provider ${posRelativePath(filePath)}`);
+      }
+    }
+    for (const match of directMatches) {
+      const [locale, key, value] = match.slice(1).map(decode);
+      if (adminLocales.includes(locale)) setLocale(key, locale, value, filePath);
+    }
+    if (posRelativePath(filePath) !== "src/Win7POS.Wpf/Localization/PosLocalization.ImportRecovery.cs") continue;
+    for (const match of recoveryMatches) {
+      const [key, ...values] = match.slice(1).map(decode);
+      adminLocales.forEach((locale, index) => setLocale(`importRecovery.${key}`, locale, values[index], filePath));
+    }
+    for (const [locale, parameter] of [["en", "en"], ["es", "es"], ["it", "it"], ["zh-CN", "zh"]]) {
+      const assignment = `catalog["${locale}"]["importRecovery." + key] = ${parameter};`;
+      let offset = source.indexOf(assignment);
+      while (offset >= 0 && !activeCode.startsWith("catalog", offset)) offset = source.indexOf(assignment, offset + 1);
+      if (offset < 0) {
+        errors.push(`pos: unsupported RecoveryText registration for ${locale}`);
+      }
     }
   }
 
@@ -464,20 +739,22 @@ function collectPosCodeKeyUsages() {
 
   for (const filePath of files) {
     const relativePath = posRelativePath(filePath);
-    const source = readFileSync(filePath, "utf8");
-    const lines = source.split(/\r?\n/);
+    const view = csharpSourceViews(readFileSync(filePath, "utf8"));
+    const source = view.active;
+    const lines = source.split("\n");
+    let lineOffset = 0;
 
     lines.forEach((line, index) => {
       for (const pattern of patterns) {
         for (const match of line.matchAll(pattern)) {
+          if (!view.code.startsWith("PosLocalization", lineOffset + (match.index ?? 0))) continue;
           const suffix = line.slice((match.index ?? 0) + match[0].length);
           const dynamicKeyUsage = allowedPosDynamicKeyUsages.get(match[1]);
 
-          if (
-            (dynamicKeyUsage?.path === relativePath ||
-              dynamicKeyUsage?.paths?.includes(relativePath)) &&
-            dynamicKeyUsage.suffix.test(suffix)
-          ) {
+          const contracts = dynamicKeyUsage?.usages ?? (dynamicKeyUsage ? [dynamicKeyUsage] : []);
+          if (contracts.some((usage) =>
+            (usage.path === relativePath || usage.paths?.includes(relativePath)) && usage.suffix.test(suffix)
+          )) {
             continue;
           }
 
@@ -490,6 +767,7 @@ function collectPosCodeKeyUsages() {
           });
         }
       }
+      lineOffset += line.length + 1;
     });
   }
 
@@ -764,7 +1042,8 @@ function scanPosCsharpHardcodedText() {
           continue;
         }
 
-        const reason = technicalLiteralReason(trimmed);
+        const scoped = scopedTechnicalCsharpLiterals.get(`${relativePath}|${trimmed}`);
+        const reason = technicalLiteralReason(trimmed) ?? (scoped?.context.test(line) ? scoped.reason : null);
         const finding = {
           context: "csharp",
           line: index + 1,
@@ -882,9 +1161,11 @@ function main() {
 
   const posSources = collectFiles(posLocalizationDirectory, (filePath) =>
     filePath.endsWith(".cs"),
-  ).map((filePath) => [filePath, readFileSync(filePath, "utf8")]);
+  ).map((filePath) => [filePath, maskCSharpComments(readFileSync(filePath, "utf8"))]);
   const posEntries = parsePosEntries(posSources, errors);
   applyInjectedPosFault(posEntries);
+  validatePosDynamicDomains(errors);
+  validatePosDynamicBindings(errors);
 
   for (const dynamicKeyUsage of allowedPosDynamicKeyUsages.values()) {
     for (const requiredKey of dynamicKeyUsage.requiredKeys) {

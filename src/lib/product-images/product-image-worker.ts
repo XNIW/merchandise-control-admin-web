@@ -84,10 +84,106 @@ function renderCanvas(image: RasterSource, maximumSide: number) {
   return { canvas, ...dimensions };
 }
 
+function nextJpegMarkerAfterScan(bytes: Uint8Array, start: number) {
+  let index = start;
+  while (index < bytes.length - 1) {
+    if (bytes[index] !== 0xff) {
+      index += 1;
+      continue;
+    }
+    let markerIndex = index + 1;
+    while (markerIndex < bytes.length && bytes[markerIndex] === 0xff) {
+      markerIndex += 1;
+    }
+    if (markerIndex >= bytes.length) return null;
+    const marker = bytes[markerIndex];
+    if (marker === 0x00 || (marker >= 0xd0 && marker <= 0xd7)) {
+      index = markerIndex + 1;
+      continue;
+    }
+    return index;
+  }
+  return null;
+}
+
+function canonicalizeJpegBytes(bytes: Uint8Array) {
+  if (
+    bytes.length < 4 ||
+    bytes[0] !== 0xff ||
+    bytes[1] !== 0xd8 ||
+    bytes[bytes.length - 2] !== 0xff ||
+    bytes[bytes.length - 1] !== 0xd9
+  ) {
+    fail("image_encode_failed");
+  }
+  const chunks = [bytes.slice(0, 2)];
+  let index = 2;
+  let complete = false;
+  while (index < bytes.length) {
+    const markerStart = index;
+    if (bytes[index] !== 0xff) fail("image_encode_failed");
+    while (index < bytes.length && bytes[index] === 0xff) index += 1;
+    if (index >= bytes.length) fail("image_encode_failed");
+    const marker = bytes[index];
+    index += 1;
+    if (marker === 0xd9) {
+      if (index !== bytes.length) fail("image_encode_failed");
+      chunks.push(bytes.slice(markerStart, index));
+      complete = true;
+      break;
+    }
+    if (marker === 0xd8 || marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) {
+      chunks.push(bytes.slice(markerStart, index));
+      continue;
+    }
+    if (index + 1 >= bytes.length) fail("image_encode_failed");
+    const segmentLength = (bytes[index] << 8) | bytes[index + 1];
+    if (segmentLength < 2 || index + segmentLength > bytes.length) {
+      fail("image_encode_failed");
+    }
+    const dataStart = index + 2;
+    const dataLength = segmentLength - 2;
+    const isJfifApp0 =
+      marker === 0xe0 &&
+      dataLength >= 5 &&
+      bytes[dataStart] === 0x4a &&
+      bytes[dataStart + 1] === 0x46 &&
+      bytes[dataStart + 2] === 0x49 &&
+      bytes[dataStart + 3] === 0x46 &&
+      bytes[dataStart + 4] === 0x00;
+    const forbidden =
+      marker === 0xfe ||
+      (marker === 0xe0 && !isJfifApp0) ||
+      (marker >= 0xe1 && marker <= 0xef);
+    const segmentEnd = index + segmentLength;
+    if (!forbidden) chunks.push(bytes.slice(markerStart, segmentEnd));
+    index = segmentEnd;
+    if (marker === 0xda) {
+      const nextMarker = nextJpegMarkerAfterScan(bytes, index);
+      if (nextMarker === null) fail("image_encode_failed");
+      chunks.push(bytes.slice(index, nextMarker));
+      index = nextMarker;
+    }
+  }
+  if (!complete) fail("image_encode_failed");
+  const canonical = new Uint8Array(
+    chunks.reduce((total, chunk) => total + chunk.byteLength, 0),
+  );
+  let writeOffset = 0;
+  for (const chunk of chunks) {
+    canonical.set(chunk, writeOffset);
+    writeOffset += chunk.byteLength;
+  }
+  return canonical;
+}
+
 async function encodeCanvas(canvas: OffscreenCanvas, quality: number) {
   const blob = await canvas.convertToBlob({ quality, type: "image/jpeg" });
   if (blob.type !== "image/jpeg" || blob.size < 1) fail("image_encode_failed");
-  return blob;
+  const canonical = canonicalizeJpegBytes(
+    new Uint8Array(await blob.arrayBuffer()),
+  );
+  return new Blob([canonical.buffer], { type: "image/jpeg" });
 }
 
 function outputSideSchedule(

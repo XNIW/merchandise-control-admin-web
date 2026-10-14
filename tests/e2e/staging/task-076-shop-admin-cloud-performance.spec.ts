@@ -44,6 +44,7 @@ type RouteMeasurement = {
   label: string;
   navigationError?: string;
   path: string;
+  sample: number;
   pendingMs: number | null;
   pendingStatus: "observed" | "not_observed" | "final_under_300ms";
   shopParamStatus?: "different" | "matched" | "missing";
@@ -163,6 +164,19 @@ function requiredEnv(name: string) {
   }
 
   return value;
+}
+
+function configuredSampleCount() {
+  const raw = process.env.TASK076_SAMPLE_COUNT?.trim() || "1";
+  const count = Number(raw);
+
+  if (!Number.isInteger(count) || count < 1 || count > 20) {
+    throw new Error(
+      "BLOCKED_TASK076_SAMPLE_COUNT: TASK076_SAMPLE_COUNT must be an integer from 1 to 20.",
+    );
+  }
+
+  return count;
 }
 
 function formatSupabaseError(error: unknown) {
@@ -841,6 +855,7 @@ async function measureRouteNavigation(
   fixture: Task076Fixture,
   route: (typeof routeChecks)[number],
   consoleErrors: readonly string[],
+  sample: number,
 ): Promise<RouteMeasurement> {
   const ttfb = await measureTtfb(context, route.path, fixture.shopId);
   const link = route.hiddenFromPrimaryNav
@@ -865,6 +880,7 @@ async function measureRouteNavigation(
       navigationError:
         error instanceof Error ? error.message.slice(0, 180) : "click_failed",
       path: route.path,
+      sample,
       pendingMs: null,
       pendingStatus: "not_observed",
       ttfbMs: ttfb.ms,
@@ -957,11 +973,46 @@ async function measureRouteNavigation(
     finalTitleText,
     label: route.label,
     path: route.path,
+    sample,
     pendingMs,
     pendingStatus,
     shopParamStatus,
     ttfbMs: ttfb.ms,
     ttfbStatus: ttfb.status,
+  };
+}
+
+function summarizeLatency(values: readonly (number | null)[]) {
+  const sorted = values
+    .filter((value): value is number => value !== null)
+    .sort((left, right) => left - right);
+  const percentile = (value: number) =>
+    sorted.length === 0
+      ? null
+      : sorted[Math.max(0, Math.ceil(sorted.length * value) - 1)];
+
+  return {
+    count: sorted.length,
+    max: sorted.at(-1) ?? null,
+    p50: percentile(0.5),
+    p95: percentile(0.95),
+  };
+}
+
+function summarizeMeasurements(measurements: readonly RouteMeasurement[]) {
+  const summarizeSet = (items: readonly RouteMeasurement[]) => ({
+    finalMs: summarizeLatency(items.map((item) => item.finalMs)),
+    ttfbMs: summarizeLatency(items.map((item) => item.ttfbMs)),
+  });
+
+  return {
+    overall: summarizeSet(measurements),
+    routes: Object.fromEntries(
+      Array.from(new Set(measurements.map((item) => item.path))).map((path) => [
+        path,
+        summarizeSet(measurements.filter((item) => item.path === path)),
+      ]),
+    ),
   };
 }
 
@@ -977,6 +1028,11 @@ function writeReport(input: {
     generatedAt: new Date().toISOString(),
     measurements: input.measurements,
     phase: input.phase,
+    sampling: {
+      requestedSamplesPerRoute: configuredSampleCount(),
+      serverQueryTrace: "not_inferred_by_browser_measurements",
+    },
+    summaries: summarizeMeasurements(input.measurements),
     target: {
       baseUrl: requiredEnv("PLAYWRIGHT_BASE_URL"),
       class: "cloud-staging",
@@ -995,7 +1051,8 @@ test("TASK-076 measures authenticated Shop Admin cloud navigation latency", asyn
   context,
   page,
 }) => {
-  test.setTimeout(300_000);
+  const sampleCount = configuredSampleCount();
+  test.setTimeout(Math.min(900_000, 180_000 + sampleCount * 120_000));
   expect(process.env.TEST_TARGET).toBe("staging");
   expect(process.env.CONFIRM_TASK076_CLOUD_PERFORMANCE).toBe("yes");
   expect(taskPrefix).toBe("TASK076_");
@@ -1017,16 +1074,18 @@ test("TASK-076 measures authenticated Shop Admin cloud navigation latency", asyn
   try {
     await signIn(page, fixture);
 
-    for (const route of routeChecks) {
-      routeConsoleErrors.length = 0;
-      measurements.push(
-        await measureRouteNavigation(page, context, fixture, route, routeConsoleErrors),
-      );
-      writeReport({
-        cleanup: null,
-        measurements,
-        phase: process.env.TASK076_PERF_PHASE ?? "manual",
-      });
+    for (let sample = 1; sample <= sampleCount; sample += 1) {
+      for (const route of routeChecks) {
+        routeConsoleErrors.length = 0;
+        measurements.push(
+          await measureRouteNavigation(page, context, fixture, route, routeConsoleErrors, sample),
+        );
+        writeReport({
+          cleanup: null,
+          measurements,
+          phase: process.env.TASK076_PERF_PHASE ?? "manual",
+        });
+      }
     }
   } finally {
     cleanupSummary = await fixture.cleanup();
@@ -1040,7 +1099,7 @@ test("TASK-076 measures authenticated Shop Admin cloud navigation latency", asyn
   expect(cleanupSummary.cleanupErrors).toEqual([]);
   expect(cleanupSummary.residualRows).toBe(0);
   expect(cleanupSummary.userDeleted).toBe(true);
-  expect(measurements).toHaveLength(routeChecks.length);
+  expect(measurements).toHaveLength(routeChecks.length * sampleCount);
 
   if (process.env.TASK076_ENFORCE_THRESHOLDS === "yes") {
     expect(
