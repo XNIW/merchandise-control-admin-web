@@ -63,6 +63,26 @@ Next: frozen-source review and normal PR/CI. Applying the two exact migrations a
 deploying exact source require their separate concrete authorization; acceptance
 on the real caller/shop and platform remains NOT_RUN.
 
+## Evidence storiche recuperate nella chiusura Git del 14 ottobre 2026
+
+Il corpus locale del 10 ottobre, conservato in `4027dc17`, viene acquisito in un
+archivio locale non versionato. In Git viene recuperata soltanto la
+[ricevuta sintetica](EVIDENCE/TASK-094/git-closeout-20261014/historical-corpus-acquisition.json)
+con provenienza, dimensioni, hash e limiti; nessun test o contratto dipende dai
+file grezzi. Le sette evidence conservano byte e source binding originali: ZIP
+`87437d178ad7e87801ef6bfbf95c88451c198d875743fe7a875b4e60c800ecaf`
+e `401ffbb084e9f31e0cbbd238cd605659df17aeeaecc8477a9676ab8c3e92b216`,
+manifest, schedule e review indipendenti. Il corpus documenta 1.950 callback
+riuscite su sorgenti miste c827/e88, la precedente risposta fallita e sette casi
+semantici isolati. Non è un replay uniforme o ininterrotto, né una prova del
+caller distribuito, delle risorse Worker o della capacità massima.
+
+La verifica di acquisizione controlla CRC e percorsi delle due ZIP, hash dei
+manifest/schedule e delle risposte, JSON validi e contenuti sintetici. È una
+verifica delle evidence conservate, senza riesecuzione dei loro RPC. La governance
+più recente e le correzioni PR135–138 restano autorevoli; non vengono ripristinati
+gli stati EXECUTION del 9 ottobre. Nessun apply TEST, deploy o nuovo READY/DONE.
+
 ## Continuazione FIX del 13 ottobre 2026 UTC: cache degli array del piano
 
 Stato: REVIEW. La continuazione autorizzata usa il worktree

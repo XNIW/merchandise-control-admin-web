@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "source_commit": "4027dc179b9b6303262f4caa078752379e4981c0",
+  "source_date_utc": "2026-10-10",
+  "acquisition_date": "2026-10-14",
+  "classification": "C: ricevuta sintetica recuperata; E: corpus grezzo conservato come archivio locale",
+  "scope": "Fixture PostgreSQL isolata con dipendenze e autenticazione esterna sintetiche",
+  "summary": {
+    "successful_callbacks": 1950,
+    "retained_historical_failed_response": true,
+    "source_is_mixed_c827_e88": true,
+    "semantic_cases": 7,
+    "row_count": 59999,
+    "durable_child_acks": 120,
+    "product_mappings": 59999,
+    "price_ids": 119998
+  },
+  "acquisition_checks": {
+    "archive_crc": "PASS",
+    "archive_paths": "PASS",
+    "json_parse": "PASS",
+    "manifest_schedule_byte_identity": "PASS",
+    "successful_response_hashes": "PASS",
+    "synthetic_scope_and_secret_pattern_check": "PASS"
+  },
+  "limits": [
+    "Non riesegue gli RPC storici",
+    "Non prova un replay uniforme o ininterrotto",
+    "Non qualifica il caller distribuito, autenticazione live, risorse Worker o capacità massima",
+    "Non copre le correzioni SQL successive PR135-138",
+    "Nessun apply TEST, deploy, cleanup remoto, READY o DONE"
+  ],
+  "archive_storage": "File grezzi non versionati. Recuperabili anche dall oggetto Git locale source_commit, preservato; gli hash seguenti identificano i byte verificati. Nessun file mancante è una dipendenza del codice o dei test.",
+  "files": [
+    {
+      "name": "README.md",
+      "bytes": 5473,
+      "sha256": "df37066379b0f2fe8459471dab716575ebee566bceccf5add223d130414cbc67"
+    },
+    {
+      "name": "dense59999-composite-actual-e88.zip",
+      "bytes": 30025457,
+      "sha256": "87437d178ad7e87801ef6bfbf95c88451c198d875743fe7a875b4e60c800ecaf"
+    },
+    {
+      "name": "e88-semantic-seven-actual-fixture-proof.zip",
+      "bytes": 780285,
+      "sha256": "401ffbb084e9f31e0cbbd238cd605659df17aeeaecc8477a9676ab8c3e92b216"
+    },
+    {
+      "name": "independent-review.json",
+      "bytes": 16283,
+      "sha256": "c61e90256e3aac33576932c67934e045946a64d0c418cc1b98fc3ed4995ecd29"
+    },
+    {
+      "name": "manifest.json",
+      "bytes": 13475,
+      "sha256": "afc1c9c2a600c1bca7422fe45fb40962bba65adbecaa0e4c9237d54089793f21"
+    },
+    {
+      "name": "schedule.json",
+      "bytes": 802255,
+      "sha256": "f046319d6c3a5f1680a02f486d38203a15659110ff2432a9978f5f8e61cd7d2e"
+    },
+    {
+      "name": "semantic-independent-review.json",
+      "bytes": 16502,
+      "sha256": "53b8d396228fe5d868383e7cd89d7676703788e5162999b5d0feb2d95b109905"
+    }
+  ]
+}

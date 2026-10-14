@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
+import { runInNewContext } from "node:vm";
 
 const root = process.cwd();
 
@@ -123,4 +124,43 @@ test("package exposes the single-worker canonical staging harness", () => {
     packageJson.scripts["test:admin-revision-conflict:staging"],
     "node scripts/testing/run-playwright-target.mjs staging tests/e2e/staging/admin-live-product-revision-conflict.spec.ts --project=chromium-desktop --workers=1",
   );
+});
+
+test("SQL fixture values use stdin and process failures stay redacted", () => {
+  const harness = read(harnessPath);
+  const start = harness.indexOf("function runSql(");
+  const end = harness.indexOf("\nfunction runJson<", start);
+  assert.ok(start >= 0 && end > start);
+  const source = harness
+    .slice(start, end)
+    .replace("label: string, sql: string", "label, sql");
+  const fixtureSql = "select 'SYNTHETIC_CREDENTIAL_HASH_FIXTURE';";
+  const calls = [];
+  let fail = false;
+  const runSql = runInNewContext(`(${source})`, {
+    execFileSync(command, args, options) {
+      calls.push({ command, args, options });
+      if (fail) throw new Error(fixtureSql);
+      return "  verified\n";
+    },
+    process: { env: {} },
+  });
+
+  assert.equal(runSql("FIXTURE", fixtureSql), "verified");
+  assert.equal(calls[0].command, "psql");
+  assert.equal(JSON.stringify(calls[0].args),
+    JSON.stringify(["-X", "-qAt", "-v", "ON_ERROR_STOP=1", "-f", "-"]));
+  assert.ok(!calls[0].args.includes(fixtureSql));
+  assert.equal(calls[0].options.input, fixtureSql);
+  assert.equal(JSON.stringify(calls[0].options.stdio),
+    JSON.stringify(["pipe", "pipe", "ignore"]));
+
+  fail = true;
+  assert.throws(() => runSql("FIXTURE", fixtureSql), {
+    message: "ADMIN_REVISION_FIXTURE_FAILED",
+  });
+  assert.throws(() => runSql("EMPTY", "  "), {
+    message: "ADMIN_REVISION_EMPTY_SQL_INVALID",
+  });
+  assert.equal(calls.length, 2);
 });

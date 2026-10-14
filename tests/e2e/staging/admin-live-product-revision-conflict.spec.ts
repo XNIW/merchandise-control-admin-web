@@ -206,12 +206,13 @@ function runSql(label: string, sql: string) {
   try {
     return execFileSync(
       "psql",
-      ["-X", "-qAt", "-v", "ON_ERROR_STOP=1", "-c", sql],
+      ["-X", "-qAt", "-v", "ON_ERROR_STOP=1", "-f", "-"],
       {
         encoding: "utf8",
         env: process.env,
+        input: sql,
         maxBuffer: 512 * 1024,
-        stdio: ["ignore", "pipe", "ignore"],
+        stdio: ["pipe", "pipe", "ignore"],
         timeout: 30_000,
       },
     ).trim();
