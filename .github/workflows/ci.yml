@@ -44,11 +44,22 @@ jobs:
         with:
           version: 2.109.0
 
-      - name: Start local Supabase and apply migrations
-        run: supabase start
+      - name: Replay local migrations and run database pgTAP
+        run: >-
+          python3 scripts/ci/mobile-recovery-local-replay.py run
+          --repo "$GITHUB_WORKSPACE"
+          --workdir "$RUNNER_TEMP/mobile-recovery-local"
+          --evidence-dir "$RUNNER_TEMP/database-replay-evidence"
 
-      - name: Run database pgTAP suite
-        run: supabase test db
+      - name: Preserve closed database replay evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: database-replay-evidence
+          path: |
+            ${{ runner.temp }}/database-replay-evidence/error.json
+            ${{ runner.temp }}/database-replay-evidence/complete.json
+          if-no-files-found: warn
 
   verify:
     name: Verify
