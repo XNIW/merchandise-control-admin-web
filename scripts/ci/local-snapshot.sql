@@ -18,5 +18,7 @@ SELECT jsonb_build_object(
  'versions',(SELECT coalesce(jsonb_agg(version ORDER BY version),'[]'::jsonb) FROM supabase_migrations.schema_migrations),
  'localStatement',(SELECT CASE WHEN cardinality(statements)=1 THEN statements[1] END
    FROM supabase_migrations.schema_migrations WHERE version='20261027143737'),
+ 'productLocalStatement',(SELECT CASE WHEN cardinality(statements)=1 THEN statements[1] END
+   FROM supabase_migrations.schema_migrations WHERE version='20261028132836'),
  'authenticatedConfig',(SELECT rolconfig FROM pg_roles WHERE rolname='authenticated')
 ) AS snapshot;

@@ -10,6 +10,9 @@ from urllib.parse import urlparse
 CLI_VERSION = "2.109.0"
 PRICE = "20261027015232_mobile_recovery_checkpoint_price_custom_plan.sql"
 TARGET = "20261027143737_mobile_recovery_preflight_metadata_custom_plan.sql"
+PRODUCT = "20261028132836_mobile_recovery_checkpoint_product_timestamp_memo.sql"
+PRODUCT_SHA = "f4d51af0863b136695772db3b76d98f8f4f758ef16099bba588317f9c77215d1"
+PRODUCT_BODY_MD5 = "60473835c0aa6a53ae16d1c303f3c7bf"
 OP_SHA = "9fa653cbd503626ca4e7de2ba957b0cc4274cd604489a9e89998f8e65a397357"
 PRICE_SHA = "b1334a1ad5573fe498aa4b66bec07c871ef21c90f8ad1d40ffe6944115f8e262"
 BODY_SHA = "09ffea10ac2008db3ac845d00760167ef5737cfe298898ad0bce61583a210f2b"
@@ -17,7 +20,7 @@ HERE = Path(__file__).resolve().parent
 ERROR_ROOT = None
 EVIDENCE_ROOT = None
 REPLAY_STAGE = "preparation"
-SNAPSHOT_SHA = "0dc0cd55a9e2583d6e99d37c7da47dece7628c9967c87b0aef692963b0d54cec"
+SNAPSHOT_SHA = "689bdc0b0ccc7ab1e026d912ca64eb4858190012e306a3f3427387d0740ba20d"
 OID_KEYS = {"oid", "pronamespace", "proowner", "prolang", "prorettype", "proargtypes"}
 
 def require(ok, message):
@@ -116,6 +119,13 @@ def prefix_manifest(root):
         binding = json.loads((root / ".replay/binding.json").read_text())
         require(sha(target.read_bytes()) == binding["derivedLOCALSHA256"], "bound target drift")
         declared.add("supabase/migrations/" + TARGET)
+    require(sha((root / ".replay/product-operator.sql").read_bytes()) == PRODUCT_SHA, "product operator drift")
+    product = root / "supabase/migrations" / PRODUCT
+    if product.exists() or product.is_symlink():
+        require(not product.is_symlink() and product.resolve().is_relative_to(root), "product target escape")
+        binding = json.loads((root / ".replay/product-binding.json").read_text())
+        require(sha(product.read_bytes()) == binding["derivedLOCALSHA256"], "bound product target drift")
+        declared.add("supabase/migrations/" + PRODUCT)
     observed = {str(p.relative_to(root)) for p in (root / "supabase/migrations").rglob("*")
                 if p.is_file() or p.is_symlink()}
     require(observed == declared, "extra or missing migration input")
@@ -145,6 +155,8 @@ def prepare(repo, workdir):
     require(not out.exists(), "workdir must be new")
     operator = (repo / "supabase/migrations" / TARGET).read_bytes()
     price = (repo / "supabase/migrations" / PRICE).read_bytes()
+    product = (repo / "supabase/migrations" / PRODUCT).read_bytes()
+    require(sha(product) == PRODUCT_SHA and PRICE[:14] < TARGET[:14] < PRODUCT[:14], "product source/order drift")
     require(sha(operator) == OP_SHA and sha(price) == PRICE_SHA, "source hash drift")
     require(sha(body(operator)) == BODY_SHA, "payload body drift")
     archive = run(["git", "-C", str(repo), "archive", "--format=tar", "HEAD", "supabase"])
@@ -158,17 +170,18 @@ def prepare(repo, workdir):
             if member.isfile():
                 put(out / path, tar.extractfile(member).read())
     migration_dir = out / "supabase/migrations"
-    # Only the two reviewed R4 overlays; every other file came from HEAD, not WIP.
-    for name, data in ((PRICE, price), (TARGET, operator)):
+    # Only the three reviewed overlays; every other file came from HEAD, not WIP.
+    for name, data in ((PRICE, price), (TARGET, operator), (PRODUCT, product)):
         q = migration_dir / name
         if q.exists():
             require(q.read_bytes() == data, "tracked overlay drift")
         elif name == PRICE:
             put(q, data)
-    target = migration_dir / TARGET
-    if target.exists():
-        require(target.read_bytes() == operator, "withheld file drift")
-        target.unlink()  # New owned copy only; source/ledger are never modified.
+    for name, data in ((TARGET, operator), (PRODUCT, product)):
+        target = migration_dir / name
+        if target.exists():
+            require(target.read_bytes() == data, "withheld file drift")
+            target.unlink()  # New owned copy only; source/ledger are never modified.
     versions = []
     for p in sorted(migration_dir.glob("*.sql")):
         version = migration_version(p.name)
@@ -188,6 +201,7 @@ def prepare(repo, workdir):
           "files": files, "versions": versions, "project": project,
           "configOriginalSHA256": sha(original), "onlyConfigChange": "local project_id; Linux HEAD ports unchanged"})
     put(out / ".replay/operator.sql", operator)
+    put(out / ".replay/product-operator.sql", product)
 
 def local_docker():
     docker_host = os.environ.get("DOCKER_HOST", "")
@@ -391,6 +405,88 @@ def verify(root):
           "bodySHA256": BODY_SHA, "wholeMetadataPreserved": True, "auth8sPreserved": True,
           "localLedgerVersion": TARGET[:14], "CLI": CLI_VERSION, "pgTAP": "NOT_RUN"})
 
+def derive_product(operator, data, expected, versions, target):
+    require(sha(operator) == PRODUCT_SHA, "product operator hash drift")
+    require(data["database"] == "postgres" and data["effectiveRole"] == "postgres"
+            and data["serverMajor"] == "17", "local product database/operator drift")
+    require(data["versions"] == versions + [TARGET[:14]] and data["productLocalStatement"] is None,
+            "product requires exactly verified predecessor history")
+    require(data["localStatement"] == target.decode().strip().removesuffix(";").strip(),
+            "product predecessor ledger drift")
+    require(data["authenticatedConfig"] == expected["authenticatedConfig"], "product auth8s drift")
+    for name in ("helper", "public"):
+        f, e = data["functions"][name], expected["functions"][name]
+        require(portable(f) == e["portable"], "product predecessor metadata/ACL drift")
+        require(sha(f["body"].encode()) == (BODY_SHA if name == "helper" else e["bodySHA256"]),
+                "product predecessor source drift")
+    old = b'["authenticated=X/postgres","postgres=X/postgres","service_role=X/postgres"]'
+    new = b'["authenticated=X/postgres","postgres=X/postgres"]'
+    require(operator.count(old) == 1, "product ACL guard token drift")
+    result = operator.replace(old, new, 1)
+    require(result.count(new) == 1 and result.replace(new, old, 1) == operator,
+            "product ACL-only inverse mismatch")
+    return result
+
+
+def bind_product(root):
+    m = prefix_manifest(root)
+    endpoint = local_endpoint(root)
+    verified = json.loads((root / ".replay/verified.json").read_text())
+    require(verified["operatorSHA256"] == OP_SHA and verified["bodySHA256"] == BODY_SHA
+            and verified["wholeMetadataPreserved"] is True and verified["auth8sPreserved"] is True
+            and verified["localLedgerVersion"] == TARGET[:14], "missing verified predecessor")
+    data = snapshot(root)
+    derived = derive_product((root / ".replay/product-operator.sql").read_bytes(), data,
+                             load_expected(), m["versions"], (root / "supabase/migrations" / TARGET).read_bytes())
+    dump(root / ".replay/product-before.json", {"endpoint": endpoint, "snapshot": data})
+    put(root / "supabase/migrations" / PRODUCT, derived)
+    dump(root / ".replay/product-binding.json",
+         {"operatorSHA256": PRODUCT_SHA, "derivedLOCALSHA256": sha(derived),
+          "inverseSHA256": PRODUCT_SHA, "permittedConstantSlots": 1,
+          "onlyChange": "pinned TEST ACL3 guard to qualified LOCAL ACL2; no grants",
+          "publicProsrcMD5After": PRODUCT_BODY_MD5, "isOperatorSQLByteExactReplay": False})
+
+
+def apply_product_local(root):
+    m = prefix_manifest(root)
+    local_endpoint(root)
+    before = json.loads((root / ".replay/product-before.json").read_text())["snapshot"]
+    binding = json.loads((root / ".replay/product-binding.json").read_text())
+    expected = derive_product((root / ".replay/product-operator.sql").read_bytes(), before,
+                             load_expected(), m["versions"], (root / "supabase/migrations" / TARGET).read_bytes())
+    require((root / "supabase/migrations" / PRODUCT).read_bytes() == expected
+            and sha(expected) == binding["derivedLOCALSHA256"], "derived product file drift")
+    claim_apply_attempt(root / ".replay/product-apply-attempt.json",
+         {"target": "LOCAL_ONLY", "operatorSHA256": PRODUCT_SHA, "derivedLOCALSHA256": sha(expected),
+          "oneAttemptOnly": True, "failureOrUnknown": "STOP_NO_AUTORETRY"})
+    output = run(["supabase", "--workdir", str(root), "migration", "up", "--local"])
+    put(root / ".replay/product-apply.stdout", output)
+
+
+def verify_product(root):
+    m = prefix_manifest(root)
+    endpoint = local_endpoint(root)
+    before = json.loads((root / ".replay/product-before.json").read_text())["snapshot"]
+    after = snapshot(root)
+    derived = (root / "supabase/migrations" / PRODUCT).read_bytes()
+    require(after["versions"] == m["versions"] + [TARGET[:14], PRODUCT[:14]], "product local history mismatch")
+    require(after["productLocalStatement"] == derived.decode().strip().removesuffix(";").strip()
+            and after["localStatement"] == before["localStatement"], "product CLI ledger mismatch")
+    require(all(after[key] == before[key] for key in
+                ("database", "effectiveRole", "serverMajor", "authenticatedConfig")), "product execution/auth identity changed")
+    require(after["functions"]["helper"] == before["functions"]["helper"], "product changed preflight helper")
+    old, new = before["functions"]["public"], after["functions"]["public"]
+    require(old["metadataText"] == new["metadataText"] and md5(new["body"].encode()) == PRODUCT_BODY_MD5
+            and new["definition"] == old["definition"].replace(old["body"], new["body"], 1),
+            "product source or whole metadata changed")
+    dump(root / ".replay/product-verified.json",
+         {"status": "LOCAL_PRODUCT_ACL_ONLY_ENVELOPE_VERIFIED", "endpoint": endpoint,
+          "operatorSHA256": PRODUCT_SHA, "derivedLOCALSHA256": sha(derived),
+          "publicProsrcMD5After": PRODUCT_BODY_MD5, "wholeMetadataPreserved": True, "auth8sPreserved": True,
+          "predecessorLedgerVersion": TARGET[:14], "localLedgerVersion": PRODUCT[:14],
+          "CLI": CLI_VERSION, "pgTAP": "NOT_RUN", "isOperatorSQLByteExactReplay": False})
+
+
 def cli_binary():
     executable = shutil.which("supabase")
     require(isinstance(executable, str) and Path(executable).is_absolute(), "missing CLI")
@@ -494,7 +590,9 @@ def replay(repo, workdir):
     require(len(tests) == 66, "reviewed HEAD database test membership changed")
     for name, action in (("fresh local gate", empty_local), ("prefix bootstrap", start_prefix),
                          ("observed local ownership", observe_owned_creation), ("bind three constants", bind),
-                         ("apply local migration once", apply_local), ("verify body and metadata", verify)):
+                         ("apply local migration once", apply_local), ("verify body and metadata", verify),
+                         ("bind product ACL constant", bind_product), ("apply product migration once", apply_product_local),
+                         ("verify product body metadata and ledger", verify_product)):
         REPLAY_STAGE = name
         print("Database replay: " + name, flush=True)
         action(root)
@@ -509,7 +607,8 @@ def replay(repo, workdir):
     complete = {"status": "LOCAL_DERIVED_ENVELOPE_AND_PGTAP_PASS", "head": inputs["head"], "CLI": CLI_VERSION,
           "operatorSHA256": OP_SHA, "bodySHA256": BODY_SHA, "databaseTestFiles": tests,
           "pgTAPFiles": int(summary[1]), "pgTAPTests": int(summary[2]),
-          "verifiedSHA256": sha((root / ".replay/verified.json").read_bytes()),
+          "verifiedSHA256": sha((root / ".replay/product-verified.json").read_bytes()),
+          "productMigrationSHA256": PRODUCT_SHA, "productPublicProsrcMD5": PRODUCT_BODY_MD5,
           "pgtapStdoutSHA256": sha(output), "operatorSQLByteExactReplay": False,
           "localACLIsTESTEquivalent": "NOT_CLAIMED"}
     dump(root / ".replay/complete.json", complete)
@@ -525,6 +624,8 @@ def export_complete(complete):
               "CLI": CLI_VERSION, "operatorSHA256": OP_SHA, "bodySHA256": BODY_SHA,
               "pgTAPFiles": complete["pgTAPFiles"], "pgTAPTests": complete["pgTAPTests"],
               "verifiedSHA256": complete["verifiedSHA256"],
+              "productMigrationSHA256": complete["productMigrationSHA256"],
+              "productPublicProsrcMD5": complete["productPublicProsrcMD5"],
               "pgtapStdoutSHA256": complete["pgtapStdoutSHA256"],
               "operatorSQLByteExactReplay": False, "localACLIsTESTEquivalent": "NOT_CLAIMED"})
 
@@ -544,7 +645,8 @@ def export_error(error):
 def main():
     global ERROR_ROOT, EVIDENCE_ROOT
     parser = argparse.ArgumentParser()
-    parser.add_argument("mode", choices=["run", "prepare", "empty-local", "bind", "apply-local", "verify"])
+    parser.add_argument("mode", choices=["run", "prepare", "empty-local", "bind", "apply-local", "verify",
+                                        "bind-product", "apply-product-local", "verify-product"])
     parser.add_argument("--workdir", required=True)
     parser.add_argument("--repo")
     parser.add_argument("--evidence-dir")
@@ -568,7 +670,8 @@ def main():
     else:
         root = root_path(args.workdir)
         ERROR_ROOT = root
-        {"empty-local": empty_local, "bind": bind, "apply-local": apply_local, "verify": verify}[args.mode](root)
+        {"empty-local": empty_local, "bind": bind, "apply-local": apply_local, "verify": verify,
+         "bind-product": bind_product, "apply-product-local": apply_product_local, "verify-product": verify_product}[args.mode](root)
 
 # Filled only when the pinned expected fixture is generated; no runtime override.
 EXPECTED_SHA = "1bee30e84056eacb5f993cc33047c7e2e1011ecd79df8f1aee2a3900781f6f10"
