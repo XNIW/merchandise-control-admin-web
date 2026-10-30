@@ -3426,6 +3426,34 @@ select throws_ok(
   'event page requires an explicit stable scope key'
 );
 
+
+-- PRIVATE full-JSON parity: original604 vs combined isolated reader candidate.
+SET LOCAL ROLE postgres;
+DO $readers15_full_json_parity$
+DECLARE definition text; original_definition text; original_cp jsonb; candidate_cp jsonb;
+ original_marker jsonb; candidate_marker jsonb; witness_before text;
+BEGIN
+ SELECT pg_get_functiondef('public.shop_sync_recovery_checkpoint_v1(uuid,text,text,text)'::regprocedure) INTO definition;
+ IF (SELECT md5(prosrc) FROM pg_proc WHERE oid='public.shop_sync_recovery_checkpoint_v1(uuid,text,text,text)'::regprocedure)<>'7a1e3ec3050743656759432ad448a37b' THEN RAISE EXCEPTION 'PARITY_CANDIDATE_MISMATCH';END IF;
+ original_definition:=replace(replace(definition,'app_private.resolve_shop_sync_recovery_read_scope_v1(','app_private.resolve_shop_sync_recovery_scope('),'app_private.acquire_sync_event_scope_read_fence_v1(','app_private.acquire_sync_event_scope_fence_v1(');
+ EXECUTE original_definition;
+ IF (SELECT md5(prosrc) FROM pg_proc WHERE oid='public.shop_sync_recovery_checkpoint_v1(uuid,text,text,text)'::regprocedure)<>'60473835c0aa6a53ae16d1c303f3c7bf' THEN RAISE EXCEPTION 'PARITY_ORIGINAL_NOT_EXACT604';END IF;
+ original_cp:=public.shop_sync_recovery_checkpoint_v1('10000000-0000-4000-8000-000000000901','sync-recovery-device-a');
+ original_marker:=public.shop_sync_convergence_marker_v1('10000000-0000-4000-8000-000000000901','sync-recovery-device-a');
+ EXECUTE definition;
+ witness_before:=current_setting('app_private.sync_event_scope_fence',true);
+ candidate_cp:=public.shop_sync_recovery_checkpoint_v1('10000000-0000-4000-8000-000000000901','sync-recovery-device-a');
+ candidate_marker:=public.shop_sync_convergence_marker_v1('10000000-0000-4000-8000-000000000901','sync-recovery-device-a');
+ IF original_cp IS DISTINCT FROM candidate_cp OR original_marker IS DISTINCT FROM candidate_marker THEN RAISE EXCEPTION 'FULL_JSON_OR_DIGEST_PARITY_FAILED';END IF;
+ IF current_setting('app_private.sync_event_scope_fence',true) IS DISTINCT FROM witness_before THEN RAISE EXCEPTION 'READER_CHANGED_WRITER_WITNESS';END IF;
+ IF (SELECT md5(prosrc) FROM pg_proc WHERE oid='app_private.acquire_sync_event_scope_fence_v1(uuid,uuid)'::regprocedure)<>'0199f8030d3bd207ac27527ed9a52862'
+ OR (SELECT md5(prosrc) FROM pg_proc WHERE oid='app_private.lock_catalog_scope_pair_v1(uuid,uuid)'::regprocedure)<>'e7e8c0b08519a53345e9ca583e484481'
+ OR (SELECT md5(prosrc) FROM pg_proc WHERE oid='app_private.resolve_shop_sync_recovery_scope(uuid,text)'::regprocedure)<>'0f47ec89de6f5ea847548e55721d7f54'
+ THEN RAISE EXCEPTION 'ORIGINAL_WRITER_OR_RESOLVER_CHANGED';END IF;
+END; $readers15_full_json_parity$;
+SET LOCAL ROLE authenticated;
+select pass('shared catalog and event readers preserve complete original checkpoint and marker JSON');
+-- END PRIVATE full-JSON parity.
 select is(
   public.shop_sync_recovery_checkpoint_v1(
     '10000000-0000-4000-8000-000000000901',
