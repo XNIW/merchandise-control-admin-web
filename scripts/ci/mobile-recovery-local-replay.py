@@ -2,7 +2,7 @@
 import sys
 if sys.version_info < (3, 11):
     raise SystemExit("Python 3.11 or newer is required; no automatic installation")
-import argparse, hashlib, io, json, os, re, shutil, signal, socket, subprocess, tarfile, tomllib, uuid
+import argparse, hashlib, io, json, os, re, selectors, shutil, signal, socket, subprocess, tarfile, time, tomllib, uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urlparse
@@ -11,6 +11,9 @@ CLI_VERSION = "2.109.0"
 PRICE = "20261027015232_mobile_recovery_checkpoint_price_custom_plan.sql"
 TARGET = "20261027143737_mobile_recovery_preflight_metadata_custom_plan.sql"
 PRODUCT = "20261028132836_mobile_recovery_checkpoint_product_timestamp_memo.sql"
+SHARED = '20261030065236_mobile_recovery_shared_reader_fences.sql'
+SHARED_SHA = '5ec447ab99a7694c5c336c5ca76cfbb1a48f568cbb0ad0a97290c4a84099df0c'
+SHARED_BODY_MD5 = "7a1e3ec3050743656759432ad448a37b"
 PRODUCT_SHA = "f4d51af0863b136695772db3b76d98f8f4f758ef16099bba588317f9c77215d1"
 PRODUCT_BODY_MD5 = "60473835c0aa6a53ae16d1c303f3c7bf"
 OP_SHA = "9fa653cbd503626ca4e7de2ba957b0cc4274cd604489a9e89998f8e65a397357"
@@ -20,7 +23,7 @@ HERE = Path(__file__).resolve().parent
 ERROR_ROOT = None
 EVIDENCE_ROOT = None
 REPLAY_STAGE = "preparation"
-SNAPSHOT_SHA = "689bdc0b0ccc7ab1e026d912ca64eb4858190012e306a3f3427387d0740ba20d"
+SNAPSHOT_SHA = 'b28a047ea13f00b859e8e650c7b554c58663034488da5400d92dd82c4134a107'
 OID_KEYS = {"oid", "pronamespace", "proowner", "prolang", "prorettype", "proargtypes"}
 
 def require(ok, message):
@@ -126,6 +129,13 @@ def prefix_manifest(root):
         binding = json.loads((root / ".replay/product-binding.json").read_text())
         require(sha(product.read_bytes()) == binding["derivedLOCALSHA256"], "bound product target drift")
         declared.add("supabase/migrations/" + PRODUCT)
+    require(sha((root / ".replay/shared-reader-operator.sql").read_bytes()) == SHARED_SHA, "shared reader operator drift")
+    shared = root / "supabase/migrations" / SHARED
+    if shared.exists() or shared.is_symlink():
+        require(not shared.is_symlink() and shared.resolve().is_relative_to(root), "shared reader target escape")
+        binding = json.loads((root / ".replay/shared-reader-binding.json").read_text())
+        require(sha(shared.read_bytes()) == binding["derivedLOCALSHA256"], "bound shared reader target drift")
+        declared.add("supabase/migrations/" + SHARED)
     observed = {str(p.relative_to(root)) for p in (root / "supabase/migrations").rglob("*")
                 if p.is_file() or p.is_symlink()}
     require(observed == declared, "extra or missing migration input")
@@ -156,6 +166,8 @@ def prepare(repo, workdir):
     operator = (repo / "supabase/migrations" / TARGET).read_bytes()
     price = (repo / "supabase/migrations" / PRICE).read_bytes()
     product = (repo / "supabase/migrations" / PRODUCT).read_bytes()
+    shared = (repo / "supabase/migrations" / SHARED).read_bytes()
+    require(sha(shared) == SHARED_SHA and PRODUCT[:14] < SHARED[:14], "shared reader source/order drift")
     require(sha(product) == PRODUCT_SHA and PRICE[:14] < TARGET[:14] < PRODUCT[:14], "product source/order drift")
     require(sha(operator) == OP_SHA and sha(price) == PRICE_SHA, "source hash drift")
     require(sha(body(operator)) == BODY_SHA, "payload body drift")
@@ -170,14 +182,14 @@ def prepare(repo, workdir):
             if member.isfile():
                 put(out / path, tar.extractfile(member).read())
     migration_dir = out / "supabase/migrations"
-    # Only the three reviewed overlays; every other file came from HEAD, not WIP.
-    for name, data in ((PRICE, price), (TARGET, operator), (PRODUCT, product)):
+    # Only the four reviewed overlays; every other file came from HEAD, not WIP.
+    for name, data in ((PRICE, price), (TARGET, operator), (PRODUCT, product), (SHARED, shared)):
         q = migration_dir / name
         if q.exists():
             require(q.read_bytes() == data, "tracked overlay drift")
         elif name == PRICE:
             put(q, data)
-    for name, data in ((TARGET, operator), (PRODUCT, product)):
+    for name, data in ((TARGET, operator), (PRODUCT, product), (SHARED, shared)):
         target = migration_dir / name
         if target.exists():
             require(target.read_bytes() == data, "withheld file drift")
@@ -202,6 +214,7 @@ def prepare(repo, workdir):
           "configOriginalSHA256": sha(original), "onlyConfigChange": "local project_id; Linux HEAD ports unchanged"})
     put(out / ".replay/operator.sql", operator)
     put(out / ".replay/product-operator.sql", product)
+    put(out / ".replay/shared-reader-operator.sql", shared)
 
 def local_docker():
     docker_host = os.environ.get("DOCKER_HOST", "")
@@ -487,6 +500,337 @@ def verify_product(root):
           "CLI": CLI_VERSION, "pgTAP": "NOT_RUN", "isOperatorSQLByteExactReplay": False})
 
 
+def shared_guard_arrays(operator, tag):
+    return re.findall(r'\$' + tag + r'\$(.*?)\$' + tag + r'\$', operator.decode(), re.S)
+
+
+def derive_shared(operator, data, versions):
+    require(sha(operator) == SHARED_SHA, "shared reader operator hash drift")
+    require(data["database"] == "postgres" and data["effectiveRole"] == "postgres"
+            and data["serverMajor"] == "17" and type(data["ssl"]) is bool, "shared local identity drift")
+    require(data["versions"] == versions + [TARGET[:14], PRODUCT[:14]]
+            and data["sharedLocalStatements"] is None and data["sharedHelpers"] == {},
+            "shared requires exact predecessor and helper absence")
+    require(data["authenticatedConfig"] == ["statement_timeout=8s"], "shared auth8s drift")
+    guards = shared_guard_arrays(operator, "expected")
+    closure = shared_guard_arrays(operator, "closure15expected")
+    require(len(guards) == len(closure) == 2 and closure[0] == closure[1], "guard array structure drift")
+    functions = data["sharedFunctions"]
+    expected_first = json.loads(guards[0])
+    expected_closure = json.loads(closure[0])
+    require(set(functions) == {x["signature"] for x in expected_first + expected_closure},
+            "shared function membership drift")
+    for expected in expected_first:
+        f = functions[expected["signature"]]
+        actual = json.loads(f["metadataText"])
+        wanted_acl = [a for a in expected["acl"] if a != "service_role=X/postgres"]
+        require(md5(f["body"].encode()) == expected["md5"] and f["names"]["owner"] == expected["owner"]
+                and actual["proconfig"] == expected["config"] and sorted(actual["proacl"]) == sorted(wanted_acl)
+                and actual["provolatile"] == expected["volatility"]
+                and actual["prosecdef"] == expected["securityDefiner"], "shared logical preimage drift")
+    for expected in expected_closure:
+        f = functions[expected["signature"]]
+        metadata = expected["metadata"]
+        logical = {k: v for k, v in metadata.items() if k not in OID_KEYS}
+        logical.update(schema=expected["signature"].split(".")[0],
+                       owner="supabase_auth_admin" if expected["signature"] == "auth.uid()" else "postgres",
+                       language="sql" if metadata["prolang"] == "14" else "plpgsql",
+                       returnType={"25": "text", "2950": "uuid", "2278": "void", "2249": "record"}[metadata["prorettype"]],
+                       argumentTypes=", ".join(expected["signature"].split("(", 1)[1][:-1].split(",")))
+        require(md5(f["body"].encode()) == expected["sourceMD5"] and portable(f) == logical,
+                "shared full logical closure metadata drift")
+    replacements = {}
+    for raw in guards:
+        changed = json.loads(raw)
+        for entry in changed:
+            f = functions[entry["signature"]]
+            entry["oid"] = str(f["oid"])
+            entry["acl"] = json.loads(f["metadataText"])["proacl"]
+        replacements["$expected$" + raw + "$expected$"] = "$expected$" + json.dumps(changed, separators=(",", ":")) + "$expected$"
+    changed_closure = json.loads(closure[0])
+    for entry in changed_closure:
+        entry["metadata"] = json.loads(functions[entry["signature"]]["metadataText"])
+    replacements["$closure15expected$" + closure[0] + "$closure15expected$"] = "$closure15expected$" + json.dumps(changed_closure, separators=(",", ":")) + "$closure15expected$"
+    tls = "(SELECT ssl FROM pg_stat_ssl WHERE pid=pg_backend_pid()) IS DISTINCT FROM true"
+    require(operator.decode().count(tls) == 2, "shared TLS guard structure drift")
+    if not data["ssl"]:
+        replacements[tls] = tls.removesuffix("true") + "false"
+    result = operator.decode()
+    for old, new in replacements.items():
+        require(result.count(old) in (1, 2), "shared constant slot drift")
+        result = result.replace(old, new)
+    inverse = result
+    for old, new in reversed(list(replacements.items())):
+        require(inverse.count(new) == operator.decode().count(old), "shared inverse slot ambiguity")
+        inverse = inverse.replace(new, old)
+    require(inverse.encode() == operator, "shared inverse or payload changed")
+    return result.encode()
+
+
+def bind_shared(root):
+    inputs = prefix_manifest(root)
+    endpoint = local_endpoint(root)
+    previous = json.loads((root / ".replay/product-verified.json").read_text())
+    require(previous["publicProsrcMD5After"] == PRODUCT_BODY_MD5 and previous["wholeMetadataPreserved"]
+            and previous["auth8sPreserved"], "shared predecessor not verified")
+    data = snapshot(root)
+    derived = derive_shared((root / ".replay/shared-reader-operator.sql").read_bytes(), data, inputs["versions"])
+    dump(root / ".replay/shared-reader-before.json", {"endpoint": endpoint, "snapshot": data})
+    put(root / "supabase/migrations" / SHARED, derived)
+    dump(root / ".replay/shared-reader-binding.json",
+         {"operatorSHA256": SHARED_SHA, "derivedLOCALSHA256": sha(derived), "inverseSHA256": SHARED_SHA,
+          "onlyChanges": "qualified local OIDs/full physical metadata, existing LOCAL ACL2, observed local TLS guard; no grants or function-body changes",
+          "isOperatorSQLByteExactReplay": False})
+
+
+def apply_shared_local(root):
+    inputs = prefix_manifest(root)
+    local_endpoint(root)
+    before = json.loads((root / ".replay/shared-reader-before.json").read_text())["snapshot"]
+    expected = derive_shared((root / ".replay/shared-reader-operator.sql").read_bytes(), before, inputs["versions"])
+    require((root / "supabase/migrations" / SHARED).read_bytes() == expected, "derived shared reader drift")
+    claim_apply_attempt(root / ".replay/shared-reader-apply-attempt.json",
+                        {"target": "LOCAL_ONLY", "operatorSHA256": SHARED_SHA, "derivedLOCALSHA256": sha(expected),
+                         "oneAttemptOnly": True, "failureOrUnknown": "STOP_NO_AUTORETRY"})
+    output = run(["supabase", "--workdir", str(root), "migration", "up", "--local"])
+    put(root / ".replay/shared-reader-apply.stdout", output)
+
+
+def verify_statement_sequence(statements, operator):
+    # The CLI supplies its own SQL split. Match each exact statement in order;
+    # only separator semicolons and boundary whitespace may be trimmed.
+    require(isinstance(statements, list) and statements, "missing shared migration statements")
+    remaining = operator.decode().strip()
+    for statement in statements:
+        require(isinstance(statement, str) and statement.strip(), "empty shared migration statement")
+        statement = statement.strip().removesuffix(";").strip()
+        require(remaining.startswith(statement), "shared CLI ledger statement drift")
+        remaining = remaining[len(statement):].lstrip()
+        if remaining:
+            require(remaining.startswith(";"), "shared CLI ledger separator drift")
+            remaining = remaining[1:].lstrip()
+    require(not remaining, "unaccounted shared migration SQL")
+
+
+def verify_shared(root):
+    inputs = prefix_manifest(root)
+    endpoint = local_endpoint(root)
+    before = json.loads((root / ".replay/shared-reader-before.json").read_text())["snapshot"]
+    after = snapshot(root)
+    require(after["versions"] == inputs["versions"] + [TARGET[:14], PRODUCT[:14], SHARED[:14]],
+            "shared local history mismatch")
+    verify_statement_sequence(after["sharedLocalStatements"], (root / "supabase/migrations" / SHARED).read_bytes())
+    require(all(after[k] == before[k] for k in ["database", "effectiveRole", "serverMajor", "ssl", "authenticatedConfig", "localStatement", "productLocalStatement"]),
+            "shared identity/auth/predecessor ledger drift")
+    for signature, old in before["sharedFunctions"].items():
+        new = after["sharedFunctions"][signature]
+        if signature == "public.shop_sync_recovery_checkpoint_v1(uuid,text,text,text)":
+            expected = old["body"].replace("app_private.resolve_shop_sync_recovery_scope(", "app_private.resolve_shop_sync_recovery_read_scope_v1(").replace("app_private.acquire_sync_event_scope_fence_v1(", "app_private.acquire_sync_event_scope_read_fence_v1(")
+            require(md5(new["body"].encode()) == SHARED_BODY_MD5 and new["body"] == expected
+                    and new["metadataText"] == old["metadataText"] and new["names"] == old["names"]
+                    and new["definition"] == old["definition"].replace(old["body"], expected, 1), "shared CP source/metadata drift")
+        else:
+            require(new == old, "shared changed original function")
+    wanted = {"app_private.acquire_sync_event_scope_read_fence_v1(uuid,uuid)": "21a2f0eeef545f6aebb05f6c2757edc2",
+              "app_private.lock_catalog_scope_pair_read_v1(uuid,uuid)": "84cce948d3718e54ab946c81b6a400aa",
+              "app_private.resolve_shop_sync_recovery_read_scope_v1(uuid,text)": "334ed6616a382e7c9362a3e4efad70fc"}
+    require(set(after["sharedHelpers"]) == set(wanted), "shared helper membership drift")
+    for signature, digest in wanted.items():
+        f = after["sharedHelpers"][signature]; metadata = json.loads(f["metadataText"])
+        require(md5(f["body"].encode()) == digest and f["names"]["owner"] == "postgres"
+                and metadata["proacl"] == ["postgres=X/postgres"] and metadata["prosecdef"]
+                and metadata["provolatile"] == "v"
+                and metadata["proconfig"] == (["search_path=pg_catalog"] if "lock_catalog_scope_pair_read" in signature
+                    else ["search_path=public, app_private, pg_temp"]), "shared helper source/ACL/config drift")
+    dump(root / ".replay/shared-reader-verified.json",
+         {"status": "LOCAL_SHARED_READER_ENVELOPE_VERIFIED", "endpoint": endpoint, "operatorSHA256": SHARED_SHA,
+          "derivedLOCALSHA256": sha((root / "supabase/migrations" / SHARED).read_bytes()),
+          "publicProsrcMD5After": SHARED_BODY_MD5, "wholeMetadataPreserved": True, "auth8sPreserved": True,
+          "originalResolverAndWritersUnchanged": True, "privateHelperCount": 3,
+          "localLedgerVersion": SHARED[:14], "pgTAP": "NOT_RUN", "concurrency": "NOT_RUN"})
+
+class _PairChild:
+    """One owned psql/docker process; buffers never escape as raw output."""
+    def __init__(self, side, argv, selector, owners):
+        import os
+        self.side = side; self.rows = []; self.markers = set(); self.sqlstates = []
+        self.raw = bytearray(); self.stderr = bytearray(); self.byte_count = 0
+        self.tls = False; self.forcedLocalTermination = False
+        self.process = subprocess.Popen(argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE, start_new_session=True)
+        owners.append(self)
+        for stream, kind in ((self.process.stdout, "out"), (self.process.stderr, "err")):
+            os.set_blocking(stream.fileno(), False); selector.register(stream, 1, (self, kind))
+    def send(self, text):
+        self.process.stdin.write(text.encode()); self.process.stdin.flush()
+    def accept(self, kind, chunk):
+        self.byte_count += len(chunk)
+        if self.byte_count > 49152:
+            raise RuntimeError("OUTPUT_BOUND")
+        if kind == "err":
+            self.stderr.extend(chunk); return
+        self.raw.extend(chunk)
+        while b"\n" in self.raw:
+            line, _, remainder = self.raw.partition(b"\n"); self.raw = bytearray(remainder)
+            if line.startswith(b"PAIRJSON:"):
+                value = json.loads(line[len(b"PAIRJSON:"):])
+                if value.get("side") != self.side:
+                    raise RuntimeError("DEMULTIPLEX")
+                self.rows.append(value)
+            elif line.startswith(b"PAIRSQLSTATE:"):
+                match = re.fullmatch(rb"PAIRSQLSTATE:\s+([0-9A-Z]{5})\s*", line)
+                if not match: raise RuntimeError("SQLSTATE_FRAME")
+                self.sqlstates.append(match.group(1).decode())
+            elif line.startswith(b"__PAIR_") or line.startswith(b"__PASSFILE_"):
+                self.markers.add(line.decode())
+            elif b"SSL connection (protocol: TLSv1." in line:
+                self.tls = bool(re.search(rb"protocol: TLSv1\.[23],", line))
+            # Other psql connection info/empty lines are deliberately suppressed.
+
+SCOPE='00000000-0000-4000-8000-000000145701';OTHER='00000000-0000-4000-8000-000000145702'
+OWNER='00000000-0000-4000-8000-000000145700';OTHER_OWNER='00000000-0000-4000-8000-000000145703'
+
+def qualify_shared_locks(snapshot,identities,expected_readers,waiting):
+    assert snapshot['side']=='observer' and snapshot['kind']=='SNAPSHOT'
+    key=snapshot['key'];assert set(key)=={'classid','objid','objsubid'} and key['objsubid']==2
+    rows={r['side']:r for r in snapshot['rows']}
+    for side in expected_readers+['writer']:
+        row=rows[side];expected=identities[side]
+        assert all(row[k]==expected[k] for k in ['pid','backendStart','xactStart'])
+        mode='ShareLock' if side in expected_readers else 'ExclusiveLock'
+        locks=[l for l in row['locks'] if all(l[k]==key[k] for k in key) and l['mode']==mode]
+        assert len(locks)==1
+        assert locks[0]['granted'] is (side in expected_readers or not waiting)
+    for side in expected_readers:
+        for wanted in snapshot['readKeys']:
+            matches=[l for l in rows[side]['locks'] if all(l[k]==wanted[k] for k in wanted) and l['mode']=='ShareLock' and l['granted']]
+            assert len(matches)==1,'COMBINED_READ_LOCK_MISSING'
+    writer=rows['writer']
+    if waiting:
+        assert writer['waitEventType']=='Lock' and writer['waitEvent']=='advisory'
+        assert set(writer['blockingPIDs'])=={identities[s]['pid'] for s in expected_readers}
+    else:assert not writer['blockingPIDs']
+    return True
+
+def shared_reader_matrix(root,domain):
+    require(sys.flags.optimize == 0, "matrix assertions require ordinary Python")
+    out = root / (".replay/shared-reader-concurrency-" + domain + ".json")
+    assert domain in {'catalog','event'}
+    focus_namespace='catalog_union_scope' if domain=='catalog' else 'sync_event_scope_fence_v1'
+    focus_value=OWNER if domain=='catalog' else 'shop:'+SCOPE
+    writer_call=(f"SELECT app_private.lock_catalog_scope_pair_v1('{SCOPE}'::uuid,'{OWNER}'::uuid);\n" if domain=='catalog' else f"SELECT app_private.acquire_sync_event_scope_fence_v1('{OWNER}'::uuid,'{SCOPE}'::uuid);\n")
+    other_call=(f"SELECT app_private.lock_catalog_scope_pair_v1('{OTHER}'::uuid,'{OTHER_OWNER}'::uuid);\n" if domain=='catalog' else f"SELECT app_private.acquire_sync_event_scope_fence_v1('{OTHER_OWNER}'::uuid,'{OTHER}'::uuid);\n")
+    operator = (root / ".replay/shared-reader-operator.sql").read_bytes()
+    require(sha(operator) == SHARED_SHA, "matrix source operator drift")
+    def helper_definition(name):
+        text = operator.decode(); start = text.index("CREATE FUNCTION app_private." + name + "(")
+        end = text.index("REVOKE ALL ON FUNCTION app_private." + name + "(", start)
+        end = text.index(";", end) + 1
+        return (text[start:end] + "\n").encode()
+    helper = helper_definition("acquire_sync_event_scope_read_fence_v1")
+    catalog = helper_definition("lock_catalog_scope_pair_read_v1")
+    require(sha(helper) == "b9e8e8b49f87bb07886a1c42f083d08552c9dd48f1e42586b067d0117ca3f5f3"
+            and sha(catalog) == "bae54f62e337da34596467fad93593824ddbdedfc1ae74537a4cab1ff1103645", "matrix helper body drift")
+    endpoint = local_endpoint(root)
+    argv = ["docker", "exec", "-i", endpoint["containerID"], "/nix/var/nix/profiles/default/bin/psql",
+            "-X", "-qAt", "-v", "ON_ERROR_STOP=1", "-v", "VERBOSITY=sqlstate", "-U", "postgres", "-d", "postgres"]
+    owned=[];sel=selectors.DefaultSelector();deadline=time.monotonic()+30;children={};identities={};report={'status':'FAIL_UNFINISHED','remoteTEST':False,'businessDML':False,'publicFunctionChanged':False,'helperLevelOnly':True,'combinedCatalogAndEventReaders':True,'originalWriterDomain':domain,'snapshots':[]}
+    def pump(limit):
+        assert time.monotonic()<min(limit,deadline),'LOCAL_BOUND'
+        for key,_ in sel.select(.025):
+            child,kind=key.data;chunk=os.read(key.fileobj.fileno(),65536)
+            if chunk:child.accept(kind,chunk)
+            else:sel.unregister(key.fileobj)
+    def frame(child,kind,sequence=None):
+        limit=min(time.monotonic()+3,deadline)
+        while True:
+            rows=[r for r in child.rows if r.get('kind')==kind and (sequence is None or r.get('sequence')==sequence)]
+            if rows:assert len(rows)==1;return rows[0]
+            assert child.process.poll() is None,'EARLY_CLIENT_EXIT'
+            pump(limit)
+    def start(side):
+        c=_PairChild(side,argv,sel,owned);children[side]=c
+        c.send("BEGIN; SET LOCAL statement_timeout='8s'; SET LOCAL search_path=pg_catalog;\n")
+        return c
+    def emit(side,kind,extra=''):
+        return "SELECT 'PAIRJSON:'||jsonb_build_object('side','"+side+"','kind','"+kind+"','pid',pid,'backendStart',backend_start,'xactStart',xact_start"+extra+")::text FROM pg_stat_activity WHERE pid=pg_backend_pid();\n"
+    def stop(c):
+        if c.process.poll() is None:
+            c.send('ROLLBACK;\n\\echo __PAIR_'+c.side.upper()+'_ROLLBACK__\n\\quit\n');c.process.stdin.close()
+        limit=min(time.monotonic()+9,deadline)
+        while c.process.poll() is None:pump(limit)
+        # Drain final output without blocking beyond the original global bound.
+        for _ in range(3):
+            if not sel.get_map():break
+            pump(min(time.monotonic()+.2,deadline))
+        assert c.process.returncode==0 and '__PAIR_'+c.side.upper()+'_ROLLBACK__' in c.markers,'ROLLBACK_NOT_PROVEN'
+    def snapshot(seq,readers,waiting):
+        ids=','.join(str(identities[s]['pid']) for s in ['r1','r2','writer'])
+        cases='CASE a.pid '+' '.join('WHEN '+str(identities[s]['pid'])+" THEN '"+s+"'" for s in ['r1','r2','writer'])+' END'
+        sql=f"""SELECT pg_stat_clear_snapshot();
+SELECT 'PAIRJSON:'||jsonb_build_object('side','observer','kind','SNAPSHOT','sequence',{seq},'at',clock_timestamp(),
+'key',jsonb_build_object('classid',(hashtext('{focus_namespace}')::bigint&4294967295::bigint),'objid',(hashtext('{focus_value}')::bigint&4294967295::bigint),'objsubid',2),
+'readKeys',jsonb_build_array(
+ jsonb_build_object('classid',(hashtext('catalog_union_scope')::bigint&4294967295::bigint),'objid',(hashtext('{OWNER}')::bigint&4294967295::bigint),'objsubid',2),
+ jsonb_build_object('classid',(hashtext('catalog_union_scope')::bigint&4294967295::bigint),'objid',(hashtext('{SCOPE}')::bigint&4294967295::bigint),'objsubid',2),
+ jsonb_build_object('classid',(hashtext('sync_event_scope_fence_v1')::bigint&4294967295::bigint),'objid',(hashtext('shop:{SCOPE}')::bigint&4294967295::bigint),'objsubid',2)),
+'rows',coalesce((SELECT jsonb_agg(jsonb_build_object('side',{cases},'pid',a.pid,'backendStart',a.backend_start,'xactStart',a.xact_start,'waitEventType',a.wait_event_type,'waitEvent',a.wait_event,'blockingPIDs',pg_blocking_pids(a.pid),
+'locks',coalesce((SELECT jsonb_agg(jsonb_build_object('mode',l.mode,'granted',l.granted,'classid',l.classid::bigint,'objid',l.objid::bigint,'objsubid',l.objsubid)) FROM pg_locks l WHERE l.pid=a.pid AND l.locktype='advisory'),'[]'::jsonb))) FROM pg_stat_activity a WHERE a.pid IN ({ids})),'[]'::jsonb))::text;
+"""
+        children['observer'].send(sql);s=frame(children['observer'],'SNAPSHOT',seq);report['snapshots'].append(s);qualify_shared_locks(s,identities,readers,waiting)
+    try:
+        observer=start('observer')
+        observer.send("DO $g$ BEGIN IF current_database()<>'postgres' OR current_user<>'postgres' OR (SELECT md5(prosrc) FROM pg_proc WHERE oid='app_private.acquire_sync_event_scope_fence_v1(uuid,uuid)'::regprocedure)<>'0199f8030d3bd207ac27527ed9a52862' OR (SELECT md5(prosrc) FROM pg_proc WHERE oid='app_private.sync_event_scope_fence_key_v1(uuid,uuid)'::regprocedure)<>'5c56ddfa4e479e85a9158114722b14f8' OR (SELECT md5(prosrc) FROM pg_proc WHERE oid='app_private.lock_catalog_scope_pair_v1(uuid,uuid)'::regprocedure)<>'e7e8c0b08519a53345e9ca583e484481' OR (SELECT md5(prosrc) FROM pg_proc WHERE oid='app_private.resolve_shop_sync_recovery_scope(uuid,text)'::regprocedure)<>'0f47ec89de6f5ea847548e55721d7f54' THEN RAISE EXCEPTION 'LOCAL_SOURCE_MISMATCH';END IF;END;$g$;\n"+emit('observer','READY',",'writerMD5',(SELECT md5(prosrc) FROM pg_proc WHERE oid='app_private.acquire_sync_event_scope_fence_v1(uuid,uuid)'::regprocedure),'checkpointMD5',(SELECT md5(prosrc) FROM pg_proc WHERE oid='public.shop_sync_recovery_checkpoint_v1(uuid,text,text,text)'::regprocedure),'catalogWriterMD5',(SELECT md5(prosrc) FROM pg_proc WHERE oid='app_private.lock_catalog_scope_pair_v1(uuid,uuid)'::regprocedure),'resolverMD5',(SELECT md5(prosrc) FROM pg_proc WHERE oid='app_private.resolve_shop_sync_recovery_scope(uuid,text)'::regprocedure)"))
+        before=frame(observer,'READY')
+        require(before['checkpointMD5'] == SHARED_BODY_MD5, 'matrix candidate CP drift')
+        temporary=helper.decode().replace('app_private.acquire_sync_event_scope_read_fence_v1','pg_temp.acquire_sync_event_scope_read_fence_v1')+catalog.decode().replace('app_private.lock_catalog_scope_pair_read_v1','pg_temp.lock_catalog_scope_pair_read_v1')
+        for side in ['r1','r2']:
+            c=start(side);c.send(temporary+f"SELECT pg_temp.lock_catalog_scope_pair_read_v1('{SCOPE}'::uuid,'{OWNER}'::uuid);\nSELECT pg_temp.acquire_sync_event_scope_read_fence_v1('{OWNER}'::uuid,'{SCOPE}'::uuid);\n"+emit(side,'READY',",'noWriterWitness',nullif(current_setting('app_private.sync_event_scope_fence',true),'') IS NULL"))
+            identities[side]=frame(c,'READY');assert identities[side]['noWriterWitness']
+        other=start('other');other.send(other_call+emit('other','READY'))
+        frame(other,'READY');stop(other);report['differentScopeWriterCompleted']=True
+        w=start('writer');w.send(emit('writer','PHASE')+writer_call+emit('writer','READY'))
+        identities['writer']=frame(w,'PHASE')
+        snapshot(1,['r1','r2'],True)
+        stop(children['r1']);snapshot(2,['r2'],True)
+        stop(children['r2']);frame(w,'READY');snapshot(3,[],False)
+        observer.send(emit('observer','POSTCHECK',",'writerMD5',(SELECT md5(prosrc) FROM pg_proc WHERE oid='app_private.acquire_sync_event_scope_fence_v1(uuid,uuid)'::regprocedure),'checkpointMD5',(SELECT md5(prosrc) FROM pg_proc WHERE oid='public.shop_sync_recovery_checkpoint_v1(uuid,text,text,text)'::regprocedure),'catalogWriterMD5',(SELECT md5(prosrc) FROM pg_proc WHERE oid='app_private.lock_catalog_scope_pair_v1(uuid,uuid)'::regprocedure),'resolverMD5',(SELECT md5(prosrc) FROM pg_proc WHERE oid='app_private.resolve_shop_sync_recovery_scope(uuid,text)'::regprocedure)"))
+        after=frame(observer,'POSTCHECK');assert before['writerMD5']==after['writerMD5'] and before['checkpointMD5']==after['checkpointMD5'] and before['catalogWriterMD5']==after['catalogWriterMD5'] and before['resolverMD5']==after['resolverMD5']
+        report['functionBeforeAfter']={'before':before,'after':after}
+        report.update(status='PASS_LOCAL_COMBINED_READERS_ORIGINAL_WRITER_FENCE_MATRIX',noWriterWitness=True,originalWriterUnchanged=True,readers=identities,actualCPPerformanceMeasured=False)
+    except BaseException as e:
+        report.update(status='FAIL_LOCAL_LOCK_REGRESSION',errorClass=type(e).__name__)
+    finally:
+        cleanup=[]
+        for side in ['r1','r2','other','writer','observer']:
+            c=children.get(side)
+            if not c:continue
+            try:stop(c);ok=True
+            except BaseException:ok=False
+            if c.process.poll() is None:
+                try:os.killpg(c.process.pid,15);c.process.wait(timeout=2)
+                except BaseException:pass
+            cleanup.append(dict(side=side,pid=c.process.pid,exit=c.process.poll(),rollbackAndNaturalExit=ok,rows=c.rows,sqlstates=c.sqlstates,stderr=c.stderr.decode(errors='replace')))
+        sel.close();report['cleanup']=cleanup
+        if not all(x['rollbackAndNaturalExit'] for x in cleanup):report['diagnosticBeforeCleanup']=report['status'];report['status']='FAIL_LOCAL_TRANSACTION_ENDING_UNCONFIRMED'
+        assert not out.exists();out.write_text(json.dumps(report,indent=2)+'\n')
+    print(json.dumps(dict(status=report['status'],receipt=str(out))))
+    return 0 if report['status'].startswith('PASS_') else 2
+
+
+def shared_reader_matrices(root):
+    receipts = {}
+    for domain in ("catalog", "event"):
+        require(shared_reader_matrix(root, domain) == 0, "shared reader matrix failed; no retry")
+        p = root / (".replay/shared-reader-concurrency-" + domain + ".json")
+        result = json.loads(p.read_text())
+        require(result["noWriterWitness"] and result["originalWriterUnchanged"]
+                and all(x["rollbackAndNaturalExit"] and x["exit"] == 0 for x in result["cleanup"]),
+                "matrix ownership/rollback drift")
+        receipts[domain] = {"status": result["status"], "receiptSHA256": sha(p.read_bytes()), "snapshots": 3}
+    dump(root / ".replay/shared-reader-matrices.json", receipts)
+
+
 def cli_binary():
     executable = shutil.which("supabase")
     require(isinstance(executable, str) and Path(executable).is_absolute(), "missing CLI")
@@ -592,7 +936,10 @@ def replay(repo, workdir):
                          ("observed local ownership", observe_owned_creation), ("bind three constants", bind),
                          ("apply local migration once", apply_local), ("verify body and metadata", verify),
                          ("bind product ACL constant", bind_product), ("apply product migration once", apply_product_local),
-                         ("verify product body metadata and ledger", verify_product)):
+                         ("verify product body metadata and ledger", verify_product),
+                         ("bind shared reader local metadata", bind_shared), ("apply shared reader migration once", apply_shared_local),
+                         ("verify shared reader body metadata and ledger", verify_shared),
+                         ("shared reader original writer matrices", shared_reader_matrices)):
         REPLAY_STAGE = name
         print("Database replay: " + name, flush=True)
         action(root)
@@ -609,6 +956,9 @@ def replay(repo, workdir):
           "pgTAPFiles": int(summary[1]), "pgTAPTests": int(summary[2]),
           "verifiedSHA256": sha((root / ".replay/product-verified.json").read_bytes()),
           "productMigrationSHA256": PRODUCT_SHA, "productPublicProsrcMD5": PRODUCT_BODY_MD5,
+          "sharedReaderMigrationSHA256": SHARED_SHA, "sharedReaderPublicProsrcMD5": SHARED_BODY_MD5,
+          "sharedReaderVerifiedSHA256": sha((root / ".replay/shared-reader-verified.json").read_bytes()),
+          "sharedReaderMatricesSHA256": sha((root / ".replay/shared-reader-matrices.json").read_bytes()),
           "pgtapStdoutSHA256": sha(output), "operatorSQLByteExactReplay": False,
           "localACLIsTESTEquivalent": "NOT_CLAIMED"}
     dump(root / ".replay/complete.json", complete)
@@ -626,6 +976,10 @@ def export_complete(complete):
               "verifiedSHA256": complete["verifiedSHA256"],
               "productMigrationSHA256": complete["productMigrationSHA256"],
               "productPublicProsrcMD5": complete["productPublicProsrcMD5"],
+              "sharedReaderMigrationSHA256": complete["sharedReaderMigrationSHA256"],
+              "sharedReaderPublicProsrcMD5": complete["sharedReaderPublicProsrcMD5"],
+              "sharedReaderVerifiedSHA256": complete["sharedReaderVerifiedSHA256"],
+              "sharedReaderMatricesSHA256": complete["sharedReaderMatricesSHA256"],
               "pgtapStdoutSHA256": complete["pgtapStdoutSHA256"],
               "operatorSQLByteExactReplay": False, "localACLIsTESTEquivalent": "NOT_CLAIMED"})
 
@@ -646,7 +1000,8 @@ def main():
     global ERROR_ROOT, EVIDENCE_ROOT
     parser = argparse.ArgumentParser()
     parser.add_argument("mode", choices=["run", "prepare", "empty-local", "bind", "apply-local", "verify",
-                                        "bind-product", "apply-product-local", "verify-product"])
+                                        "bind-product", "apply-product-local", "verify-product",
+                                        "bind-shared", "apply-shared-local", "verify-shared"])
     parser.add_argument("--workdir", required=True)
     parser.add_argument("--repo")
     parser.add_argument("--evidence-dir")
@@ -671,7 +1026,8 @@ def main():
         root = root_path(args.workdir)
         ERROR_ROOT = root
         {"empty-local": empty_local, "bind": bind, "apply-local": apply_local, "verify": verify,
-         "bind-product": bind_product, "apply-product-local": apply_product_local, "verify-product": verify_product}[args.mode](root)
+         "bind-product": bind_product, "apply-product-local": apply_product_local, "verify-product": verify_product,
+         "bind-shared": bind_shared, "apply-shared-local": apply_shared_local, "verify-shared": verify_shared}[args.mode](root)
 
 # Filled only when the pinned expected fixture is generated; no runtime override.
 EXPECTED_SHA = "1bee30e84056eacb5f993cc33047c7e2e1011ecd79df8f1aee2a3900781f6f10"
