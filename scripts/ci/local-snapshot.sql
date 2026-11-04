@@ -15,7 +15,8 @@ WITH target(kind,oid) AS (VALUES
  ('public.shop_sync_recovery_checkpoint_v1(uuid,text,text,text)',to_regprocedure('public.shop_sync_recovery_checkpoint_v1(uuid,text,text,text)')),
  ('app_private.acquire_sync_event_scope_read_fence_v1(uuid,uuid)',to_regprocedure('app_private.acquire_sync_event_scope_read_fence_v1(uuid,uuid)')),
  ('app_private.lock_catalog_scope_pair_read_v1(uuid,uuid)',to_regprocedure('app_private.lock_catalog_scope_pair_read_v1(uuid,uuid)')),
- ('app_private.resolve_shop_sync_recovery_read_scope_v1(uuid,text)',to_regprocedure('app_private.resolve_shop_sync_recovery_read_scope_v1(uuid,text)'))
+ ('app_private.resolve_shop_sync_recovery_read_scope_v1(uuid,text)',to_regprocedure('app_private.resolve_shop_sync_recovery_read_scope_v1(uuid,text)')),
+ ('app_private.guard_sync_scope_read_upgrade_v1(integer,integer[])',to_regprocedure('app_private.guard_sync_scope_read_upgrade_v1(integer,integer[])'))
 ), detail AS (
  SELECT target.kind,p.oid,p.prosrc,pg_get_functiondef(p.oid) AS definition,
  (to_jsonb(p)-'prosrc')::text AS metadata_text,
@@ -30,13 +31,13 @@ SELECT jsonb_build_object(
  'functions',(SELECT jsonb_object_agg(kind,jsonb_build_object('oid',oid,'body',prosrc,
    'definition',definition,'metadataText',metadata_text,'metadataMD5',md5(metadata_text),'names',names)) FROM detail WHERE kind IN ('helper','public')),
  'ssl',(SELECT ssl FROM pg_stat_ssl WHERE pid=pg_backend_pid()),
- 'sharedFunctions',(SELECT jsonb_object_agg(kind,jsonb_build_object('oid',oid,'body',prosrc,'definition',definition,'metadataText',metadata_text,'metadataMD5',md5(metadata_text),'names',names)) FROM detail WHERE kind NOT IN ('helper','public','app_private.acquire_sync_event_scope_read_fence_v1(uuid,uuid)','app_private.lock_catalog_scope_pair_read_v1(uuid,uuid)','app_private.resolve_shop_sync_recovery_read_scope_v1(uuid,text)')),
- 'sharedHelpers',COALESCE((SELECT jsonb_object_agg(kind,jsonb_build_object('oid',oid,'body',prosrc,'definition',definition,'metadataText',metadata_text,'metadataMD5',md5(metadata_text),'names',names)) FROM detail WHERE kind IN ('app_private.acquire_sync_event_scope_read_fence_v1(uuid,uuid)','app_private.lock_catalog_scope_pair_read_v1(uuid,uuid)','app_private.resolve_shop_sync_recovery_read_scope_v1(uuid,text)')),'{}'::jsonb),
+ 'sharedFunctions',(SELECT jsonb_object_agg(kind,jsonb_build_object('oid',oid,'body',prosrc,'definition',definition,'metadataText',metadata_text,'metadataMD5',md5(metadata_text),'names',names)) FROM detail WHERE kind NOT IN ('helper','public','app_private.acquire_sync_event_scope_read_fence_v1(uuid,uuid)','app_private.lock_catalog_scope_pair_read_v1(uuid,uuid)','app_private.resolve_shop_sync_recovery_read_scope_v1(uuid,text)','app_private.guard_sync_scope_read_upgrade_v1(integer,integer[])')),
+ 'sharedHelpers',COALESCE((SELECT jsonb_object_agg(kind,jsonb_build_object('oid',oid,'body',prosrc,'definition',definition,'metadataText',metadata_text,'metadataMD5',md5(metadata_text),'names',names)) FROM detail WHERE kind IN ('app_private.acquire_sync_event_scope_read_fence_v1(uuid,uuid)','app_private.lock_catalog_scope_pair_read_v1(uuid,uuid)','app_private.resolve_shop_sync_recovery_read_scope_v1(uuid,text)','app_private.guard_sync_scope_read_upgrade_v1(integer,integer[])')),'{}'::jsonb),
  'versions',(SELECT coalesce(jsonb_agg(version ORDER BY version),'[]'::jsonb) FROM supabase_migrations.schema_migrations),
  'localStatement',(SELECT CASE WHEN cardinality(statements)=1 THEN statements[1] END
    FROM supabase_migrations.schema_migrations WHERE version='20261027143737'),
  'productLocalStatement',(SELECT CASE WHEN cardinality(statements)=1 THEN statements[1] END
    FROM supabase_migrations.schema_migrations WHERE version='20261028132836'),
- 'sharedLocalStatements',(SELECT to_jsonb(statements) FROM supabase_migrations.schema_migrations WHERE version='20261030065236'),
+ 'sharedLocalStatements',(SELECT to_jsonb(statements) FROM supabase_migrations.schema_migrations WHERE version='20261104224833'),
  'authenticatedConfig',(SELECT rolconfig FROM pg_roles WHERE rolname='authenticated')
 ) AS snapshot;

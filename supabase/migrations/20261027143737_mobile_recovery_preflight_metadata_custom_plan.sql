@@ -1,4 +1,5 @@
--- ROOT TEST-only candidate: one helper body, two metadata EXECUTEs. No apply until fresh admission.
+-- TASK146 portable migration: exact helper-body change; logical preimage and actual metadata preserved.
+-- Original TEST operator bytes/SHA: docs/RUNBOOKS/sql/task146-operator-lineage/.
 -- Complete pg_proc metadata and public main RPC are preserved; failure aborts this DO statement.
 DO $b6_metadata_apply_guarded$
 DECLARE
@@ -8,16 +9,29 @@ DECLARE
 BEGIN
   SELECT to_jsonb(p),md5(pg_get_functiondef(p.oid)) INTO STRICT v_before,v_definition_md5
   FROM pg_proc p WHERE p.oid=v_oid;
-  IF v_oid <> '58221'::oid
-    OR md5(v_before->>'prosrc') <> 'af803534d214de91fa12445b769d2556'
-    OR md5((v_before-'prosrc')::text) <> '8e8498b3f5806524566080bd618f298d'
-    OR v_definition_md5 <> 'f2a0351605304f2adff9e712bb27d002' THEN
+  IF md5(v_before->>'prosrc') <> 'af803534d214de91fa12445b769d2556'
+    OR pg_get_userbyid((v_before->>'proowner')::oid) <> 'postgres'
+    OR current_user <> 'postgres'
+    OR (SELECT lanname FROM pg_catalog.pg_language WHERE oid=(v_before->>'prolang')::oid) <> 'plpgsql'
+    OR v_before->>'prokind' IS DISTINCT FROM 'f' OR v_before->>'provolatile' IS DISTINCT FROM 's'
+    OR v_before->'prosecdef' IS DISTINCT FROM 'true'::jsonb
+    OR v_before->'proconfig' IS DISTINCT FROM '["search_path=public, app_private, pg_temp"]'::jsonb
+    OR (v_before->>'prorettype')::oid <> 'jsonb'::regtype
+    OR (SELECT jsonb_agg(a::text ORDER BY a::text COLLATE "C") FROM pg_catalog.pg_proc p, unnest(p.proacl) a WHERE p.oid=v_oid)
+      IS DISTINCT FROM '["postgres=X/postgres"]'::jsonb THEN
     RAISE EXCEPTION 'B6_PREFLIGHT_METADATA_APPLY_PREIMAGE_MISMATCH' USING ERRCODE='55000';
   END IF;
   SELECT to_jsonb(p) INTO STRICT v_public_before FROM pg_proc p
   WHERE p.oid='public.shop_sync_recovery_checkpoint_v1(uuid,text,text,text)'::regprocedure;
   IF md5(v_public_before->>'prosrc') <> '9fee0c276080e3f45b8d567883b13e04'
-    OR md5((v_public_before-'prosrc')::text) <> '86c0b470d66981611c9de809545bb378' THEN
+    OR pg_get_userbyid((v_public_before->>'proowner')::oid) <> 'postgres'
+    OR (SELECT lanname FROM pg_catalog.pg_language WHERE oid=(v_public_before->>'prolang')::oid) <> 'plpgsql'
+    OR v_public_before->>'prokind' IS DISTINCT FROM 'f' OR v_public_before->>'provolatile' IS DISTINCT FROM 'v'
+    OR v_public_before->'prosecdef' IS DISTINCT FROM 'true'::jsonb
+    OR v_public_before->'proconfig' IS DISTINCT FROM '["search_path=public, app_private, pg_temp"]'::jsonb
+    OR coalesce((SELECT jsonb_agg(a::text ORDER BY a::text COLLATE "C") FROM pg_catalog.pg_proc p, unnest(p.proacl) a WHERE p.oid='public.shop_sync_recovery_checkpoint_v1(uuid,text,text,text)'::regprocedure), 'null'::jsonb)
+      NOT IN ('["authenticated=X/postgres","postgres=X/postgres"]'::jsonb,
+              '["authenticated=X/postgres","postgres=X/postgres","service_role=X/postgres"]'::jsonb) THEN
     RAISE EXCEPTION 'B6_PREFLIGHT_METADATA_APPLY_PUBLIC_RPC_MISMATCH' USING ERRCODE='55000';
   END IF;
   EXECUTE $b6_metadata_apply_definition$

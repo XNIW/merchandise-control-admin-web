@@ -1,5 +1,17 @@
 # WECHAT-010 — prestazioni del checkpoint di recovery
 
+## iOS TASK-146 A1 — current portable implementation, 4 November 2026
+
+The following dated sections retain the earlier diagnosis, counterfactual and replay history. Their old300 operator/rollback byte claims describe those historical packets. Use the current [portable replay and guarded inverse](MOBILE_RECOVERY_TASK146_RAW_REPLAY.md) for the new implementation; the source filename and four-helper inverse have since changed.
+
+The current portable shared-reader source is `20261104224833_mobile_recovery_shared_reader_fences.sql` (SQL SHA256 `6c6555304418c337da74c5be7549677d5604ea3d5e4e4ed7ba7d8941c6b29134`). A single authorized apply on TEST completed at 2026-11-04 22:48:33 UTC. Readback retained all 168 previous ledger entries and added exactly this version, with the full 30567-byte SQL statement unchanged. All 11 existing routine metadata images and the authenticated 8-second budget are unchanged. Checkpoint 604→7a and the two private writer bodies are the three intended replacements; four new helpers are private to postgres. No business-row or real-user-rights mutation was part of the apply.
+
+The private writers intentionally add bounded shared-to-exclusive upgrade handling: own shared-only target ownership selects nonblocking exclusive attempts for every target in canonical order; contention raises `40001`. Normal writer order, uncontended upgrades and exclusive reentry are preserved. This supersedes historical claims below that the writers were unchanged. Public payload, digest, authorization, grants and timeout contracts remain intact.
+
+The fresh frozen05 replay passed the three exact SQL files, two reader-first matrices, eleven upgrade/writer-first/mixed-key cases and all 66 pgTAP files / 4311 assertions. Six separate local guard/inverse fixtures also passed. The exact renamed frozen06 native replay has also completed all three raw migration stages, the thirteen concurrency groups and all 66 files / 4311 assertions. Its final independent closure review and exact-commit hosted CI remain separate publication gates; no hosted CI result is inferred from local execution. Authenticated mobile behavior, device/UX/performance acceptance, the final ordinary backend window and global TASK-146 closure remain open. No production deploy or client distribution is implied.
+
+The canonical migration is [the actual TEST version](../../supabase/migrations/20261104224833_mobile_recovery_shared_reader_fences.sql). The original300 operator is retained under `sql/task146-operator-lineage/`; it is not a portable execution input.
+
 ## TASK-159 REVIEW — TEST154 applied; authenticated recovery pending, 2026-10-02 15:09 UTC
 
 PR128 candidate head `2e7237f4` passed exact-head database/pgTAP, Verify and

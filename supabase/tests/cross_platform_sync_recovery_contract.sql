@@ -3446,10 +3446,10 @@ BEGIN
  candidate_marker:=public.shop_sync_convergence_marker_v1('10000000-0000-4000-8000-000000000901','sync-recovery-device-a');
  IF original_cp IS DISTINCT FROM candidate_cp OR original_marker IS DISTINCT FROM candidate_marker THEN RAISE EXCEPTION 'FULL_JSON_OR_DIGEST_PARITY_FAILED';END IF;
  IF current_setting('app_private.sync_event_scope_fence',true) IS DISTINCT FROM witness_before THEN RAISE EXCEPTION 'READER_CHANGED_WRITER_WITNESS';END IF;
- IF (SELECT md5(prosrc) FROM pg_proc WHERE oid='app_private.acquire_sync_event_scope_fence_v1(uuid,uuid)'::regprocedure)<>'0199f8030d3bd207ac27527ed9a52862'
- OR (SELECT md5(prosrc) FROM pg_proc WHERE oid='app_private.lock_catalog_scope_pair_v1(uuid,uuid)'::regprocedure)<>'e7e8c0b08519a53345e9ca583e484481'
+ IF (SELECT md5(prosrc) FROM pg_proc WHERE oid='app_private.acquire_sync_event_scope_fence_v1(uuid,uuid)'::regprocedure)<>'8bc0089c0f2d0fbccd3286a4022d90ea'
+ OR (SELECT md5(prosrc) FROM pg_proc WHERE oid='app_private.lock_catalog_scope_pair_v1(uuid,uuid)'::regprocedure)<>'394bef66b0f19c3e64ae82e48d7187a3'
  OR (SELECT md5(prosrc) FROM pg_proc WHERE oid='app_private.resolve_shop_sync_recovery_scope(uuid,text)'::regprocedure)<>'0f47ec89de6f5ea847548e55721d7f54'
- THEN RAISE EXCEPTION 'ORIGINAL_WRITER_OR_RESOLVER_CHANGED';END IF;
+ THEN RAISE EXCEPTION 'QUALIFIED_WRITER_OR_RESOLVER_CHANGED';END IF;
 END; $readers15_full_json_parity$;
 SET LOCAL ROLE authenticated;
 select pass('shared catalog and event readers preserve complete original checkpoint and marker JSON');
@@ -6490,5 +6490,38 @@ select setval(
   (select last_value from sync_recovery_sequence_state),
   (select is_called from sync_recovery_sequence_state)
 );
+-- TASK146: bounded private upgrade guard, exact metadata/permission envelope.
+set local role postgres;
+select has_function('app_private', 'guard_sync_scope_read_upgrade_v1', array['integer','integer[]']);
+select function_privs_are('app_private','guard_sync_scope_read_upgrade_v1',array['integer','integer[]'],'authenticated',array[]::text[]);
+select function_privs_are('app_private','guard_sync_scope_read_upgrade_v1',array['integer','integer[]'],'anon',array[]::text[]);
+select function_privs_are('app_private','guard_sync_scope_read_upgrade_v1',array['integer','integer[]'],'service_role',array[]::text[]);
+select throws_ok($$select app_private.guard_sync_scope_read_upgrade_v1(1,array[]::integer[])$$,'22023','sync scope upgrade guard requires bounded keys','empty upgrade key list fails closed');
+select throws_ok($$select app_private.guard_sync_scope_read_upgrade_v1(1,array[1,null]::integer[])$$,'22023','sync scope upgrade guard requires bounded keys','null upgrade key fails closed');
+select throws_ok($$select app_private.guard_sync_scope_read_upgrade_v1(1,array[1,2,3])$$,'22023','sync scope upgrade guard requires bounded keys','unbounded upgrade key list fails closed');
+select lives_ok($$
+ select app_private.acquire_sync_event_scope_read_fence_v1('00000000-0000-4000-8000-000000146001','00000000-0000-4000-8000-000000146002');
+ select app_private.acquire_sync_event_scope_fence_v1('00000000-0000-4000-8000-000000146001','00000000-0000-4000-8000-000000146002');
+ select app_private.acquire_sync_event_scope_fence_v1('00000000-0000-4000-8000-000000146001','00000000-0000-4000-8000-000000146002');
+$$,'uncontended shared event upgrade and exclusive reentry remain supported');
+select is(current_setting('app_private.sync_event_scope_fence',true),'shop:00000000-0000-4000-8000-000000146002','only the acquired exclusive event path mints its existing writer witness');
+select lives_ok($$
+ select app_private.lock_catalog_scope_pair_read_v1('00000000-0000-4000-8000-000000146003','00000000-0000-4000-8000-000000146004');
+ select app_private.lock_catalog_scope_pair_v1('00000000-0000-4000-8000-000000146003','00000000-0000-4000-8000-000000146004');
+ select app_private.lock_catalog_scope_pair_v1('00000000-0000-4000-8000-000000146003','00000000-0000-4000-8000-000000146004');
+$$,'uncontended catalog pair upgrade and exclusive reentry preserve canonical order');
+select lives_ok($$
+ select pg_advisory_xact_lock_shared(-2147483648,-1);
+ select app_private.guard_sync_scope_read_upgrade_v1(-2147483648,array[-1]);
+$$,'signed two-int advisory values match unsigned pg_locks OID tags');
+select ok(exists(select 1 from pg_catalog.pg_locks where locktype='advisory' and database=(select oid from pg_catalog.pg_database where datname=current_database()) and pid=pg_backend_pid() and granted and mode='ExclusiveLock' and objsubid=2 and classid::bigint=2147483648 and objid::bigint=4294967295),'upgrade guard really acquired the exact signed-key exclusive advisory lock');
+select lives_ok($$
+ select app_private.guard_sync_scope_read_upgrade_v1(2147483647,array[17]);
+$$,'ordinary no-share guard preflight does not reject the existing writer path');
+select ok(not exists(select 1 from pg_catalog.pg_locks where locktype='advisory' and database=(select oid from pg_catalog.pg_database where datname=current_database()) and pid=pg_backend_pid() and granted and mode='ExclusiveLock' and objsubid=2 and classid::bigint=2147483647 and objid::bigint=17),'no-share guard preflight itself does not acquire an out-of-order lock');
+set local role authenticated;
+select throws_ok($$select app_private.guard_sync_scope_read_upgrade_v1(1,array[1])$$,'42501',null,'client cannot invoke the private upgrade guard directly');
+
+set local role postgres;
 select * from finish();
 rollback;

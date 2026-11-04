@@ -358,11 +358,12 @@ BEGIN
   IF md5(before_source) <> '9fee0c276080e3f45b8d567883b13e04'
     OR pg_get_userbyid((before_metadata->>'proowner')::oid) <> 'postgres'
     OR current_user <> 'postgres'
-    OR before_metadata->'proconfig' <> '["search_path=public, app_private, pg_temp"]'::jsonb
-    OR before_metadata->'prosecdef' <> 'true'::jsonb
-    OR (SELECT jsonb_agg(a::text ORDER BY a::text COLLATE "C")
-        FROM unnest((SELECT proacl FROM pg_catalog.pg_proc WHERE oid = signature)) a)
-      IS DISTINCT FROM '["authenticated=X/postgres","postgres=X/postgres","service_role=X/postgres"]'::jsonb
+    OR before_metadata->'proconfig' IS DISTINCT FROM '["search_path=public, app_private, pg_temp"]'::jsonb
+    OR before_metadata->'prosecdef' IS DISTINCT FROM 'true'::jsonb
+    OR coalesce((SELECT jsonb_agg(a::text ORDER BY a::text COLLATE "C")
+        FROM unnest((SELECT proacl FROM pg_catalog.pg_proc WHERE oid = signature)) a), 'null'::jsonb)
+      NOT IN ('["authenticated=X/postgres","postgres=X/postgres"]'::jsonb,
+              '["authenticated=X/postgres","postgres=X/postgres","service_role=X/postgres"]'::jsonb)
     OR app_private.sync_recovery_scalar_bytes_contract_v1() IS NOT TRUE THEN
     RAISE EXCEPTION 'PRODUCT_TIMESTAMP_MEMO_SOURCE_METADATA_OR_CONTRACT_MISMATCH' USING ERRCODE = '55000';
   END IF;

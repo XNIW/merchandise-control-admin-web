@@ -11,20 +11,23 @@ CLI_VERSION = "2.109.0"
 PRICE = "20261027015232_mobile_recovery_checkpoint_price_custom_plan.sql"
 TARGET = "20261027143737_mobile_recovery_preflight_metadata_custom_plan.sql"
 PRODUCT = "20261028132836_mobile_recovery_checkpoint_product_timestamp_memo.sql"
-SHARED = '20261030065236_mobile_recovery_shared_reader_fences.sql'
-SHARED_SHA = '5ec447ab99a7694c5c336c5ca76cfbb1a48f568cbb0ad0a97290c4a84099df0c'
+SHARED = '20261104224833_mobile_recovery_shared_reader_fences.sql'
+SHARED_SHA = '6c6555304418c337da74c5be7549677d5604ea3d5e4e4ed7ba7d8941c6b29134'
 SHARED_BODY_MD5 = "7a1e3ec3050743656759432ad448a37b"
-PRODUCT_SHA = "f4d51af0863b136695772db3b76d98f8f4f758ef16099bba588317f9c77215d1"
+PRODUCT_SHA = 'a6c249e7f0f1f453d56509152f7db23326f6585f5ef6a719d1d1ea18365e5e92'
 PRODUCT_BODY_MD5 = "60473835c0aa6a53ae16d1c303f3c7bf"
-OP_SHA = "9fa653cbd503626ca4e7de2ba957b0cc4274cd604489a9e89998f8e65a397357"
+OP_SHA = '8ec6a4c07750ef8e55bc7527887159906fbd7e91d002445886db859692fd70ff'
 PRICE_SHA = "b1334a1ad5573fe498aa4b66bec07c871ef21c90f8ad1d40ffe6944115f8e262"
 BODY_SHA = "09ffea10ac2008db3ac845d00760167ef5737cfe298898ad0bce61583a210f2b"
 HERE = Path(__file__).resolve().parent
 ERROR_ROOT = None
 EVIDENCE_ROOT = None
 REPLAY_STAGE = "preparation"
-SNAPSHOT_SHA = 'b28a047ea13f00b859e8e650c7b554c58663034488da5400d92dd82c4134a107'
-OID_KEYS = {"oid", "pronamespace", "proowner", "prolang", "prorettype", "proargtypes"}
+LOCAL_PROFILE = "ci"
+PROFILE_DB_PORTS = {"ci":54322, "task146-host":65422}
+WRITER_BODY_HASHES = {'app_private.acquire_sync_event_scope_fence_v1(uuid,uuid)': '8bc0089c0f2d0fbccd3286a4022d90ea', 'app_private.lock_catalog_scope_pair_v1(uuid,uuid)': '394bef66b0f19c3e64ae82e48d7187a3'}
+LOCAL_TEST_OVERLAYS = {"supabase/tests/cross_platform_sync_recovery_contract.sql": "5f2f2d4435f90e3e3e2353e0341c782dcba14aacbba73f59b3f177b6613f1343"}
+SNAPSHOT_SHA = 'd193b9f4adecd3308ed02a8a191cdd704d3d76c0b7ca70b6b6fa9b5373d02f6d'
 
 def require(ok, message):
     if not ok:
@@ -92,6 +95,7 @@ def config(root):
     t = tomllib.loads((root / "supabase/config.toml").read_text())
     require(re.fullmatch(r"r4-ci-preflight-[0-9a-f]{12}", t["project_id"]), "unknown local project")
     require(t["db"]["major_version"] == 17, "Postgres version drift")
+    require(LOCAL_PROFILE in PROFILE_DB_PORTS and t["db"]["port"] == PROFILE_DB_PORTS[LOCAL_PROFILE], "named profile DB port drift")
     return t
 
 def cli(root, *args):
@@ -109,6 +113,7 @@ def body(operator):
 
 def prefix_manifest(root):
     m = json.loads((root / ".replay/inputs.json").read_text())
+    require(m["profile"] == LOCAL_PROFILE, "named profile manifest drift")
     for path, digest in m["files"].items():
         p = root / path
         require(not p.is_symlink() and p.is_file() and p.resolve().is_relative_to(root)
@@ -147,16 +152,37 @@ def migration_version(name):
     return match.group(1)
 
 def local_config_bytes(data, project):
-    # Linux CI keeps every configured port and all non-project bytes from HEAD.
     before = tomllib.loads(data.decode())
     require(re.fullmatch(r"r4-ci-preflight-[0-9a-f]{12}", project) is not None, "project locator shape")
     changed, count = re.subn(r'(?m)^([ \t]*project_id[ \t]*=[ \t]*")([^"\r\n]*)(")',
                              lambda match: match[1] + project + match[3], data.decode())
     require(count == 1, "project locator shape")
-    inverse, count = re.subn(r'(?m)^([ \t]*project_id[ \t]*=[ \t]*")([^"\r\n]*)(")',
-                             lambda match: match[1] + before["project_id"] + match[3], changed)
-    require(count == 1 and inverse.encode() == data, "config changed beyond project locator")
-    require(tomllib.loads(changed)["db"]["port"] == 54322, "Linux CI DB port drift")
+    inverse = changed.replace('project_id = "' + project + '"', 'project_id = "' + before["project_id"] + '"', 1)
+    require(inverse.encode() == data, "config changed beyond project locator")
+    require(before["db"]["port"] == 54322, "CI HEAD DB port drift")
+    if LOCAL_PROFILE == "task146-host":
+        mapping = {("api", "port"): (54321, 65421), ("db", "port"): (54322, 65422),
+          ("db", "shadow_port"): (54320, 65420), ("db.pooler", "port"): (54329, 65429),
+          ("studio", "port"): (54323, 65423), ("inbucket", "port"): (54324, 65424),
+          ("analytics", "port"): (54327, 65427), ("edge_runtime", "inspector_port"): (8083, 18083)}
+        lines = changed.splitlines(keepends=True); section = ""; seen = set(); original_lines = list(lines)
+        for i, line in enumerate(lines):
+            header = re.fullmatch(r"\s*\[([^]]+)\]\s*(?:#.*)?(?:\n)?", line)
+            if header: section = header[1]
+            setting = re.match(r"^(\s*)([a-z_]+)(\s*=\s*)([0-9]+)([^\r\n]*)(\r?\n)?$", line)
+            if setting and (section, setting[2]) in mapping:
+                key = (section, setting[2]); old, new = mapping[key]
+                require(int(setting[4]) == old and key not in seen, "host profile port preimage drift")
+                lines[i] = setting[1] + setting[2] + setting[3] + str(new) + setting[5] + (setting[6] or "")
+                seen.add(key)
+        require(seen == set(mapping), "host profile port membership drift")
+        changed = "".join(lines)
+        # Undo only the eight exact line slots, then the project slot; bytes must match HEAD.
+        for i in range(len(lines)):
+            if lines[i] != original_lines[i]: lines[i] = original_lines[i]
+        require("".join(lines).replace('project_id = "' + project + '"', 'project_id = "' + before["project_id"] + '"', 1).encode() == data,
+                "host profile inverse changed non-port bytes")
+    else: require(LOCAL_PROFILE == "ci", "unknown local profile")
     return changed.encode()
 
 def prepare(repo, workdir):
@@ -181,6 +207,10 @@ def prepare(repo, workdir):
             require(member.isdir() or member.isfile(), "archive link or special file")
             if member.isfile():
                 put(out / path, tar.extractfile(member).read())
+    for relative, digest in LOCAL_TEST_OVERLAYS.items():
+        candidate = (repo / relative).read_bytes()
+        require(sha(candidate) == digest, "reviewed test overlay drift")
+        (out / relative).write_bytes(candidate)
     migration_dir = out / "supabase/migrations"
     # Only the four reviewed overlays; every other file came from HEAD, not WIP.
     for name, data in ((PRICE, price), (TARGET, operator), (PRODUCT, product), (SHARED, shared)):
@@ -211,7 +241,8 @@ def prepare(repo, workdir):
     dump(out / ".replay/inputs.json",
          {"head": run(["git", "-C", str(repo), "rev-parse", "HEAD"]).decode().strip(),
           "files": files, "versions": versions, "project": project,
-          "configOriginalSHA256": sha(original), "onlyConfigChange": "local project_id; Linux HEAD ports unchanged"})
+          "configOriginalSHA256": sha(original), "onlyConfigChange": "named profile exact project/port slots only", "profile": LOCAL_PROFILE,
+          "runnerSHA256": sha(Path(__file__).read_bytes()), "testOverlays": LOCAL_TEST_OVERLAYS})
     put(out / ".replay/operator.sql", operator)
     put(out / ".replay/product-operator.sql", product)
     put(out / ".replay/shared-reader-operator.sql", shared)
@@ -281,7 +312,7 @@ def require_owned_creation(root, cfg, gate, container):
     require(re.fullmatch(r"[0-9a-f]{64}", proof["containerID"]) is not None and
             proof["containerID"] == container["id"] and proof["containerCreated"] == container["created"] and
             type(proof["hostDBPort"]) is int and proof["hostDBPort"] == cfg["db"]["port"] ==
-            54322 and container["health"] == "healthy" and
+            PROFILE_DB_PORTS[LOCAL_PROFILE] and container["health"] == "healthy" and
             {int(x["HostPort"]) for x in container["ports"].get("5432/tcp", [])} == {proof["hostDBPort"]},
             "creation container/health/port mismatch")
 
@@ -321,279 +352,26 @@ def snapshot(root):
     require(isinstance(rows, list) and len(rows) == 1 and set(rows[0]) == {"snapshot"}, "query shape")
     return rows[0]["snapshot"]
 
-def portable(function):
-    raw = json.loads(function["metadataText"])
-    require(md5(function["metadataText"].encode()) == function["metadataMD5"], "metadata hash tamper")
-    normalized = {k: v for k, v in raw.items() if k not in OID_KEYS}
-    normalized.update(function["names"])
-    require(str(raw["oid"]) == str(function["oid"]), "OID mismatch")
-    return normalized
-
-def derive(operator, data, expected, versions):
-    require(sha(operator) == OP_SHA and sha(body(operator)) == BODY_SHA, "operator hash drift")
-    require(data["database"] == "postgres" and data["effectiveRole"] == "postgres"
-            and data["serverMajor"] == "17", "local database/operator drift")
-    require(data["versions"] == versions and data["localStatement"] is None, "not exact fresh prefix")
-    require(data["authenticatedConfig"] == expected["authenticatedConfig"], "auth8s drift")
-    for name in ("helper", "public"):
-        f, e = data["functions"][name], expected["functions"][name]
-        require(sha(f["body"].encode()) == e["bodySHA256"], "unknown old source")
-        require(md5(f["definition"].encode()) == e["definitionMD5"], "whole definition drift")
-        require(portable(f) == e["portable"], "logical metadata/ACL drift")
-    f = data["functions"]
-    oid = str(f["helper"]["oid"])
-    require(re.fullmatch(r"[1-9][0-9]{0,9}", oid) and int(oid) < 2**32, "invalid OID")
-    values = [(b"'58221'::oid", ("'" + oid + "'::oid").encode()),
-              (b"'8e8498b3f5806524566080bd618f298d'", ("'" + f["helper"]["metadataMD5"] + "'").encode()),
-              (b"'86c0b470d66981611c9de809545bb378'", ("'" + f["public"]["metadataMD5"] + "'").encode())]
-    result = operator
-    for old, new in values:
-        require(operator.count(old) == 1, "guard token count drift")
-        require(re.fullmatch(rb"'[0-9a-f]{32}'", new) if b"::oid" not in new else True, "unknown hash")
-        result = result.replace(old, new, 1)
-    inverse = result
-    for old, new in reversed(values):
-        require(inverse.count(new) == 1, "ambiguous inverse")
-        inverse = inverse.replace(new, old, 1)
-    require(inverse == operator and body(result) == body(operator), "inverse/body mismatch")
-    return result
-
-def load_expected():
-    data = (HERE / "expected-preimage.json").read_bytes()
-    require(sha(data) == EXPECTED_SHA, "expected template hash drift")
-    return json.loads(data)
-
-def bind(root):
-    m = prefix_manifest(root)
-    endpoint = local_endpoint(root)
-    data = snapshot(root)
-    derived = derive((root / ".replay/operator.sql").read_bytes(), data, load_expected(), m["versions"])
-    dump(root / ".replay/before.json", {"endpoint": endpoint, "snapshot": data})
-    put(root / "supabase/migrations" / TARGET, derived)
-    dump(root / ".replay/binding.json",
-         {"operatorSHA256": OP_SHA, "derivedLOCALSHA256": sha(derived), "bodySHA256": BODY_SHA,
-          "inverseSHA256": OP_SHA, "permittedConstantSlots": 3,
-          "localOID": data["functions"]["helper"]["oid"],
-          "localHelperMetadataMD5": data["functions"]["helper"]["metadataMD5"],
-          "localPublicMetadataMD5": data["functions"]["public"]["metadataMD5"],
-          "isOperatorSQLByteExactReplay": False})
-
-def apply_local(root):
-    m = prefix_manifest(root)
-    local_endpoint(root)
-    binding = json.loads((root / ".replay/binding.json").read_text())
-    before = json.loads((root / ".replay/before.json").read_text())["snapshot"]
-    expected = derive((root / ".replay/operator.sql").read_bytes(), before, load_expected(), m["versions"])
-    require((root / "supabase/migrations" / TARGET).read_bytes() == expected
-            and sha(expected) == binding["derivedLOCALSHA256"], "derived file drift")
-    claim_apply_attempt(root / ".replay/apply-attempt.json",
-         {"target": "LOCAL_ONLY", "operatorSHA256": OP_SHA, "derivedLOCALSHA256": sha(expected),
-          "oneAttemptOnly": True, "failureOrUnknown": "STOP_NO_AUTORETRY"})
-    output = run(["supabase", "--workdir", str(root), "migration", "up", "--local"])
-    put(root / ".replay/apply.stdout", output)
-
-def verify(root):
-    m = prefix_manifest(root)
-    endpoint = local_endpoint(root)
-    before = json.loads((root / ".replay/before.json").read_text())["snapshot"]
-    after = snapshot(root)
-    derived = (root / "supabase/migrations" / TARGET).read_bytes()
-    require(after["versions"] == m["versions"] + [TARGET[:14]], "local history mismatch")
-    require(after["localStatement"] == derived.decode().strip().removesuffix(";").strip(),
-            "CLI SplitAndTrim ledger mismatch")
-    require(all(after[key] == before[key] for key in ("database", "effectiveRole", "serverMajor")),
-            "local execution identity changed")
-    require(after["authenticatedConfig"] == before["authenticatedConfig"], "auth config changed")
-    for name in ("helper", "public"):
-        old, new = before["functions"][name], after["functions"][name]
-        require(old["metadataText"] == new["metadataText"], "metadata changed")
-        if name == "helper":
-            require(sha(new["body"].encode()) == BODY_SHA and new["definition"] ==
-                    old["definition"].replace(old["body"], body(derived).decode(), 1), "new body drift")
-        else:
-            require(new == old, "public RPC changed")
-    dump(root / ".replay/verified.json",
-         {"status": "LOCAL_DERIVED_ENVELOPE_VERIFIED_NOT_OPERATOR_SQL_REPLAY",
-          "endpoint": endpoint, "operatorSHA256": OP_SHA, "derivedLOCALSHA256": sha(derived),
-          "bodySHA256": BODY_SHA, "wholeMetadataPreserved": True, "auth8sPreserved": True,
-          "localLedgerVersion": TARGET[:14], "CLI": CLI_VERSION, "pgTAP": "NOT_RUN"})
-
-def derive_product(operator, data, expected, versions, target):
-    require(sha(operator) == PRODUCT_SHA, "product operator hash drift")
-    require(data["database"] == "postgres" and data["effectiveRole"] == "postgres"
-            and data["serverMajor"] == "17", "local product database/operator drift")
-    require(data["versions"] == versions + [TARGET[:14]] and data["productLocalStatement"] is None,
-            "product requires exactly verified predecessor history")
-    require(data["localStatement"] == target.decode().strip().removesuffix(";").strip(),
-            "product predecessor ledger drift")
-    require(data["authenticatedConfig"] == expected["authenticatedConfig"], "product auth8s drift")
-    for name in ("helper", "public"):
-        f, e = data["functions"][name], expected["functions"][name]
-        require(portable(f) == e["portable"], "product predecessor metadata/ACL drift")
-        require(sha(f["body"].encode()) == (BODY_SHA if name == "helper" else e["bodySHA256"]),
-                "product predecessor source drift")
-    old = b'["authenticated=X/postgres","postgres=X/postgres","service_role=X/postgres"]'
-    new = b'["authenticated=X/postgres","postgres=X/postgres"]'
-    require(operator.count(old) == 1, "product ACL guard token drift")
-    result = operator.replace(old, new, 1)
-    require(result.count(new) == 1 and result.replace(new, old, 1) == operator,
-            "product ACL-only inverse mismatch")
-    return result
 
 
-def bind_product(root):
-    m = prefix_manifest(root)
-    endpoint = local_endpoint(root)
-    verified = json.loads((root / ".replay/verified.json").read_text())
-    require(verified["operatorSHA256"] == OP_SHA and verified["bodySHA256"] == BODY_SHA
-            and verified["wholeMetadataPreserved"] is True and verified["auth8sPreserved"] is True
-            and verified["localLedgerVersion"] == TARGET[:14], "missing verified predecessor")
-    data = snapshot(root)
-    derived = derive_product((root / ".replay/product-operator.sql").read_bytes(), data,
-                             load_expected(), m["versions"], (root / "supabase/migrations" / TARGET).read_bytes())
-    dump(root / ".replay/product-before.json", {"endpoint": endpoint, "snapshot": data})
-    put(root / "supabase/migrations" / PRODUCT, derived)
-    dump(root / ".replay/product-binding.json",
-         {"operatorSHA256": PRODUCT_SHA, "derivedLOCALSHA256": sha(derived),
-          "inverseSHA256": PRODUCT_SHA, "permittedConstantSlots": 1,
-          "onlyChange": "pinned TEST ACL3 guard to qualified LOCAL ACL2; no grants",
-          "publicProsrcMD5After": PRODUCT_BODY_MD5, "isOperatorSQLByteExactReplay": False})
 
 
-def apply_product_local(root):
-    m = prefix_manifest(root)
-    local_endpoint(root)
-    before = json.loads((root / ".replay/product-before.json").read_text())["snapshot"]
-    binding = json.loads((root / ".replay/product-binding.json").read_text())
-    expected = derive_product((root / ".replay/product-operator.sql").read_bytes(), before,
-                             load_expected(), m["versions"], (root / "supabase/migrations" / TARGET).read_bytes())
-    require((root / "supabase/migrations" / PRODUCT).read_bytes() == expected
-            and sha(expected) == binding["derivedLOCALSHA256"], "derived product file drift")
-    claim_apply_attempt(root / ".replay/product-apply-attempt.json",
-         {"target": "LOCAL_ONLY", "operatorSHA256": PRODUCT_SHA, "derivedLOCALSHA256": sha(expected),
-          "oneAttemptOnly": True, "failureOrUnknown": "STOP_NO_AUTORETRY"})
-    output = run(["supabase", "--workdir", str(root), "migration", "up", "--local"])
-    put(root / ".replay/product-apply.stdout", output)
 
 
-def verify_product(root):
-    m = prefix_manifest(root)
-    endpoint = local_endpoint(root)
-    before = json.loads((root / ".replay/product-before.json").read_text())["snapshot"]
-    after = snapshot(root)
-    derived = (root / "supabase/migrations" / PRODUCT).read_bytes()
-    require(after["versions"] == m["versions"] + [TARGET[:14], PRODUCT[:14]], "product local history mismatch")
-    require(after["productLocalStatement"] == derived.decode().strip().removesuffix(";").strip()
-            and after["localStatement"] == before["localStatement"], "product CLI ledger mismatch")
-    require(all(after[key] == before[key] for key in
-                ("database", "effectiveRole", "serverMajor", "authenticatedConfig")), "product execution/auth identity changed")
-    require(after["functions"]["helper"] == before["functions"]["helper"], "product changed preflight helper")
-    old, new = before["functions"]["public"], after["functions"]["public"]
-    require(old["metadataText"] == new["metadataText"] and md5(new["body"].encode()) == PRODUCT_BODY_MD5
-            and new["definition"] == old["definition"].replace(old["body"], new["body"], 1),
-            "product source or whole metadata changed")
-    dump(root / ".replay/product-verified.json",
-         {"status": "LOCAL_PRODUCT_ACL_ONLY_ENVELOPE_VERIFIED", "endpoint": endpoint,
-          "operatorSHA256": PRODUCT_SHA, "derivedLOCALSHA256": sha(derived),
-          "publicProsrcMD5After": PRODUCT_BODY_MD5, "wholeMetadataPreserved": True, "auth8sPreserved": True,
-          "predecessorLedgerVersion": TARGET[:14], "localLedgerVersion": PRODUCT[:14],
-          "CLI": CLI_VERSION, "pgTAP": "NOT_RUN", "isOperatorSQLByteExactReplay": False})
 
 
-def shared_guard_arrays(operator, tag):
-    return re.findall(r'\$' + tag + r'\$(.*?)\$' + tag + r'\$', operator.decode(), re.S)
 
 
-def derive_shared(operator, data, versions):
-    require(sha(operator) == SHARED_SHA, "shared reader operator hash drift")
-    require(data["database"] == "postgres" and data["effectiveRole"] == "postgres"
-            and data["serverMajor"] == "17" and type(data["ssl"]) is bool, "shared local identity drift")
-    require(data["versions"] == versions + [TARGET[:14], PRODUCT[:14]]
-            and data["sharedLocalStatements"] is None and data["sharedHelpers"] == {},
-            "shared requires exact predecessor and helper absence")
-    require(data["authenticatedConfig"] == ["statement_timeout=8s"], "shared auth8s drift")
-    guards = shared_guard_arrays(operator, "expected")
-    closure = shared_guard_arrays(operator, "closure15expected")
-    require(len(guards) == len(closure) == 2 and closure[0] == closure[1], "guard array structure drift")
-    functions = data["sharedFunctions"]
-    expected_first = json.loads(guards[0])
-    expected_closure = json.loads(closure[0])
-    require(set(functions) == {x["signature"] for x in expected_first + expected_closure},
-            "shared function membership drift")
-    for expected in expected_first:
-        f = functions[expected["signature"]]
-        actual = json.loads(f["metadataText"])
-        wanted_acl = [a for a in expected["acl"] if a != "service_role=X/postgres"]
-        require(md5(f["body"].encode()) == expected["md5"] and f["names"]["owner"] == expected["owner"]
-                and actual["proconfig"] == expected["config"] and sorted(actual["proacl"]) == sorted(wanted_acl)
-                and actual["provolatile"] == expected["volatility"]
-                and actual["prosecdef"] == expected["securityDefiner"], "shared logical preimage drift")
-    for expected in expected_closure:
-        f = functions[expected["signature"]]
-        metadata = expected["metadata"]
-        logical = {k: v for k, v in metadata.items() if k not in OID_KEYS}
-        logical.update(schema=expected["signature"].split(".")[0],
-                       owner="supabase_auth_admin" if expected["signature"] == "auth.uid()" else "postgres",
-                       language="sql" if metadata["prolang"] == "14" else "plpgsql",
-                       returnType={"25": "text", "2950": "uuid", "2278": "void", "2249": "record"}[metadata["prorettype"]],
-                       argumentTypes=", ".join(expected["signature"].split("(", 1)[1][:-1].split(",")))
-        require(md5(f["body"].encode()) == expected["sourceMD5"] and portable(f) == logical,
-                "shared full logical closure metadata drift")
-    replacements = {}
-    for raw in guards:
-        changed = json.loads(raw)
-        for entry in changed:
-            f = functions[entry["signature"]]
-            entry["oid"] = str(f["oid"])
-            entry["acl"] = json.loads(f["metadataText"])["proacl"]
-        replacements["$expected$" + raw + "$expected$"] = "$expected$" + json.dumps(changed, separators=(",", ":")) + "$expected$"
-    changed_closure = json.loads(closure[0])
-    for entry in changed_closure:
-        entry["metadata"] = json.loads(functions[entry["signature"]]["metadataText"])
-    replacements["$closure15expected$" + closure[0] + "$closure15expected$"] = "$closure15expected$" + json.dumps(changed_closure, separators=(",", ":")) + "$closure15expected$"
-    tls = "(SELECT ssl FROM pg_stat_ssl WHERE pid=pg_backend_pid()) IS DISTINCT FROM true"
-    require(operator.decode().count(tls) == 2, "shared TLS guard structure drift")
-    if not data["ssl"]:
-        replacements[tls] = tls.removesuffix("true") + "false"
-    result = operator.decode()
-    for old, new in replacements.items():
-        require(result.count(old) in (1, 2), "shared constant slot drift")
-        result = result.replace(old, new)
-    inverse = result
-    for old, new in reversed(list(replacements.items())):
-        require(inverse.count(new) == operator.decode().count(old), "shared inverse slot ambiguity")
-        inverse = inverse.replace(new, old)
-    require(inverse.encode() == operator, "shared inverse or payload changed")
-    return result.encode()
 
 
-def bind_shared(root):
-    inputs = prefix_manifest(root)
-    endpoint = local_endpoint(root)
-    previous = json.loads((root / ".replay/product-verified.json").read_text())
-    require(previous["publicProsrcMD5After"] == PRODUCT_BODY_MD5 and previous["wholeMetadataPreserved"]
-            and previous["auth8sPreserved"], "shared predecessor not verified")
-    data = snapshot(root)
-    derived = derive_shared((root / ".replay/shared-reader-operator.sql").read_bytes(), data, inputs["versions"])
-    dump(root / ".replay/shared-reader-before.json", {"endpoint": endpoint, "snapshot": data})
-    put(root / "supabase/migrations" / SHARED, derived)
-    dump(root / ".replay/shared-reader-binding.json",
-         {"operatorSHA256": SHARED_SHA, "derivedLOCALSHA256": sha(derived), "inverseSHA256": SHARED_SHA,
-          "onlyChanges": "qualified local OIDs/full physical metadata, existing LOCAL ACL2, observed local TLS guard; no grants or function-body changes",
-          "isOperatorSQLByteExactReplay": False})
 
 
-def apply_shared_local(root):
-    inputs = prefix_manifest(root)
-    local_endpoint(root)
-    before = json.loads((root / ".replay/shared-reader-before.json").read_text())["snapshot"]
-    expected = derive_shared((root / ".replay/shared-reader-operator.sql").read_bytes(), before, inputs["versions"])
-    require((root / "supabase/migrations" / SHARED).read_bytes() == expected, "derived shared reader drift")
-    claim_apply_attempt(root / ".replay/shared-reader-apply-attempt.json",
-                        {"target": "LOCAL_ONLY", "operatorSHA256": SHARED_SHA, "derivedLOCALSHA256": sha(expected),
-                         "oneAttemptOnly": True, "failureOrUnknown": "STOP_NO_AUTORETRY"})
-    output = run(["supabase", "--workdir", str(root), "migration", "up", "--local"])
-    put(root / ".replay/shared-reader-apply.stdout", output)
+
+
+
+
+
+
 
 
 def verify_statement_sequence(statements, operator):
@@ -612,42 +390,6 @@ def verify_statement_sequence(statements, operator):
     require(not remaining, "unaccounted shared migration SQL")
 
 
-def verify_shared(root):
-    inputs = prefix_manifest(root)
-    endpoint = local_endpoint(root)
-    before = json.loads((root / ".replay/shared-reader-before.json").read_text())["snapshot"]
-    after = snapshot(root)
-    require(after["versions"] == inputs["versions"] + [TARGET[:14], PRODUCT[:14], SHARED[:14]],
-            "shared local history mismatch")
-    verify_statement_sequence(after["sharedLocalStatements"], (root / "supabase/migrations" / SHARED).read_bytes())
-    require(all(after[k] == before[k] for k in ["database", "effectiveRole", "serverMajor", "ssl", "authenticatedConfig", "localStatement", "productLocalStatement"]),
-            "shared identity/auth/predecessor ledger drift")
-    for signature, old in before["sharedFunctions"].items():
-        new = after["sharedFunctions"][signature]
-        if signature == "public.shop_sync_recovery_checkpoint_v1(uuid,text,text,text)":
-            expected = old["body"].replace("app_private.resolve_shop_sync_recovery_scope(", "app_private.resolve_shop_sync_recovery_read_scope_v1(").replace("app_private.acquire_sync_event_scope_fence_v1(", "app_private.acquire_sync_event_scope_read_fence_v1(")
-            require(md5(new["body"].encode()) == SHARED_BODY_MD5 and new["body"] == expected
-                    and new["metadataText"] == old["metadataText"] and new["names"] == old["names"]
-                    and new["definition"] == old["definition"].replace(old["body"], expected, 1), "shared CP source/metadata drift")
-        else:
-            require(new == old, "shared changed original function")
-    wanted = {"app_private.acquire_sync_event_scope_read_fence_v1(uuid,uuid)": "21a2f0eeef545f6aebb05f6c2757edc2",
-              "app_private.lock_catalog_scope_pair_read_v1(uuid,uuid)": "84cce948d3718e54ab946c81b6a400aa",
-              "app_private.resolve_shop_sync_recovery_read_scope_v1(uuid,text)": "334ed6616a382e7c9362a3e4efad70fc"}
-    require(set(after["sharedHelpers"]) == set(wanted), "shared helper membership drift")
-    for signature, digest in wanted.items():
-        f = after["sharedHelpers"][signature]; metadata = json.loads(f["metadataText"])
-        require(md5(f["body"].encode()) == digest and f["names"]["owner"] == "postgres"
-                and metadata["proacl"] == ["postgres=X/postgres"] and metadata["prosecdef"]
-                and metadata["provolatile"] == "v"
-                and metadata["proconfig"] == (["search_path=pg_catalog"] if "lock_catalog_scope_pair_read" in signature
-                    else ["search_path=public, app_private, pg_temp"]), "shared helper source/ACL/config drift")
-    dump(root / ".replay/shared-reader-verified.json",
-         {"status": "LOCAL_SHARED_READER_ENVELOPE_VERIFIED", "endpoint": endpoint, "operatorSHA256": SHARED_SHA,
-          "derivedLOCALSHA256": sha((root / "supabase/migrations" / SHARED).read_bytes()),
-          "publicProsrcMD5After": SHARED_BODY_MD5, "wholeMetadataPreserved": True, "auth8sPreserved": True,
-          "originalResolverAndWritersUnchanged": True, "privateHelperCount": 3,
-          "localLedgerVersion": SHARED[:14], "pgTAP": "NOT_RUN", "concurrency": "NOT_RUN"})
 
 class _PairChild:
     """One owned psql/docker process; buffers never escape as raw output."""
@@ -712,9 +454,9 @@ def qualify_shared_locks(snapshot,identities,expected_readers,waiting):
     else:assert not writer['blockingPIDs']
     return True
 
-def shared_reader_matrix(root,domain):
+def shared_reader_matrix(root,domain,receipt_dir=None):
     require(sys.flags.optimize == 0, "matrix assertions require ordinary Python")
-    out = root / (".replay/shared-reader-concurrency-" + domain + ".json")
+    out = (receipt_dir or root/".replay") / ("shared-reader-concurrency-" + domain + ".json")
     assert domain in {'catalog','event'}
     focus_namespace='catalog_union_scope' if domain=='catalog' else 'sync_event_scope_fence_v1'
     focus_value=OWNER if domain=='catalog' else 'shop:'+SCOPE
@@ -777,15 +519,29 @@ SELECT 'PAIRJSON:'||jsonb_build_object('side','observer','kind','SNAPSHOT','sequ
 'rows',coalesce((SELECT jsonb_agg(jsonb_build_object('side',{cases},'pid',a.pid,'backendStart',a.backend_start,'xactStart',a.xact_start,'waitEventType',a.wait_event_type,'waitEvent',a.wait_event,'blockingPIDs',pg_blocking_pids(a.pid),
 'locks',coalesce((SELECT jsonb_agg(jsonb_build_object('mode',l.mode,'granted',l.granted,'classid',l.classid::bigint,'objid',l.objid::bigint,'objsubid',l.objsubid)) FROM pg_locks l WHERE l.pid=a.pid AND l.locktype='advisory'),'[]'::jsonb))) FROM pg_stat_activity a WHERE a.pid IN ({ids})),'[]'::jsonb))::text;
 """
-        children['observer'].send(sql);s=frame(children['observer'],'SNAPSHOT',seq);report['snapshots'].append(s);qualify_shared_locks(s,identities,readers,waiting)
+        # pg_stat_activity, pg_locks and blocking PID reads can straddle the
+        # writer entering its wait. Retain every attempt and accept only the
+        # complete original lock/wait/blocker witness within the same 3s bound.
+        limit=min(time.monotonic()+3,deadline);attempt=0
+        while True:
+            assert time.monotonic()<limit,'COMPLETE_WAIT_WITNESS_BOUND'
+            attempt+=1;sequence=seq*100000+attempt
+            children['observer'].send(sql.replace("'sequence',"+str(seq)+",", "'sequence',"+str(sequence)+","))
+            witness=frame(children['observer'],'SNAPSHOT',sequence)
+            witness['logicalSequence']=seq;report['snapshots'].append(witness)
+            try:qualify_shared_locks(witness,identities,readers,waiting)
+            except AssertionError:
+                assert time.monotonic()<limit,'COMPLETE_WAIT_WITNESS_BOUND'
+                continue
+            break
     try:
         observer=start('observer')
-        observer.send("DO $g$ BEGIN IF current_database()<>'postgres' OR current_user<>'postgres' OR (SELECT md5(prosrc) FROM pg_proc WHERE oid='app_private.acquire_sync_event_scope_fence_v1(uuid,uuid)'::regprocedure)<>'0199f8030d3bd207ac27527ed9a52862' OR (SELECT md5(prosrc) FROM pg_proc WHERE oid='app_private.sync_event_scope_fence_key_v1(uuid,uuid)'::regprocedure)<>'5c56ddfa4e479e85a9158114722b14f8' OR (SELECT md5(prosrc) FROM pg_proc WHERE oid='app_private.lock_catalog_scope_pair_v1(uuid,uuid)'::regprocedure)<>'e7e8c0b08519a53345e9ca583e484481' OR (SELECT md5(prosrc) FROM pg_proc WHERE oid='app_private.resolve_shop_sync_recovery_scope(uuid,text)'::regprocedure)<>'0f47ec89de6f5ea847548e55721d7f54' THEN RAISE EXCEPTION 'LOCAL_SOURCE_MISMATCH';END IF;END;$g$;\n"+emit('observer','READY',",'writerMD5',(SELECT md5(prosrc) FROM pg_proc WHERE oid='app_private.acquire_sync_event_scope_fence_v1(uuid,uuid)'::regprocedure),'checkpointMD5',(SELECT md5(prosrc) FROM pg_proc WHERE oid='public.shop_sync_recovery_checkpoint_v1(uuid,text,text,text)'::regprocedure),'catalogWriterMD5',(SELECT md5(prosrc) FROM pg_proc WHERE oid='app_private.lock_catalog_scope_pair_v1(uuid,uuid)'::regprocedure),'resolverMD5',(SELECT md5(prosrc) FROM pg_proc WHERE oid='app_private.resolve_shop_sync_recovery_scope(uuid,text)'::regprocedure)"))
+        observer.send("DO $g$ BEGIN IF current_database()<>'postgres' OR current_user<>'postgres' OR (SELECT md5(prosrc) FROM pg_proc WHERE oid='app_private.acquire_sync_event_scope_fence_v1(uuid,uuid)'::regprocedure)<>'8bc0089c0f2d0fbccd3286a4022d90ea' OR (SELECT md5(prosrc) FROM pg_proc WHERE oid='app_private.sync_event_scope_fence_key_v1(uuid,uuid)'::regprocedure)<>'5c56ddfa4e479e85a9158114722b14f8' OR (SELECT md5(prosrc) FROM pg_proc WHERE oid='app_private.lock_catalog_scope_pair_v1(uuid,uuid)'::regprocedure)<>'394bef66b0f19c3e64ae82e48d7187a3' OR (SELECT md5(prosrc) FROM pg_proc WHERE oid='app_private.resolve_shop_sync_recovery_scope(uuid,text)'::regprocedure)<>'0f47ec89de6f5ea847548e55721d7f54' THEN RAISE EXCEPTION 'LOCAL_SOURCE_MISMATCH';END IF;END;$g$;\n"+emit('observer','READY',",'writerMD5',(SELECT md5(prosrc) FROM pg_proc WHERE oid='app_private.acquire_sync_event_scope_fence_v1(uuid,uuid)'::regprocedure),'checkpointMD5',(SELECT md5(prosrc) FROM pg_proc WHERE oid='public.shop_sync_recovery_checkpoint_v1(uuid,text,text,text)'::regprocedure),'catalogWriterMD5',(SELECT md5(prosrc) FROM pg_proc WHERE oid='app_private.lock_catalog_scope_pair_v1(uuid,uuid)'::regprocedure),'resolverMD5',(SELECT md5(prosrc) FROM pg_proc WHERE oid='app_private.resolve_shop_sync_recovery_scope(uuid,text)'::regprocedure)"))
         before=frame(observer,'READY')
         require(before['checkpointMD5'] == SHARED_BODY_MD5, 'matrix candidate CP drift')
-        temporary=helper.decode().replace('app_private.acquire_sync_event_scope_read_fence_v1','pg_temp.acquire_sync_event_scope_read_fence_v1')+catalog.decode().replace('app_private.lock_catalog_scope_pair_read_v1','pg_temp.lock_catalog_scope_pair_read_v1')
+        temporary=""
         for side in ['r1','r2']:
-            c=start(side);c.send(temporary+f"SELECT pg_temp.lock_catalog_scope_pair_read_v1('{SCOPE}'::uuid,'{OWNER}'::uuid);\nSELECT pg_temp.acquire_sync_event_scope_read_fence_v1('{OWNER}'::uuid,'{SCOPE}'::uuid);\n"+emit(side,'READY',",'noWriterWitness',nullif(current_setting('app_private.sync_event_scope_fence',true),'') IS NULL"))
+            c=start(side);c.send(temporary+f"SELECT app_private.lock_catalog_scope_pair_read_v1('{SCOPE}'::uuid,'{OWNER}'::uuid);\nSELECT app_private.acquire_sync_event_scope_read_fence_v1('{OWNER}'::uuid,'{SCOPE}'::uuid);\n"+emit(side,'READY',",'noWriterWitness',nullif(current_setting('app_private.sync_event_scope_fence',true),'') IS NULL"))
             identities[side]=frame(c,'READY');assert identities[side]['noWriterWitness']
         other=start('other');other.send(other_call+emit('other','READY'))
         frame(other,'READY');stop(other);report['differentScopeWriterCompleted']=True
@@ -797,7 +553,7 @@ SELECT 'PAIRJSON:'||jsonb_build_object('side','observer','kind','SNAPSHOT','sequ
         observer.send(emit('observer','POSTCHECK',",'writerMD5',(SELECT md5(prosrc) FROM pg_proc WHERE oid='app_private.acquire_sync_event_scope_fence_v1(uuid,uuid)'::regprocedure),'checkpointMD5',(SELECT md5(prosrc) FROM pg_proc WHERE oid='public.shop_sync_recovery_checkpoint_v1(uuid,text,text,text)'::regprocedure),'catalogWriterMD5',(SELECT md5(prosrc) FROM pg_proc WHERE oid='app_private.lock_catalog_scope_pair_v1(uuid,uuid)'::regprocedure),'resolverMD5',(SELECT md5(prosrc) FROM pg_proc WHERE oid='app_private.resolve_shop_sync_recovery_scope(uuid,text)'::regprocedure)"))
         after=frame(observer,'POSTCHECK');assert before['writerMD5']==after['writerMD5'] and before['checkpointMD5']==after['checkpointMD5'] and before['catalogWriterMD5']==after['catalogWriterMD5'] and before['resolverMD5']==after['resolverMD5']
         report['functionBeforeAfter']={'before':before,'after':after}
-        report.update(status='PASS_LOCAL_COMBINED_READERS_ORIGINAL_WRITER_FENCE_MATRIX',noWriterWitness=True,originalWriterUnchanged=True,readers=identities,actualCPPerformanceMeasured=False)
+        report.update(status='PASS_LOCAL_COMBINED_READERS_ORIGINAL_WRITER_FENCE_MATRIX',noWriterWitness=True,qualifiedWriterUnchangedDuringMatrix=True,readers=identities,actualCPPerformanceMeasured=False)
     except BaseException as e:
         report.update(status='FAIL_LOCAL_LOCK_REGRESSION',errorClass=type(e).__name__)
     finally:
@@ -818,17 +574,179 @@ SELECT 'PAIRJSON:'||jsonb_build_object('side','observer','kind','SNAPSHOT','sequ
     return 0 if report['status'].startswith('PASS_') else 2
 
 
-def shared_reader_matrices(root):
+def shared_reader_matrices(root,receipt_dir=None):
     receipts = {}
     for domain in ("catalog", "event"):
-        require(shared_reader_matrix(root, domain) == 0, "shared reader matrix failed; no retry")
-        p = root / (".replay/shared-reader-concurrency-" + domain + ".json")
+        require(shared_reader_matrix(root, domain,receipt_dir) == 0, "shared reader matrix failed; no retry")
+        p = (receipt_dir or root/".replay") / ("shared-reader-concurrency-" + domain + ".json")
         result = json.loads(p.read_text())
-        require(result["noWriterWitness"] and result["originalWriterUnchanged"]
+        require(result["noWriterWitness"] and result["qualifiedWriterUnchangedDuringMatrix"]
                 and all(x["rollbackAndNaturalExit"] and x["exit"] == 0 for x in result["cleanup"]),
                 "matrix ownership/rollback drift")
         receipts[domain] = {"status": result["status"], "receiptSHA256": sha(p.read_bytes()), "snapshots": 3}
-    dump(root / ".replay/shared-reader-matrices.json", receipts)
+    dump((receipt_dir or root/".replay") / "shared-reader-matrices.json", receipts)
+
+
+class _GuardedLockCase:
+    """Bounded clients in the already-owned local clone; no business DML."""
+    def __init__(self, root, label):
+        require(sys.flags.optimize == 0, "lock assertions require ordinary Python")
+        self.root=root; self.label=label; self.domain=label.split("-",1)[0]; self.owned=[]; self.children={}; self.identities={}
+        self.selector=selectors.DefaultSelector(); self.deadline=time.monotonic()+30
+        endpoint=local_endpoint(root)
+        self.argv=["docker","exec","-i",endpoint["containerID"],"/nix/var/nix/profiles/default/bin/psql",
+                   "-X","-qAt","-v","ON_ERROR_STOP=1","-v","VERBOSITY=sqlstate","-U","postgres","-d","postgres"]
+    def pump(self, limit):
+        require(time.monotonic()<min(limit,self.deadline),"LOCK_CASE_DEADLINE")
+        for key,_ in self.selector.select(.025):
+            child,kind=key.data; chunk=os.read(key.fileobj.fileno(),65536)
+            if chunk: child.accept(kind,chunk)
+            else: self.selector.unregister(key.fileobj)
+    def frame(self, side, kind):
+        child=self.children[side]; limit=min(time.monotonic()+3,self.deadline)
+        while True:
+            rows=[r for r in child.rows if r.get("kind")==kind]
+            if rows:
+                require(len(rows)==1,"LOCK_DUPLICATE_FRAME");return rows[0]
+            require(child.process.poll() is None,"LOCK_EARLY_EXIT")
+            self.pump(limit)
+    def emit(self, side, kind, extra=""):
+        return "SELECT 'PAIRJSON:'||jsonb_build_object('side','"+side+"','kind','"+kind+"','pid',pg_backend_pid()"+extra+")::text;\n"
+    def start(self, side):
+        c=_PairChild(side,self.argv,self.selector,self.owned);self.children[side]=c
+        c.send("BEGIN; SET LOCAL statement_timeout='8s'; SET LOCAL search_path=pg_catalog;\n"+self.emit(side,"IDENTITY"))
+        self.identities[side]=self.frame(side,"IDENTITY");return c
+    def stop(self, side):
+        c=self.children[side]
+        if c.process.poll() is not None:return
+        c.send("ROLLBACK;\n\\echo __PAIR_"+side.upper()+"_ROLLBACK__\n\\quit\n");c.process.stdin.close()
+        limit=min(time.monotonic()+5,self.deadline)
+        while c.process.poll() is None:self.pump(limit)
+        for _ in range(3):
+            if not self.selector.get_map():break
+            self.pump(min(time.monotonic()+.1,self.deadline))
+        require(c.process.returncode==0 and "__PAIR_"+side.upper()+"_ROLLBACK__" in c.markers,"LOCK_ROLLBACK_UNPROVEN")
+    def locks(self, token):
+        observer=self.children["observer"]
+        pids=",".join(str(x["pid"]) for side,x in self.identities.items() if side!="observer")
+        namespace='catalog_union_scope' if self.domain=='catalog' else 'sync_event_scope_fence_v1'
+        values=[OWNER,SCOPE] if self.domain=='catalog' else ['shop:'+SCOPE]
+        key_sql="jsonb_build_array("+",".join("jsonb_build_object('classid',(hashtext('"+namespace+"')::bigint&4294967295),'objid',(hashtext('"+value+"')::bigint&4294967295),'objsubid',2)" for value in values)+")"
+        observer.send("SELECT pg_stat_clear_snapshot();\n"+self.emit("observer",token, ",'keys',"+key_sql+
+          ",'rows',coalesce((SELECT jsonb_agg(jsonb_build_object('pid',a.pid,'waitEventType',a.wait_event_type,'waitEvent',a.wait_event,'blockers',pg_blocking_pids(a.pid),'locks',coalesce((SELECT jsonb_agg(jsonb_build_object('mode',l.mode,'granted',l.granted,'classid',l.classid::bigint,'objid',l.objid::bigint,'objsubid',l.objsubid)) FROM pg_locks l WHERE l.pid=a.pid AND l.locktype='advisory' AND l.database=(SELECT oid FROM pg_database WHERE datname=current_database())),'[]'::jsonb))) FROM pg_stat_activity a WHERE a.pid IN ("+pids+")),'[]'::jsonb)"))
+        return self.frame("observer",token)
+    def waiting(self, sides, token):
+        attempt=0;limit=min(time.monotonic()+3,self.deadline)
+        while True:
+            snap=self.locks(token+str(attempt));rows={x['pid']:x for x in snap['rows']}
+            if all(rows[self.identities[s]['pid']]['waitEventType']=='Lock' and rows[self.identities[s]['pid']]['waitEvent']=='advisory' for s in sides):return snap
+            require(time.monotonic()<limit,"LOCK_WAIT_NOT_OBSERVED");self.pump(limit);attempt+=1
+    def close(self):
+        results=[]
+        for side,c in self.children.items():
+            ok=False
+            try:self.stop(side);ok=c.process.returncode==0 and "__PAIR_"+side.upper()+"_ROLLBACK__" in c.markers
+            except BaseException:pass
+            if c.process.poll() is None:
+                try:os.killpg(c.process.pid,signal.SIGTERM);c.process.wait(timeout=2)
+                except BaseException:pass
+            results.append({'side':side,'pid':c.process.pid,'exit':c.process.poll(),'rollbackAndNaturalExit':ok,
+                            'sqlstates':c.sqlstates,'stderr':c.stderr.decode(errors='replace')})
+        self.selector.close();return results
+
+
+def _case_locks(h,snapshot,side,mode,granted,indices=None):
+    rows={r['pid']:r for r in snapshot['rows']};row=rows[h.identities[side]['pid']]
+    keys=snapshot['keys'] if indices is None else [snapshot['keys'][i] for i in indices]
+    for key in keys:
+        matches=[lock for lock in row['locks'] if all(lock[k]==key[k] for k in ('classid','objid','objsubid')) and lock['mode']==mode]
+        require(len(matches)==1 and matches[0]['granted'] is granted,'LOCK_TARGET_MODE_GRANT_MISMATCH')
+
+
+def shared_upgrade_case(root,domain,scenario,order,receipt_dir=None):
+    require(domain in ('catalog','event') and scenario in ('uncontended','two-upgraders','writer-first','mixed-later-share'),"unknown lock case")
+    require(scenario!='mixed-later-share' or domain=='catalog',"mixed catalog only")
+    name=domain+'-'+scenario+'-'+''.join(order)
+    out=(receipt_dir or root/'.replay')/('shared-upgrade-'+name+'.json');require(not out.exists(),"lock receipt exists")
+    h=_GuardedLockCase(root,name);report={'status':'FAIL_UNFINISHED','domain':domain,'scenario':scenario,'order':order,
+      'businessDML':False,'remoteTEST':False,'boundedSeconds':30,'snapshots':[],'outcomes':{}}
+    read_call=(f"PERFORM app_private.lock_catalog_scope_pair_read_v1('{SCOPE}'::uuid,'{OWNER}'::uuid);" if domain=='catalog' else f"PERFORM app_private.acquire_sync_event_scope_read_fence_v1('{OWNER}'::uuid,'{SCOPE}'::uuid);")
+    writer_call=(f"PERFORM app_private.lock_catalog_scope_pair_v1('{SCOPE}'::uuid,'{OWNER}'::uuid);" if domain=='catalog' else f"PERFORM app_private.acquire_sync_event_scope_fence_v1('{OWNER}'::uuid,'{SCOPE}'::uuid);")
+    writer_select=writer_call.replace('PERFORM','SELECT',1)+'\n'
+    def read(side,partial=False):
+        c=h.start(side)
+        # A prior witness must survive read and failed upgrade; it is scoped to
+        # a different synthetic event key held by this client, not an app write.
+        witness_shop=OTHER if side=='r1' else OTHER_OWNER
+        c.send(f"SELECT app_private.acquire_sync_event_scope_fence_v1('{OWNER}'::uuid,'{witness_shop}'::uuid);\n")
+        c.send("CREATE FUNCTION pg_temp.try_upgrade() RETURNS jsonb LANGUAGE plpgsql AS $u$ DECLARE prior text:=current_setting('app_private.sync_event_scope_fence',true); BEGIN BEGIN "+writer_call+" RETURN jsonb_build_object('side','"+side+"','kind','OUTCOME','sqlstate','00000'); EXCEPTION WHEN serialization_failure THEN RETURN jsonb_build_object('side','"+side+"','kind','OUTCOME','sqlstate','40001','witnessUnchanged',current_setting('app_private.sync_event_scope_fence',true) IS NOT DISTINCT FROM prior); END; END $u$;\n")
+        statement=(f"PERFORM pg_advisory_xact_lock_shared(hashtext('catalog_union_scope'),hashtext('{SCOPE}'));" if partial else read_call)
+        c.send("DO $r$ BEGIN "+statement+" END $r$;\n"+h.emit(side,'READ_READY'))
+        return c
+    def upgrade(side):
+        h.children[side].send("SELECT 'PAIRJSON:'||pg_temp.try_upgrade()::text;\n")
+    def outcome(side):
+        r=h.frame(side,'OUTCOME');require(r['sqlstate'] in ('00000','40001'),'UPGRADE_UNEXPECTED_SQLSTATE')
+        if r['sqlstate']=='40001':require(r['witnessUnchanged'],'UPGRADE_MINTED_WRITER_WITNESS')
+        report['outcomes'][side]=r;return r
+    before=snapshot(root)
+    try:
+        h.start('observer')
+        if scenario=='uncontended':
+            read('r1');h.frame('r1','READ_READY');pre=h.locks('PRE');_case_locks(h,pre,'r1','ShareLock',True);report['snapshots'].append(pre)
+            upgrade('r1');require(outcome('r1')['sqlstate']=='00000','UNCONTENDED_UPGRADE_REJECTED')
+            post=h.locks('POST');_case_locks(h,post,'r1','ExclusiveLock',True);report['snapshots'].append(post)
+            h.children['r1'].send(writer_select+h.emit('r1','REENTRY_READY'));h.frame('r1','REENTRY_READY');report['exclusiveReentry']=True
+        elif scenario=='two-upgraders':
+            for side in order:read(side);h.frame(side,'READ_READY')
+            pre=h.locks('PRE');
+            for side in order:_case_locks(h,pre,side,'ShareLock',True)
+            report['snapshots'].append(pre)
+            # Both outer transactions retain their shared lock after the
+            # catcher's inner subtransaction rolls back; require both40001.
+            for side in order:upgrade(side)
+            for side in order:require(outcome(side)['sqlstate']=='40001','CONTENDED_UPGRADE_NOT_REJECTED')
+            post=h.locks('POST');
+            for side in order:_case_locks(h,post,side,'ShareLock',True)
+            report['snapshots'].append(post)
+        elif scenario=='writer-first':
+            w=h.start('writer');w.send(writer_select+h.emit('writer','WRITE_READY'));h.frame('writer','WRITE_READY')
+            for side in order:read(side)
+            waiting=h.waiting(order,'WAIT');_case_locks(h,waiting,'writer','ExclusiveLock',True);
+            for side in order:_case_locks(h,waiting,side,'ShareLock',False,[0])
+            report['snapshots'].append(waiting)
+            h.stop('writer')
+            for side in order:h.frame(side,'READ_READY')
+            released=h.locks('READERS_RELEASED');
+            for side in order:_case_locks(h,released,side,'ShareLock',True)
+            report['snapshots'].append(released)
+        else:
+            read('r1',partial=True);h.frame('r1','READ_READY')
+            w=h.start('writer');w.send(f"SELECT pg_advisory_xact_lock(hashtext('catalog_union_scope'),hashtext('{OWNER}'));\n"+h.emit('writer','FIRST_KEY_READY'))
+            h.frame('writer','FIRST_KEY_READY');w.send(writer_select+h.emit('writer','WRITE_READY'))
+            waiting=h.waiting(['writer'],'WAIT');_case_locks(h,waiting,'r1','ShareLock',True,[1]);_case_locks(h,waiting,'writer','ExclusiveLock',True,[0]);_case_locks(h,waiting,'writer','ExclusiveLock',False,[1]);report['snapshots'].append(waiting)
+            upgrade('r1');require(outcome('r1')['sqlstate']=='40001','MIXED_UPGRADE_NOT_REJECTED')
+            h.stop('r1');h.frame('writer','WRITE_READY');released=h.locks('WRITER_RELEASED');_case_locks(h,released,'writer','ExclusiveLock',True);report['snapshots'].append(released)
+        report['status']='PASS_BOUNDED_LOCK_CASE'
+    except BaseException as error:report.update(status='FAIL_LOCK_CASE',errorClass=type(error).__name__)
+    finally:
+        report['cleanup']=h.close()
+        if not all(x['rollbackAndNaturalExit'] for x in report['cleanup']):report['status']='FAIL_LOCK_CASE_CLEANUP'
+        require(snapshot(root)==before,'lock case changed functions/metadata/ledger')
+        dump(out,report)
+    require(report['status']=='PASS_BOUNDED_LOCK_CASE','lock case failed; no retry')
+    return {'case':name,'status':report['status'],'receiptSHA256':sha(out.read_bytes())}
+
+
+def shared_upgrade_cases(root,receipt_dir=None):
+    results=[]
+    for domain in ('catalog','event'):
+        results.append(shared_upgrade_case(root,domain,'uncontended',['r1'],receipt_dir))
+        for order in (['r1','r2'],['r2','r1']):
+            results.append(shared_upgrade_case(root,domain,'two-upgraders',order,receipt_dir))
+            results.append(shared_upgrade_case(root,domain,'writer-first',order,receipt_dir))
+    results.append(shared_upgrade_case(root,'catalog','mixed-later-share',['r1','writer'],receipt_dir))
+    dump((receipt_dir or root/'.replay')/'shared-upgrade-cases.json',{'status':'PASS','cases':results,'realApplicationAcceptance':'NOT_CLAIMED'})
 
 
 def cli_binary():
@@ -921,50 +839,99 @@ def observe_owned_creation(root):
     require_owned_creation(root, cfg, gate, container)
     local_endpoint(root)  # Also enforce local status URL, exact project and any nonempty workdir label.
 
-def replay(repo, workdir):
+def raw_apply(root, name, operator_name, binding_name, stage):
+    inputs = prefix_manifest(root)
+    local_endpoint(root)
+    before = snapshot(root)
+    canonical = (root / ".replay" / operator_name).read_bytes()
+    put(root / "supabase/migrations" / name, canonical)
+    dump(root / ".replay" / binding_name,
+         {"derivedLOCALSHA256": sha(canonical), "canonicalSHA256": sha(canonical),
+          "operatorSQLByteExactReplay": True, "profile": LOCAL_PROFILE})
+    claim_apply_attempt(root / (".replay/" + stage + "-raw-attempt.json"),
+                        {"migration": name, "SHA256": sha(canonical), "oneAttemptOnly": True})
+    output = run(["supabase", "--workdir", str(root), "migration", "up", "--local"])
+    put(root / (".replay/" + stage + "-raw-apply.stdout"), output)
+    after = snapshot(root)
+    require(all(after[k] == before[k] for k in ("database", "effectiveRole", "serverMajor", "ssl", "authenticatedConfig")),
+            "raw apply identity/auth/timeout drift")
+    require(after["versions"] == before["versions"] + [name[:14]], "raw apply ledger version drift")
+    ledger = after[{TARGET: "localStatement", PRODUCT: "productLocalStatement", SHARED: "sharedLocalStatements"}[name]]
+    verify_statement_sequence(ledger if isinstance(ledger, list) else [ledger], canonical)
+    if name == TARGET:
+        require(md5(after["functions"]["helper"]["body"].encode()) == "6fb3118d630941b56b6772db94868567"
+                and after["functions"]["helper"]["metadataText"] == before["functions"]["helper"]["metadataText"]
+                and after["functions"]["public"] == before["functions"]["public"], "raw metadata helper body/metadata drift")
+    elif name == PRODUCT:
+        require(md5(after["functions"]["public"]["body"].encode()) == PRODUCT_BODY_MD5
+                and after["functions"]["public"]["metadataText"] == before["functions"]["public"]["metadataText"]
+                and after["functions"]["helper"] == before["functions"]["helper"], "raw product body/metadata drift")
+    else:
+        hashes = WRITER_BODY_HASHES
+        for signature, previous in before["sharedFunctions"].items():
+            current = after["sharedFunctions"][signature]
+            if signature in hashes:
+                require(md5(current["body"].encode()) == hashes[signature] and current["metadataText"] == previous["metadataText"]
+                        and current["names"] == previous["names"], "raw writer intended body/metadata drift")
+            elif signature == "public.shop_sync_recovery_checkpoint_v1(uuid,text,text,text)":
+                require(md5(current["body"].encode()) == SHARED_BODY_MD5 and current["metadataText"] == previous["metadataText"], "raw checkpoint body/metadata drift")
+            else: require(current == previous, "raw unrelated shared function drift")
+        require(len(after["sharedHelpers"]) == 4, "raw shared helper membership drift")
+    dump(root / (".replay/" + stage + "-raw-verified.json"),
+         {"status": "PASS_CANONICAL_BYTE_EXACT", "migration": name, "SHA256": sha(canonical),
+          "wholeActualMetadataPreserved": True, "auth8sPreserved": True,
+          "intendedWriterBodyChange": name == SHARED, "operatorSQLByteExactReplay": True,
+          "snapshot": after})
+    prefix_manifest(root)
+
+
+def replay(repo, workdir, bootstrap_only=False):
     global ERROR_ROOT, REPLAY_STAGE
     os.umask(0o077)
     require(cli_binary() is not None, "missing CLI")
     prepare(repo, workdir)
-    root = root_path(workdir)
-    ERROR_ROOT = root
+    root = root_path(workdir); ERROR_ROOT = root
     inputs = prefix_manifest(root)
-    tests = sorted(name for name in inputs["files"]
-                   if name.startswith("supabase/tests/") and name.endswith(".sql"))
+    tests = sorted(name for name in inputs["files"] if name.startswith("supabase/tests/") and name.endswith(".sql"))
     require(len(tests) == 66, "reviewed HEAD database test membership changed")
     for name, action in (("fresh local gate", empty_local), ("prefix bootstrap", start_prefix),
-                         ("observed local ownership", observe_owned_creation), ("bind three constants", bind),
-                         ("apply local migration once", apply_local), ("verify body and metadata", verify),
-                         ("bind product ACL constant", bind_product), ("apply product migration once", apply_product_local),
-                         ("verify product body metadata and ledger", verify_product),
-                         ("bind shared reader local metadata", bind_shared), ("apply shared reader migration once", apply_shared_local),
-                         ("verify shared reader body metadata and ledger", verify_shared),
-                         ("shared reader original writer matrices", shared_reader_matrices)):
-        REPLAY_STAGE = name
-        print("Database replay: " + name, flush=True)
-        action(root)
-    REPLAY_STAGE = "pgTAP"
-    print("Database replay: pgTAP", flush=True)
+                         ("observed local ownership", observe_owned_creation)):
+        REPLAY_STAGE = name; print("Database replay: " + name, flush=True); action(root)
+    if bootstrap_only:
+        dump(root / ".replay/bootstrap-complete.json", {"status":"PASS_OWNED_PREFIX_ONLY", "head":inputs["head"], "profile":LOCAL_PROFILE, "runnerSHA256":inputs["runnerSHA256"], "pendingPortableMigrations":[TARGET,PRODUCT,SHARED]})
+        print("Database replay: owned prefix complete; portable overlays NOT_APPLIED",flush=True)
+        return
+    for name, operator, binding, stage in ((TARGET,"operator.sql","binding.json","metadata"),
+        (PRODUCT,"product-operator.sql","product-binding.json","product"),
+        (SHARED,"shared-reader-operator.sql","shared-reader-binding.json","shared")):
+        REPLAY_STAGE = "canonical raw " + stage; print("Database replay: " + REPLAY_STAGE, flush=True)
+        raw_apply(root,name,operator,binding,stage)
+    REPLAY_STAGE = "shared reader writer matrices"
+    shared_reader_matrices(root)
+    REPLAY_STAGE = "shared upgrade and writer-first regressions"
+    shared_upgrade_cases(root)
+    REPLAY_STAGE = "pgTAP"; print("Database replay: pgTAP", flush=True)
     output = run([str(cli_binary()[0]), "--workdir", str(root), "test", "db", "--local"])
     put(root / ".replay/pgtap.stdout", output)
     summary = re.search(rb"(?m)^Files=(\d+), Tests=(\d+),", output)
-    require(summary is not None and int(summary[1]) == len(tests) and int(summary[2]) > 0 and
-            re.search(rb"(?m)^Result: PASS\s*$", output) is not None, "database test summary mismatch")
+    require(summary is not None and int(summary[1]) == len(tests) and int(summary[2]) > 0
+            and re.search(rb"(?m)^Result: PASS\s*$", output) is not None, "database test summary mismatch")
     prefix_manifest(root)
-    complete = {"status": "LOCAL_DERIVED_ENVELOPE_AND_PGTAP_PASS", "head": inputs["head"], "CLI": CLI_VERSION,
-          "operatorSHA256": OP_SHA, "bodySHA256": BODY_SHA, "databaseTestFiles": tests,
-          "pgTAPFiles": int(summary[1]), "pgTAPTests": int(summary[2]),
-          "verifiedSHA256": sha((root / ".replay/product-verified.json").read_bytes()),
-          "productMigrationSHA256": PRODUCT_SHA, "productPublicProsrcMD5": PRODUCT_BODY_MD5,
-          "sharedReaderMigrationSHA256": SHARED_SHA, "sharedReaderPublicProsrcMD5": SHARED_BODY_MD5,
-          "sharedReaderVerifiedSHA256": sha((root / ".replay/shared-reader-verified.json").read_bytes()),
-          "sharedReaderMatricesSHA256": sha((root / ".replay/shared-reader-matrices.json").read_bytes()),
-          "pgtapStdoutSHA256": sha(output), "operatorSQLByteExactReplay": False,
-          "localACLIsTESTEquivalent": "NOT_CLAIMED"}
-    dump(root / ".replay/complete.json", complete)
-    export_complete(complete)
-    REPLAY_STAGE = "complete"
-    print("Database replay: complete; " + str(int(summary[1])) + " files, " + str(int(summary[2])) + " tests", flush=True)
+    complete = {"status": "LOCAL_CANONICAL_BYTE_EXACT_AND_PGTAP_PASS", "head": inputs["head"],
+      "CLI": CLI_VERSION, "profile": LOCAL_PROFILE, "runnerSHA256": inputs["runnerSHA256"],
+      "operatorSHA256": OP_SHA, "bodySHA256": BODY_SHA, "databaseTestFiles": tests,
+      "pgTAPFiles": int(summary[1]), "pgTAPTests": int(summary[2]),
+      "verifiedSHA256": sha((root / ".replay/product-raw-verified.json").read_bytes()),
+      "productMigrationSHA256": PRODUCT_SHA, "productPublicProsrcMD5": PRODUCT_BODY_MD5,
+      "sharedReaderMigrationSHA256": SHARED_SHA, "sharedReaderPublicProsrcMD5": SHARED_BODY_MD5,
+      "sharedReaderVerifiedSHA256": sha((root / ".replay/shared-raw-verified.json").read_bytes()),
+      "sharedReaderMatricesSHA256": sha((root / ".replay/shared-reader-matrices.json").read_bytes()),
+      "sharedUpgradeCasesSHA256": sha((root / ".replay/shared-upgrade-cases.json").read_bytes()),
+      "sharedUpgradeCaseCount": 11,
+      "pgtapStdoutSHA256": sha(output), "operatorSQLByteExactReplay": True,
+      "localACLIsTESTEquivalent": "NOT_CLAIMED"}
+    dump(root / ".replay/complete.json", complete); export_complete(complete)
+    REPLAY_STAGE = "complete"; print("Database replay: complete", flush=True)
 
 def export_complete(complete):
     if EVIDENCE_ROOT is not None:
@@ -980,8 +947,11 @@ def export_complete(complete):
               "sharedReaderPublicProsrcMD5": complete["sharedReaderPublicProsrcMD5"],
               "sharedReaderVerifiedSHA256": complete["sharedReaderVerifiedSHA256"],
               "sharedReaderMatricesSHA256": complete["sharedReaderMatricesSHA256"],
+              "sharedUpgradeCasesSHA256": complete["sharedUpgradeCasesSHA256"],
+              "sharedUpgradeCaseCount": complete["sharedUpgradeCaseCount"],
               "pgtapStdoutSHA256": complete["pgtapStdoutSHA256"],
-              "operatorSQLByteExactReplay": False, "localACLIsTESTEquivalent": "NOT_CLAIMED"})
+              "operatorSQLByteExactReplay": complete["operatorSQLByteExactReplay"], "localACLIsTESTEquivalent": "NOT_CLAIMED",
+              "profile": complete["profile"], "runnerSHA256": complete["runnerSHA256"]})
 
 def export_error(error):
     if EVIDENCE_ROOT is not None:
@@ -997,18 +967,18 @@ def export_error(error):
         # Never serialize str(error), exception attributes, argv, stdout or stderr.
 
 def main():
-    global ERROR_ROOT, EVIDENCE_ROOT
+    global ERROR_ROOT, EVIDENCE_ROOT, LOCAL_PROFILE
     parser = argparse.ArgumentParser()
-    parser.add_argument("mode", choices=["run", "prepare", "empty-local", "bind", "apply-local", "verify",
-                                        "bind-product", "apply-product-local", "verify-product",
-                                        "bind-shared", "apply-shared-local", "verify-shared"])
+    parser.add_argument("mode", choices=["run", "bootstrap", "prepare", "empty-local"])
+    parser.add_argument("--profile", choices=["ci", "task146-host"], default="ci")
     parser.add_argument("--workdir", required=True)
     parser.add_argument("--repo")
     parser.add_argument("--evidence-dir")
     args = parser.parse_args()
-    if args.mode in ("run", "prepare"):
+    LOCAL_PROFILE = args.profile
+    if args.mode in ("run", "bootstrap", "prepare"):
         require(args.repo is not None, "repo required")
-        if args.mode == "run":
+        if args.mode in ("run", "bootstrap"):
             require(args.evidence_dir is not None, "fresh evidence directory required")
             evidence = Path(args.evidence_dir)
             require(evidence.is_absolute() and not evidence.exists() and not evidence.is_symlink(),
@@ -1016,7 +986,7 @@ def main():
             evidence.mkdir(mode=0o700)
             EVIDENCE_ROOT = evidence.resolve()
             try:
-                replay(args.repo, args.workdir)
+                replay(args.repo, args.workdir, bootstrap_only=args.mode == "bootstrap")
             except BaseException as error:
                 export_error(error)
                 raise
@@ -1025,11 +995,8 @@ def main():
     else:
         root = root_path(args.workdir)
         ERROR_ROOT = root
-        {"empty-local": empty_local, "bind": bind, "apply-local": apply_local, "verify": verify,
-         "bind-product": bind_product, "apply-product-local": apply_product_local, "verify-product": verify_product,
-         "bind-shared": bind_shared, "apply-shared-local": apply_shared_local, "verify-shared": verify_shared}[args.mode](root)
+        empty_local(root)
 
-# Filled only when the pinned expected fixture is generated; no runtime override.
-EXPECTED_SHA = "1bee30e84056eacb5f993cc33047c7e2e1011ecd79df8f1aee2a3900781f6f10"
+
 if __name__ == "__main__":
     main()
