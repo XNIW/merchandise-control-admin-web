@@ -1,0 +1,94 @@
+{
+  "authenticatedConfig": [
+    "statement_timeout=8s"
+  ],
+  "functions": {
+    "helper": {
+      "portable": {
+        "proacl": [
+          "postgres=X/postgres"
+        ],
+        "probin": null,
+        "procost": 100,
+        "prokind": "f",
+        "proname": "sync_recovery_preflight_counts_v1",
+        "prorows": 0,
+        "pronargs": 4,
+        "proconfig": [
+          "search_path=public, app_private, pg_temp"
+        ],
+        "proretset": false,
+        "prosecdef": true,
+        "prosqlbody": null,
+        "prosupport": "-",
+        "proargmodes": null,
+        "proargnames": [
+          "p_shop_id",
+          "p_scope_kind",
+          "p_mapped_owner_id",
+          "p_authorized_legacy_owner_id"
+        ],
+        "proisstrict": false,
+        "proparallel": "u",
+        "protrftypes": null,
+        "provariadic": "0",
+        "provolatile": "s",
+        "proleakproof": false,
+        "proallargtypes": null,
+        "proargdefaults": null,
+        "pronargdefaults": 0,
+        "schema": "app_private",
+        "owner": "postgres",
+        "language": "plpgsql",
+        "returnType": "jsonb",
+        "argumentTypes": "uuid, text, uuid, uuid"
+      },
+      "bodySHA256": "3bd4ae7fae914405f05d8d48702b7c653728a92cc58d2585e2d4fa6841763454",
+      "definitionMD5": "f2a0351605304f2adff9e712bb27d002"
+    },
+    "public": {
+      "portable": {
+        "proacl": [
+          "postgres=X/postgres",
+          "authenticated=X/postgres"
+        ],
+        "probin": null,
+        "procost": 100,
+        "prokind": "f",
+        "proname": "shop_sync_recovery_checkpoint_v1",
+        "prorows": 0,
+        "pronargs": 4,
+        "proconfig": [
+          "search_path=public, app_private, pg_temp"
+        ],
+        "proretset": false,
+        "prosecdef": true,
+        "prosqlbody": null,
+        "prosupport": "-",
+        "proargmodes": null,
+        "proargnames": [
+          "p_shop_id",
+          "p_device_identifier",
+          "p_verified_baseline_id",
+          "p_expected_baseline_scope_key"
+        ],
+        "proisstrict": false,
+        "proparallel": "u",
+        "protrftypes": null,
+        "provariadic": "0",
+        "provolatile": "v",
+        "proleakproof": false,
+        "proallargtypes": null,
+        "proargdefaults": "({CONST :consttype 25 :consttypmod -1 :constcollid 100 :constlen -1 :constbyval false :constisnull false :location -1 :constvalue 5 [ 20 0 0 0 48 ]} {CONST :consttype 25 :consttypmod -1 :constcollid 100 :constlen -1 :constbyval false :constisnull true :location -1 :constvalue <>})",
+        "pronargdefaults": 2,
+        "schema": "public",
+        "owner": "postgres",
+        "language": "plpgsql",
+        "returnType": "jsonb",
+        "argumentTypes": "uuid, text, text, text"
+      },
+      "bodySHA256": "e82029057311c80e1f28a541fd6f637b30aedbefc0194dc5eec57f98b72b4ca6",
+      "definitionMD5": "82f7139ebebeff3602e0fef0058a5f48"
+    }
+  }
+}

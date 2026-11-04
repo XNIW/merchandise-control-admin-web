@@ -1,5 +1,17 @@
 # WECHAT-010 — prestazioni del checkpoint di recovery
 
+## iOS TASK-146 A1 — current portable implementation, 4 November 2026
+
+The following dated sections retain the earlier diagnosis, counterfactual and replay history. Their old300 operator/rollback byte claims describe those historical packets. Use the current [portable replay and guarded inverse](MOBILE_RECOVERY_TASK146_RAW_REPLAY.md) for the new implementation; the source filename and four-helper inverse have since changed.
+
+The current portable shared-reader source is `20261104224833_mobile_recovery_shared_reader_fences.sql` (SQL SHA256 `6c6555304418c337da74c5be7549677d5604ea3d5e4e4ed7ba7d8941c6b29134`). A single authorized apply on TEST completed at 2026-11-04 22:48:33 UTC. Readback retained all 168 previous ledger entries and added exactly this version, with the full 30567-byte SQL statement unchanged. All 11 existing routine metadata images and the authenticated 8-second budget are unchanged. Checkpoint 604→7a and the two private writer bodies are the three intended replacements; four new helpers are private to postgres. No business-row or real-user-rights mutation was part of the apply.
+
+The private writers intentionally add bounded shared-to-exclusive upgrade handling: own shared-only target ownership selects nonblocking exclusive attempts for every target in canonical order; contention raises `40001`. Normal writer order, uncontended upgrades and exclusive reentry are preserved. This supersedes historical claims below that the writers were unchanged. Public payload, digest, authorization, grants and timeout contracts remain intact.
+
+The fresh frozen05 replay passed the three exact SQL files, two reader-first matrices, eleven upgrade/writer-first/mixed-key cases and all 66 pgTAP files / 4311 assertions. Six separate local guard/inverse fixtures also passed. The exact renamed frozen06 native replay has also completed all three raw migration stages, the thirteen concurrency groups and all 66 files / 4311 assertions. Its final independent closure review and exact-commit hosted CI remain separate publication gates; no hosted CI result is inferred from local execution. Authenticated mobile behavior, device/UX/performance acceptance, the final ordinary backend window and global TASK-146 closure remain open. No production deploy or client distribution is implied.
+
+The canonical migration is [the actual TEST version](../../supabase/migrations/20261104224833_mobile_recovery_shared_reader_fences.sql). The original300 operator is retained under `sql/task146-operator-lineage/`; it is not a portable execution input.
+
 ## TASK-159 REVIEW — TEST154 applied; authenticated recovery pending, 2026-10-02 15:09 UTC
 
 PR128 candidate head `2e7237f4` passed exact-head database/pgTAP, Verify and
@@ -625,3 +637,101 @@ richiede un delta separato: non cancellare, troncare o riscrivere dati esistenti
 né ampliare il validator in questa migrazione di prestazioni.
 
 Nessun PASS live, telefono, p95, recovery nativa o convergenza è dedotto dal benchmark.
+
+## Shared catalog/event reader fences — bounded counterfactual, 30 ottobre 2026
+
+Due checkpoint dello stesso scope acquisivano lock advisory esclusivi nel resolver
+catalogo e poi nella fence degli eventi. La coppia autenticata dual14 ha mostrato
+un waiter advisory bloccato dal peer per almeno 5,258394 s e un HTTP 500/57014.
+La proiezione dell'osservatore14 includeva solo la chiave eventi: non conteneva
+la chiave catalogo del waiter, quindi non attribuisce retroattivamente quella
+chiave come osservazione diretta.
+
+`20261030065236_mobile_recovery_shared_reader_fences.sql` contiene gli stessi byte
+SQL del candidato 15 verificato (`5ec447ab…`). Crea tre helper privati: fence eventi
+shared senza writer witness, coppia catalogo shared con le stesse chiavi e ordine,
+e clone del resolver originale con la sola chiamata catalogo modificata. Il
+checkpoint cambia due callsite. Resolver originale, writer, auth/FOR SHARE,
+ri-lettura mapping, firme pubbliche, ACL e budget authenticated 8 s restano invariati.
+L'intestazione SQL `NOT_RUN` documenta il momento di costruzione del packet; gli
+esiti aggiornati sono quelli seguenti. Non implica adozione permanente TEST.
+
+### Contratto di ammissione e rischio di upgrade
+
+Il percorso ammesso è una RPC checkpoint o marker per richiesta HTTP separata.
+PostgREST esegue ogni richiesta in una transazione; una POST verso una funzione
+VOLATILE usa READ WRITE. Questa modalità resta necessaria per gli invariati
+`FOR SHARE`, anche se il corpo non modifica dati business.
+Fonte: [documentazione ufficiale PostgREST sulle transazioni](https://github.com/PostgREST/postgrest/blob/main/docs/references/transactions.rst).
+
+L'ispezione dei sorgenti mobili correnti trova una sola invocazione RPC nel
+trasporto checkpoint/marker: Android `SupabaseShopSyncReadRemoteDataSource.kt`
+usa POST `rpc/$function`; iOS `ShopSyncRecoveryContract.swift` inoltra una
+`boundedRPC` per metodo. Questo è un controllo di sorgente, distinto dalla prova
+su un binario installato. Nel controfattuale, il helper host qualificato ha inviato
+due POST singole con la stessa sessione SDK Android reale; l'osservatore ha
+rilevato due backend e transazioni distinti. Non sono due app né un replay iOS.
+
+La closure ispezionata di CP604/marker comprende 54 corpi e un aggregate: nessun
+DML business o successivo lock esclusivo nel percorso letto. L'inventario live
+bounded dei caller letterali ha trovato solo marker→checkpoint. Non enumera SQL
+esterno o nomi costruiti dinamicamente. L'ammissione alla transazione dedicata è
+operativa, **non imposta dal SQL**. Due transazioni che leggono shared e poi
+invocano writer esclusivi nella stessa transazione possono deadlockare durante
+l'upgrade. Questa prova non autorizza una garanzia generica per tali composizioni.
+
+### Verifiche eseguite e limiti
+
+Il candidato combinato15 ha superato i tre file pgTAP con 410 asserzioni, inclusa
+parità integrale JSON checkpoint e marker. Le 409 asserzioni originali sono
+preservate; l'asserzione aggiunta riusa la fixture del contratto. Due matrici
+locali, catalogo ed eventi, hanno mostrato due lettori su tutte le tre chiavi
+shared e writer originale bloccato da 2→1→0 lettori, più writer su scope distinto
+che completa. Nessun witness introdotto; tutti i client propri rollback/exit 0,
+metadata e stato locale ripristinati esattamente. Receipt locale `e0759398…`.
+
+Il controfattuale 16 ha usato una nuova baseline originale604, watermark 12496,
+HTTP 200 in 6,058851 s. Dopo apply protetto, la sola coppia concorrente ha completato
+con HTTP 200 in 5,519918 s e 5,518123 s; **entrambi i JSON interi identici** alla baseline.
+L'overlap HTTP è 5,518144 s. Venti campioni su 3,878514 s mostrano entrambi i backend
+con gli stessi tre ShareLock granted (catalogo owner/shop ed eventi), blocker
+vuoti e nessuna attesa advisory campionata. Quattro righe mostrano ancora attese
+IO BuffileRead/Write: nessuna deduzione CPU o dichiarazione di assenza di attese.
+Il tratto iniziale prima dell'osservatore non è campionato.
+
+La serializzazione tra lettori osservata in dual14 è assente in questa coppia.
+Il dataset 14 era 12488, mentre 16 usa 12496: non è un A/B randomizzato sullo stesso
+dataset, non dimostra p95 né chiusura generale dei 500 o accettazione ordinaria.
+Receipt unico16 `eab846c6c9c25523791eb6d8d9e192b2fb91f380a555a24c1ecf242997077f7a`.
+Il rollback obbligatorio ha ripristinato CP604, metadata/ACL/config originali e
+assenza dei tre helper. Le due voci di journal diagnostico
+`20261030063912` apply e `20261030064008` rollback restano intenzionalmente:
+ripristino delle funzioni e ripristino del journal sono concetti separati.
+
+### Replay CI esistente e rollback operativo
+
+Il replay `scripts/ci/mobile-recovery-local-replay.py` resta l'unico runner.
+Dopo gli overlay preflight e product604, ammette il quarto SQL solo sul container
+locale già qualificato. Il binding confronta i corpi e la metadata logica con i
+pin, poi sostituisce esclusivamente OID/metadata fisici locali, ACL locale 2 già
+esistente e il valore TLS osservato sul canale locale. L'inversa deve ricostruire
+l'operatore byte per byte; nessun grant e nessuna modifica al DDL/corpo runtime.
+Il journal locale deve contenere l'esatta sequenza SQL derivata. Le due matrici
+riusano la stessa logica già eseguita, `_PairChild` e limiti 30/3/8; precedono il
+pgTAP completo. Nessun reset, retry automatico o nuovo harness concorrente.
+
+La portabilità del raccordo CI è stata controllata su FILE e con 34 casi puri
+(derivazione, drift di source/ACL/auth/metadata, journal e matrici registrate).
+Il nuovo replay Docker completo e la CI di questo delta sono **NOT_RUN**;
+i PASS precedenti non sono trasferiti al nuovo wrapper. I tre file originali
+restano la slice 410, mentre la CI mantiene tutti i 66 file database.
+
+Rollback operativo revisionato:
+[`sql/mobile-recovery-shared-reader-fences-rollback.sql`](sql/mobile-recovery-shared-reader-fences-rollback.sql),
+byte identici al rollback già eseguito (`0eccd413…`). Ammette solo CP7a e i tre
+helper esatti, ripristina i due callsite e verifica604; rimuove soltanto i nuovi
+helper con RESTRICT e riconferma metadata originali prima del COMMIT. Se un guard
+fallisce, preservare stato/receipt e ispezionare metadata; niente retry cieco o
+allargamento dei pin. Un nuovo apply finale TEST richiede lo slot coordinato sui
+candidati mobili finali e una finestra ordinaria identificata. Nessun apply finale,
+merge o DONE è attestato qui.
