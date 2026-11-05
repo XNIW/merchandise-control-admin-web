@@ -39,5 +39,32 @@ SELECT jsonb_build_object(
  'productLocalStatement',(SELECT CASE WHEN cardinality(statements)=1 THEN statements[1] END
    FROM supabase_migrations.schema_migrations WHERE version='20261028132836'),
  'sharedLocalStatements',(SELECT to_jsonb(statements) FROM supabase_migrations.schema_migrations WHERE version='20261104224833'),
+ 'mobileSalesLocalStatements',(SELECT to_jsonb(statements) FROM supabase_migrations.schema_migrations
+   WHERE version='20261105220929'),
+ 'mobileSalesFunction',(
+   SELECT jsonb_build_object(
+     'owner',pg_get_userbyid(p.proowner),'bodyMD5',md5(p.prosrc),'language',l.lanname,
+     'returnType',p.prorettype::regtype::text,'argumentCount',p.pronargs,
+     'defaultArgumentCount',p.pronargdefaults,'securityDefiner',p.prosecdef,
+     'volatility',p.provolatile,'strict',p.proisstrict,'parallel',p.proparallel,'config',p.proconfig,
+     'authenticatedExecute',has_function_privilege('authenticated',p.oid,'EXECUTE'),
+     'anonymousExecute',has_function_privilege('anon',p.oid,'EXECUTE'),
+     'serviceRoleExecute',has_function_privilege('service_role',p.oid,'EXECUTE'),
+     'publicExecute',EXISTS (SELECT 1 FROM aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) acl
+       WHERE acl.grantee=0 AND acl.privilege_type='EXECUTE'))
+   FROM pg_proc p JOIN pg_language l ON l.oid=p.prolang
+   WHERE p.oid=to_regprocedure('public.mobile_sales_read_v1(uuid,text,text,date,date,integer,timestamptz,uuid,text,text,text,uuid,uuid,text,uuid)')
+ ),
+ 'mobileSalesStableDelegates',(
+   SELECT count(*) FROM pg_proc p WHERE p.provolatile='s' AND p.oid IN (
+     to_regprocedure('app_private.wechat_can_read_shop(uuid)'),
+     to_regprocedure('app_private.wechat_can_read_sales_metadata(uuid)'),
+     to_regprocedure('public.wechat_daily_sales_summary_v1(uuid,date)'),
+     to_regprocedure('public.wechat_sales_period_summary_v1(uuid,date,date)'),
+     to_regprocedure('public.wechat_sales_page_v2(uuid,date,date,integer,timestamptz,uuid,text,text,text,uuid,uuid,text)'),
+     to_regprocedure('public.wechat_sale_detail_v2(uuid,uuid)'),
+     to_regprocedure('public.wechat_sales_filter_options_v1(uuid,date,date)')
+   )
+ ),
  'authenticatedConfig',(SELECT rolconfig FROM pg_roles WHERE rolname='authenticated')
 ) AS snapshot;
