@@ -12,6 +12,9 @@ PRICE = "20261027015232_mobile_recovery_checkpoint_price_custom_plan.sql"
 TARGET = "20261027143737_mobile_recovery_preflight_metadata_custom_plan.sql"
 PRODUCT = "20261028132836_mobile_recovery_checkpoint_product_timestamp_memo.sql"
 SHARED = '20261104224833_mobile_recovery_shared_reader_fences.sql'
+MOBILE_SALES = '20261105220929_mobile_sales_read_v1.sql'
+MOBILE_SALES_SHA = '4111c78b85dd7e16160eaef8d73d2d9ae872c1caa14770e4864e06c25c092c1f'
+MOBILE_SALES_BODY_MD5 = '42bb90a0d49faa42e78558f9c610944c'
 SHARED_SHA = '6c6555304418c337da74c5be7549677d5604ea3d5e4e4ed7ba7d8941c6b29134'
 SHARED_BODY_MD5 = "7a1e3ec3050743656759432ad448a37b"
 PRODUCT_SHA = 'a6c249e7f0f1f453d56509152f7db23326f6585f5ef6a719d1d1ea18365e5e92'
@@ -27,7 +30,7 @@ LOCAL_PROFILE = "ci"
 PROFILE_DB_PORTS = {"ci":54322, "task146-host":65422}
 WRITER_BODY_HASHES = {'app_private.acquire_sync_event_scope_fence_v1(uuid,uuid)': '8bc0089c0f2d0fbccd3286a4022d90ea', 'app_private.lock_catalog_scope_pair_v1(uuid,uuid)': '394bef66b0f19c3e64ae82e48d7187a3'}
 LOCAL_TEST_OVERLAYS = {"supabase/tests/cross_platform_sync_recovery_contract.sql": "5f2f2d4435f90e3e3e2353e0341c782dcba14aacbba73f59b3f177b6613f1343"}
-SNAPSHOT_SHA = 'd193b9f4adecd3308ed02a8a191cdd704d3d76c0b7ca70b6b6fa9b5373d02f6d'
+SNAPSHOT_SHA = '78beecbec68c2802570aeabd5601822df3ab320bee6740337085eed4eab8cb0e'
 
 def require(ok, message):
     if not ok:
@@ -141,6 +144,16 @@ def prefix_manifest(root):
         binding = json.loads((root / ".replay/shared-reader-binding.json").read_text())
         require(sha(shared.read_bytes()) == binding["derivedLOCALSHA256"], "bound shared reader target drift")
         declared.add("supabase/migrations/" + SHARED)
+    require(sha((root / ".replay/mobile-sales-operator.sql").read_bytes()) == MOBILE_SALES_SHA,
+            "mobile sales operator drift")
+    mobile = root / "supabase/migrations" / MOBILE_SALES
+    if mobile.exists() or mobile.is_symlink():
+        require(not mobile.is_symlink() and mobile.is_file() and mobile.resolve().is_relative_to(root),
+                "mobile sales target escape")
+        binding = json.loads((root / ".replay/mobile-sales-binding.json").read_text())
+        require(sha(mobile.read_bytes()) == binding["derivedLOCALSHA256"] == MOBILE_SALES_SHA,
+                "bound mobile sales target drift")
+        declared.add("supabase/migrations/" + MOBILE_SALES)
     observed = {str(p.relative_to(root)) for p in (root / "supabase/migrations").rglob("*")
                 if p.is_file() or p.is_symlink()}
     require(observed == declared, "extra or missing migration input")
@@ -193,6 +206,9 @@ def prepare(repo, workdir):
     price = (repo / "supabase/migrations" / PRICE).read_bytes()
     product = (repo / "supabase/migrations" / PRODUCT).read_bytes()
     shared = (repo / "supabase/migrations" / SHARED).read_bytes()
+    mobile = (repo / "supabase/migrations" / MOBILE_SALES).read_bytes()
+    require(sha(mobile) == MOBILE_SALES_SHA and SHARED[:14] < MOBILE_SALES[:14],
+            "mobile sales source/order drift")
     require(sha(shared) == SHARED_SHA and PRODUCT[:14] < SHARED[:14], "shared reader source/order drift")
     require(sha(product) == PRODUCT_SHA and PRICE[:14] < TARGET[:14] < PRODUCT[:14], "product source/order drift")
     require(sha(operator) == OP_SHA and sha(price) == PRICE_SHA, "source hash drift")
@@ -212,14 +228,16 @@ def prepare(repo, workdir):
         require(sha(candidate) == digest, "reviewed test overlay drift")
         (out / relative).write_bytes(candidate)
     migration_dir = out / "supabase/migrations"
-    # Only the four reviewed overlays; every other file came from HEAD, not WIP.
+    # Only the four A1 overlays; B3 and all other inputs come from HEAD.
     for name, data in ((PRICE, price), (TARGET, operator), (PRODUCT, product), (SHARED, shared)):
         q = migration_dir / name
         if q.exists():
             require(q.read_bytes() == data, "tracked overlay drift")
         elif name == PRICE:
             put(q, data)
-    for name, data in ((TARGET, operator), (PRODUCT, product), (SHARED, shared)):
+    require((migration_dir / MOBILE_SALES).is_file()
+            and (migration_dir / MOBILE_SALES).read_bytes() == mobile, "mobile sales not in committed HEAD")
+    for name, data in ((TARGET, operator), (PRODUCT, product), (SHARED, shared), (MOBILE_SALES, mobile)):
         target = migration_dir / name
         if target.exists():
             require(target.read_bytes() == data, "withheld file drift")
@@ -246,6 +264,7 @@ def prepare(repo, workdir):
     put(out / ".replay/operator.sql", operator)
     put(out / ".replay/product-operator.sql", product)
     put(out / ".replay/shared-reader-operator.sql", shared)
+    put(out / ".replay/mobile-sales-operator.sql", mobile)
 
 def local_docker():
     docker_host = os.environ.get("DOCKER_HOST", "")
@@ -843,6 +862,11 @@ def raw_apply(root, name, operator_name, binding_name, stage):
     inputs = prefix_manifest(root)
     local_endpoint(root)
     before = snapshot(root)
+    if name == MOBILE_SALES:
+        require(before["mobileSalesFunction"] is None and before["mobileSalesLocalStatements"] is None
+                and MOBILE_SALES[:14] not in before["versions"], "mobile sales was already present")
+        require(before["serverMajor"] == "17" and "statement_timeout=8s" in (before["authenticatedConfig"] or [])
+                and before["mobileSalesStableDelegates"] == 7, "mobile sales prerequisites drift")
     canonical = (root / ".replay" / operator_name).read_bytes()
     put(root / "supabase/migrations" / name, canonical)
     dump(root / ".replay" / binding_name,
@@ -856,7 +880,9 @@ def raw_apply(root, name, operator_name, binding_name, stage):
     require(all(after[k] == before[k] for k in ("database", "effectiveRole", "serverMajor", "ssl", "authenticatedConfig")),
             "raw apply identity/auth/timeout drift")
     require(after["versions"] == before["versions"] + [name[:14]], "raw apply ledger version drift")
-    ledger = after[{TARGET: "localStatement", PRODUCT: "productLocalStatement", SHARED: "sharedLocalStatements"}[name]]
+    ledger_key = {TARGET: "localStatement", PRODUCT: "productLocalStatement",
+                  SHARED: "sharedLocalStatements", MOBILE_SALES: "mobileSalesLocalStatements"}[name]
+    ledger = after[ledger_key]
     verify_statement_sequence(ledger if isinstance(ledger, list) else [ledger], canonical)
     if name == TARGET:
         require(md5(after["functions"]["helper"]["body"].encode()) == "6fb3118d630941b56b6772db94868567"
@@ -866,7 +892,7 @@ def raw_apply(root, name, operator_name, binding_name, stage):
         require(md5(after["functions"]["public"]["body"].encode()) == PRODUCT_BODY_MD5
                 and after["functions"]["public"]["metadataText"] == before["functions"]["public"]["metadataText"]
                 and after["functions"]["helper"] == before["functions"]["helper"], "raw product body/metadata drift")
-    else:
+    elif name == SHARED:
         hashes = WRITER_BODY_HASHES
         for signature, previous in before["sharedFunctions"].items():
             current = after["sharedFunctions"][signature]
@@ -877,6 +903,25 @@ def raw_apply(root, name, operator_name, binding_name, stage):
                 require(md5(current["body"].encode()) == SHARED_BODY_MD5 and current["metadataText"] == previous["metadataText"], "raw checkpoint body/metadata drift")
             else: require(current == previous, "raw unrelated shared function drift")
         require(len(after["sharedHelpers"]) == 4, "raw shared helper membership drift")
+    else:
+        require(name == MOBILE_SALES and after["mobileSalesStableDelegates"] == 7,
+                "mobile sales stable delegate contract drift")
+        expected = {
+            "owner": "postgres", "bodyMD5": MOBILE_SALES_BODY_MD5, "language": "plpgsql",
+            "returnType": "jsonb", "argumentCount": 15, "defaultArgumentCount": 12,
+            "securityDefiner": True, "volatility": "v", "strict": False, "parallel": "u",
+            "authenticatedExecute": True, "anonymousExecute": False,
+            "serviceRoleExecute": False, "publicExecute": False,
+        }
+        actual = dict(after["mobileSalesFunction"] or {})
+        config_values = actual.pop("config", [])
+        require(actual == expected and len(config_values) == 2
+                and set(config_values) == {'search_path=""', 'TimeZone=UTC'},
+                "mobile sales function or effective ACL drift")
+        changed = {"versions", "mobileSalesFunction", "mobileSalesLocalStatements"}
+        require({k: v for k, v in after.items() if k not in changed}
+                == {k: v for k, v in before.items() if k not in changed},
+                "mobile sales replay changed unrelated catalog snapshot")
     dump(root / (".replay/" + stage + "-raw-verified.json"),
          {"status": "PASS_CANONICAL_BYTE_EXACT", "migration": name, "SHA256": sha(canonical),
           "wholeActualMetadataPreserved": True, "auth8sPreserved": True,
@@ -898,7 +943,7 @@ def replay(repo, workdir, bootstrap_only=False):
                          ("observed local ownership", observe_owned_creation)):
         REPLAY_STAGE = name; print("Database replay: " + name, flush=True); action(root)
     if bootstrap_only:
-        dump(root / ".replay/bootstrap-complete.json", {"status":"PASS_OWNED_PREFIX_ONLY", "head":inputs["head"], "profile":LOCAL_PROFILE, "runnerSHA256":inputs["runnerSHA256"], "pendingPortableMigrations":[TARGET,PRODUCT,SHARED]})
+        dump(root / ".replay/bootstrap-complete.json", {"status":"PASS_OWNED_PREFIX_ONLY", "head":inputs["head"], "profile":LOCAL_PROFILE, "runnerSHA256":inputs["runnerSHA256"], "pendingPortableMigrations":[TARGET,PRODUCT,SHARED,MOBILE_SALES]})
         print("Database replay: owned prefix complete; portable overlays NOT_APPLIED",flush=True)
         return
     for name, operator, binding, stage in ((TARGET,"operator.sql","binding.json","metadata"),
@@ -910,11 +955,14 @@ def replay(repo, workdir, bootstrap_only=False):
     shared_reader_matrices(root)
     REPLAY_STAGE = "shared upgrade and writer-first regressions"
     shared_upgrade_cases(root)
+    REPLAY_STAGE = "canonical raw mobile sales"
+    print("Database replay: " + REPLAY_STAGE, flush=True)
+    raw_apply(root, MOBILE_SALES, "mobile-sales-operator.sql", "mobile-sales-binding.json", "mobile-sales")
     REPLAY_STAGE = "pgTAP"; print("Database replay: pgTAP", flush=True)
     output = run([str(cli_binary()[0]), "--workdir", str(root), "test", "db", "--local"])
     put(root / ".replay/pgtap.stdout", output)
     summary = re.search(rb"(?m)^Files=(\d+), Tests=(\d+),", output)
-    require(summary is not None and int(summary[1]) == len(tests) and int(summary[2]) > 0
+    require(summary is not None and int(summary[1]) == len(tests) and int(summary[2]) == 4347
             and re.search(rb"(?m)^Result: PASS\s*$", output) is not None, "database test summary mismatch")
     prefix_manifest(root)
     complete = {"status": "LOCAL_CANONICAL_BYTE_EXACT_AND_PGTAP_PASS", "head": inputs["head"],
@@ -928,6 +976,9 @@ def replay(repo, workdir, bootstrap_only=False):
       "sharedReaderMatricesSHA256": sha((root / ".replay/shared-reader-matrices.json").read_bytes()),
       "sharedUpgradeCasesSHA256": sha((root / ".replay/shared-upgrade-cases.json").read_bytes()),
       "sharedUpgradeCaseCount": 11,
+      "mobileSalesMigrationVersion": MOBILE_SALES[:14],
+      "mobileSalesMigrationSHA256": MOBILE_SALES_SHA,
+      "mobileSalesVerifiedSHA256": sha((root / ".replay/mobile-sales-raw-verified.json").read_bytes()),
       "pgtapStdoutSHA256": sha(output), "operatorSQLByteExactReplay": True,
       "localACLIsTESTEquivalent": "NOT_CLAIMED"}
     dump(root / ".replay/complete.json", complete); export_complete(complete)
@@ -949,6 +1000,9 @@ def export_complete(complete):
               "sharedReaderMatricesSHA256": complete["sharedReaderMatricesSHA256"],
               "sharedUpgradeCasesSHA256": complete["sharedUpgradeCasesSHA256"],
               "sharedUpgradeCaseCount": complete["sharedUpgradeCaseCount"],
+              "mobileSalesMigrationVersion": complete["mobileSalesMigrationVersion"],
+              "mobileSalesMigrationSHA256": complete["mobileSalesMigrationSHA256"],
+              "mobileSalesVerifiedSHA256": complete["mobileSalesVerifiedSHA256"],
               "pgtapStdoutSHA256": complete["pgtapStdoutSHA256"],
               "operatorSQLByteExactReplay": complete["operatorSQLByteExactReplay"], "localACLIsTESTEquivalent": "NOT_CLAIMED",
               "profile": complete["profile"], "runnerSHA256": complete["runnerSHA256"]})
