@@ -93,3 +93,27 @@ Il limite client storico è stato consumato dalla successiva integrazione
 cross-repository; non resta un blocker TASK-139. Nessun deploy/apply production
 è stato eseguito o autorizzato. Review finale approvata esplicitamente
 dall'utente il `2026-07-25`: stato `DONE`.
+
+## Continuazione ASUS-W7POS-019 — catalogo nativo vuoto, 8 novembre 2026
+
+Il mandato corrente autorizza il FIX del409 unmapped osservato nel normale
+onboarding NEW_SHOP_019, senza creare una task duplicata. Lo stato DONE sopra
+rimane l'approvazione storica TASK-139; la continuazione cross-repository è FIX
+e termina in REVIEW, con qualifica live distinta dal commit e dai test.
+
+La causa è nel resolver installato: active shop privo di mapping e di tutte le
+righe catalogo produce legacy_owner_bridge/null/blocked. La lease corrente è
+valida e l'audit reale registra il rifiuto allo stage manifest. Il fix ammette
+solo lo scope canonico dello shop attivo senza alcuna storia di mapping legacy;
+mapping incompleti o disabilitati restano bloccati. Nessun owner inferito,
+articolo fittizio, nuova tabella, grant o cambiamento della lease/publication.
+Win7POS mantiene il vincolo full-required e le vendite bloccate sullo zero.
+
+La migration forward conserva OID, owner, ACL e tutti gli attributi pg_proc;
+prima/dopo sono vincolati a digest del corpo. Il runner locale canonico è esteso
+per questa sola migration successiva, preservando i guard di ownership/CLI/ordine,
+gli operatori e le quattro applicazioni tardive precedenti. Aggiunte28 assertion
+pgTAP con lease reale sintetica e isolamento/negativi, oltre alle4347 esistenti;
+67 file/4375 assertion sono gli attesi, non un PASS anticipato.
+
+[Evidence, comandi, rollout e rollback](EVIDENCE/TASK-139/asus-019-native-empty-scope-20261108.md).
