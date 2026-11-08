@@ -275,7 +275,7 @@ function loadCatalogPull(options = {}) {
       loadPosRuntimeLease: async () => lease,
       publishPosRuntimeLeaseSuccess: async (_client, input) => {
         publicationCalls.push(input);
-        return { status: "ok" };
+        return options.publicationResult ?? { status: "ok" };
       },
       writePosRuntimeAudit: async (_client, input) => {
         auditCalls.push(input);
@@ -589,7 +589,84 @@ test("TASK-149 catalog rejects an image UUID without a publication timestamp", a
   assert.equal(harness.auditCalls.length, 1);
 });
 
-test("TASK-143 an empty manifest fails closed and never publishes catalog success", async () => {
+function authoritativeEmptyPage() {
+  return {
+    ...defaultPage(), entity: "done", entityHasMore: false, revision: "0", rows: [],
+    manifest: {
+      catalogSummary: { activeProducts: 0, categories: 0, prices: 0, products: 0, suppliers: 0 },
+      windowCounts: { categories: 0, prices: 0, products: 0, suppliers: 0 },
+    },
+  };
+}
+
+for (const revision of ["0", "7"]) {
+  test(`ASUS-019 authoritative terminal empty full revision ${revision} publishes an exact empty snapshot`, async () => {
+    const mode = "full_refresh";
+    const page = {
+      ...authoritativeEmptyPage(), revision,
+    };
+    const harness = loadCatalogPull({
+      page,
+      resolveSyncRequest: () => ({ ok: true, request: {
+        continuation: null, limit: 60, lowerBound: null, mode, snapshotAt: null,
+      } }),
+    });
+    const result = await harness.catalogPull.handlePosCatalogPull(validPullInput());
+    assert.equal(result.status, 200);
+    assert.equal(result.body.ok, true);
+    assert.equal(result.body.syncMode, mode);
+    assert.equal(result.body.hasMore, false);
+    assert.deepEqual(JSON.parse(JSON.stringify(result.body.catalogSummary)), page.manifest.catalogSummary);
+    assert.equal(harness.publicationCalls.length, 1);
+    assert.equal(harness.publicationCalls[0].publicationKind, "catalog_pull");
+    assert.equal(harness.publicationCalls[0].catalogPublication.expectedRevision, revision);
+    assert.equal(harness.publicationCalls[0].catalogPublication.expectedScopeKey, page.scopeKey);
+    assert.equal(harness.auditCalls.length, 0);
+    for (const field of ["categories", "suppliers", "products", "prices"]) {
+      assert.equal(result.body.catalog[field].length, 0);
+    }
+  });
+}
+
+for (const [name, change] of [
+  ["legacy scope", p => { p.scopeKind = "legacy_owner_bridge"; p.scopeOwnerId = "90000000-0000-4000-8000-000000000001"; }],
+  ["combined scope", p => { p.scopeKind = "authorized_shop_plus_legacy"; p.scopeOwnerId = "90000000-0000-4000-8000-000000000001"; }],
+  ["unexpected owner", p => { p.scopeOwnerId = "90000000-0000-4000-8000-000000000001"; }],
+  ["active product count", p => { p.manifest.catalogSummary.activeProducts = 1; }],
+  ["nonempty window", p => { p.manifest.windowCounts.products = 1; }],
+  ["missing counter", p => { delete p.manifest.catalogSummary.products; }],
+]) {
+  test(`ASUS-019 zero rows with ${name} do not provide authoritative empty proof`, async () => {
+    const page = authoritativeEmptyPage(); change(page);
+    const h = loadCatalogPull({ page });
+    const result = await h.catalogPull.handlePosCatalogPull(validPullInput());
+    assert.equal(result.status, 500);
+    assert.equal("catalog" in result.body, false);
+    assert.equal(h.publicationCalls.length, 0);
+    assert.equal(h.auditCalls.length, 1);
+  });
+}
+
+for (const [status, expected] of [["denied", 401], ["stale_catalog", 409], ["db_failure", 500]]) {
+  test(`ASUS-019 empty full remains protected by final ${status} publication fence`, async () => {
+    const h = loadCatalogPull({ page: authoritativeEmptyPage(), publicationResult: { status } });
+    const result = await h.catalogPull.handlePosCatalogPull(validPullInput());
+    assert.equal(result.status, expected);
+    assert.equal("catalog" in result.body, false);
+    assert.equal(h.publicationCalls.length, 1);
+    assert.equal(h.auditCalls.length, 1);
+  });
+}
+
+test("ASUS-019 empty full does not bypass a denied lease", async () => {
+  const h = loadCatalogPull({ page: authoritativeEmptyPage(), lease: { status: "denied" } });
+  const result = await h.catalogPull.handlePosCatalogPull(validPullInput());
+  assert.equal(result.status, 401);
+  assert.equal("catalog" in result.body, false);
+  assert.equal(h.publicationCalls.length, 0);
+});
+
+test("TASK-143 a nonterminal empty manifest fails closed and never publishes catalog success", async () => {
   const emptyManifest = {
     catalogSummary: {
       activeProducts: 0,
@@ -608,7 +685,7 @@ test("TASK-143 an empty manifest fails closed and never publishes catalog succes
   const harness = loadCatalogPull({
     page: {
       ...defaultPage(),
-      entity: "done",
+      entity: "products",
       manifest: emptyManifest,
       rows: [],
     },

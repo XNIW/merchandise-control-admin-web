@@ -1,5 +1,25 @@
 # MerchandiseControl Admin Web - Master Plan
 
+## ASUS-W7POS-019 — EXECUTION HTTP vuoto, 8 novembre 2026
+
+PR144 integrata normalmente in919d100; CI42519626751 e build Cloudflare42519626731
+PASS, staging E2E/deploy SKIPPED. Il codice verificato f8ac2fd6 e la chiusura
+19e0b6f hanno continuità di albero; nessuna nuova CI attribuita al solo19e0b6f.
+Review indipendente root del diff già preparato: stati, query boundary e quattro
+lingue senza finding concreto. Non serve un nuovo consenso per questo merge.
+
+Normale avvio del POS1823697 riuscito dopo nuova richiesta esplicita dell'utente;
+autenticazione osservata PASS, catalogo HTTP500. Audit reale dello stesso shop:
+reason=catalog_v2_empty_manifest, stage=manifest. Il resolver409 resta corretto:
+il livello HTTP scarta il manifest completo zero. Correttivo mirato in Execution
+sullo stesso ASUS019, senza nuova task o SQL; regressione rossa conservata.
+
+Rollout separato: Worker399720d2 del15ottobre ha sorgente Git non attestata;
+main non è automaticamente la medesima unità servita. Necessaria riconciliazione
+dell'albero equivalente corrente e delle correzioni TASK140F prima di distribuire.
+Rollback Worker pinned; nessun generic CI dispatch/TASK094 import live.
+[Evidence corrente](TASKS/EVIDENCE/TASK-139/asus-019-staff-overview-20261108.md).
+
 ## ASUS-W7POS-019 — REVIEW della rappresentazione staff, 8 novembre 2026
 
 Continuazione autorizzata della stessa task, senza riaprire TASK-139 né il fix409.
