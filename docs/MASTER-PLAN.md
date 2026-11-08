@@ -1,6 +1,28 @@
 # MerchandiseControl Admin Web - Master Plan
 
-## ASUS019 — HTTP integrato, diagnostica bootstrap in EXECUTION
+## ASUS019 — software integrato e qualificato, REVIEW con rollout aperto
+
+Stato corrente8novembre: PR144/145/146 integrate normalmente, ultima
+mergef57afa6c225e628d881d2427bc027a488b2ad452. La PR146 è soltanto diagnostica
+CI nello stesso ASUS019, non una nuova TASK146. CI post-merge42526220441
+(database e Verify) e Cloudflare42526220439 PASS; TASK094 live E2E e i due
+deploy SKIPPED. Nessuna pubblicazione Worker o SQL in questa prosecuzione.
+Le due failure prefix bootstrap del precedente fdb30f4 restano preservate,
+con causa nativa UNKNOWN; il verde successivo non ne inventa una spiegazione.
+
+Windows1823697 invariato: avvio ordinario e prima autenticazione reali PASS,
+catalogo reale HTTP500/catalog_v2_empty_manifest. Il fix HTTP full zero è
+integrato e qualificato, ancora non servito. Owner Admin: riconciliare
+sorgente immutabile equivalente al Worker399720d2 con TASK140F e build/config,
+oppure attestare compatibilità della main completa, prima del rollout
+staging già autorizzato. Rollback preciso predisposto; nessun nuovo consenso
+generico richiesto. [Evidence e criteri](TASKS/EVIDENCE/TASK-139/asus-019-staff-overview-20261108.md).
+Stato REVIEW del software; end-to-end e gate Getnet/Win7 aperti, nessun DONE.
+
+Le sezioni ASUS019 seguenti conservano i checkpoint precedenti, superati
+da questo stato corrente per merge, CI e avvio.
+
+## ASUS019 — checkpoint HTTP integrato, diagnostica bootstrap in EXECUTION
 
 PR145 codice3e56a322 qualificato: CI42522680653 e Cloudflare42522680527 PASS,
 foundation1156/14SKIP/0FAIL e67file/4375pgTAP. Merge normalefdb30f4;

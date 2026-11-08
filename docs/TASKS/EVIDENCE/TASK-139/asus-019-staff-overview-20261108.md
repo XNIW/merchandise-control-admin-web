@@ -1,5 +1,41 @@
 # ASUS-W7POS-019 — stato della superficie staff
 
+## Stato corrente — software integrato, rollout non eseguito
+
+PR144 merge919d100, PR145 mergefdb30f4 e PR146
+mergef57afa6c225e628d881d2427bc027a488b2ad452. Codice diagnostica
+f3449181100574218f3e927f87dabde66a277d59: CI42525515132 e
+Cloudflare42525515054 PASS,1171foundation totali/1157PASS/14SKIP/0FAIL.
+Albero merge sintetico2f25ca0134a432f53b32240d14867a6fd7e72a30 identico
+al candidato; sorgenti runtime e configurazione prodotto invariati rispetto
+a fdb30f4. Il numero PR146 non apre una nuova TASK146 Admin.
+
+Post-merge su f57afa6: [CI42526220441](https://github.com/XNIW/merchandise-control-admin-web/actions/runs/42526220441)
+PASS sia database sia Verify; [Cloudflare42526220439](https://github.com/XNIW/merchandise-control-admin-web/actions/runs/42526220439)
+PASS. TASK094 staging E2E e deploy staging/production SKIPPED. Nessun dispatch
+generico, SQL, secret put o deploy Worker. Le due failure prefix precedenti
+restano conservate, causa precisa UNKNOWN; non sono convertite in PASS.
+
+Review software pronta; nessun DONE. Il solo Worker attivo osservato resta
+399720d2 del15ottobre. Prossima azione owner Admin: fornire/riconciliare un
+albero sorgente immutabile equivalente, inclusa TASK140F e configurazione
+build, oppure prova di compatibilità della main completa. Quindi distribuire
+l'unità delimitata già autorizzata, con rollback pinned e verifica HTTP/console.
+L'assenza di questo legame impedisce di qualificare come sicuro un rilascio
+indifferenziato della main. Nessun nuovo permesso generico o nuova credenziale
+è richiesto. Coordinamento sulla stessa nota della PR iOS29, ACK ancora PENDING.
+
+Win7POS1823697 invariato: accesso reale PASS, HTTP500 preservato; fix HTTP
+non ancora osservabile live. Getnet A/B/C mancanti dopo revisione delle fonti,
+target Win7 dichiarato non disponibile. Render sintetici EN/IT a192DPI
+osservati separatamente, senza PASS di100/125 o interazione desktop.
+Worktree privato: file tracciati puliti prima di questa chiusura documentale;
+solo bytecode Python del nuovo test conservato perché la rimozione è stata
+rifiutata dallo strumento con blocked by policy. Nessun metodo alternativo.
+
+Le sezioni sotto conservano i checkpoint, con qualifiche attribuite alle
+rispettive SHA e prime failure immutate.
+
 ## HTTP qualificato e guasto ambiente post-merge
 
 Correttivo codice3e56a3224cc8f54947c0a939cfa79e108b99db64, PR145 integrata
@@ -65,7 +101,8 @@ Il positivo delta con lowerBound nullo non rappresentava un delta reale ed è
 stato ritirato; il negativo delta originale resta byte-invariato. Il precedente
 test di rifiuto indiscriminato full è ora un negativo nonterminale, con tutte
 le asserzioni conservate e positivi completi separati. Nuovo mirato33/33 PASS.
-CI del nuovo correttivo ancora da eseguire; nessun verde precedente trasferito.
+La CI a quel checkpoint era ancora da eseguire; esiti sul codice esatto sopra,
+senza trasferire i verdi dei predecessori.
 
 Rilascio concreto: target merchandise-control-admin-web-staging e progetto
 collegato verificati; Worker attivo399720d2-c76f-440b-bf08-a4a2bd7da1a9,

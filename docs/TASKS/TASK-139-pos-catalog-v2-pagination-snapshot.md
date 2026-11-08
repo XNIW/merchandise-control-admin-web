@@ -1,12 +1,15 @@
 # TASK-139 - POS Catalog v2 Pagination and Snapshot Correctness
 
-> Continuazione corrente ASUS019: PR144 integrata in919d100, post-merge CI e
-> build Cloudflare PASS. Nuova prova POS1823697: login PASS, catalog HTTP500
-> catalog_v2_empty_manifest. Fix HTTP terminal empty in EXECUTION, senza SQL;
-> rollout richiede unità sorgente compatibile col Worker attivo. Il DONE storico
-> non è esteso a questa continuazione. [Evidence](EVIDENCE/TASK-139/asus-019-staff-overview-20261108.md).
+> Continuazione corrente ASUS019: PR144/145/146 integrate, ultima mergef57afa6.
+> CI42526220441 e Cloudflare42526220439 post-merge PASS, live E2E/deploy
+> SKIPPED. Login POS1823697 PASS; HTTP500 catalog_v2_empty_manifest reale
+> preservato. Fix HTTP full zero qualificato, non ancora servito; diagnostica
+> CI chiusa e senza modifica runtime/SQL. Stato REVIEW software, rollout
+> richiede sorgente/unità compatibile col Worker399720d2, nessun nuovo consenso.
+> Il DONE storico non è esteso a questa continuazione.
+> [Evidence](EVIDENCE/TASK-139/asus-019-staff-overview-20261108.md).
 
-> Continuazione ASUS-W7POS-019 dell'8novembre: candidata Admin PR144
+> Checkpoint precedente ASUS-W7POS-019 dell'8novembre: candidata Admin PR144
 > `f8ac2fd6` qualificata in CI e Cloudflare, in REVIEW dell'owner.
 > Il solo stato della superficie staff distingue capacità assente, permesso
 > negato e lettura autorizzata vuota; auth/lease/query staff e resolver409
