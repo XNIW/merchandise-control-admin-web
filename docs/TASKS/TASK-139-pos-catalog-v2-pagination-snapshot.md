@@ -1,5 +1,11 @@
 # TASK-139 - POS Catalog v2 Pagination and Snapshot Correctness
 
+> Continuazione corrente ASUS019: PR144 integrata in919d100, post-merge CI e
+> build Cloudflare PASS. Nuova prova POS1823697: login PASS, catalog HTTP500
+> catalog_v2_empty_manifest. Fix HTTP terminal empty in EXECUTION, senza SQL;
+> rollout richiede unità sorgente compatibile col Worker attivo. Il DONE storico
+> non è esteso a questa continuazione. [Evidence](EVIDENCE/TASK-139/asus-019-staff-overview-20261108.md).
+
 > Continuazione ASUS-W7POS-019 dell'8novembre: candidata Admin PR144
 > `f8ac2fd6` qualificata in CI e Cloudflare, in REVIEW dell'owner.
 > Il solo stato della superficie staff distingue capacità assente, permesso

@@ -659,6 +659,27 @@ function hasCatalogRows(
   );
 }
 
+function isAuthoritativeEmptyCatalogPage(page: CatalogPageV2) {
+  const manifest = page.manifest;
+  if (
+    !manifest ||
+    page.scopeKind !== "shop_scoped" ||
+    page.scopeOwnerId !== null ||
+    page.entity !== "done" ||
+    page.entityHasMore ||
+    page.rows.length !== 0
+  ) {
+    return false;
+  }
+  const summary = manifest.catalogSummary;
+  const window = manifest.windowCounts;
+  return [
+    summary.activeProducts, summary.categories, summary.suppliers,
+    summary.products, summary.prices,
+    window.categories, window.suppliers, window.products, window.prices,
+  ].every((count) => count === 0);
+}
+
 type CatalogPageMapping =
   | { catalog: CatalogPayload; status: "ok" }
   | {
@@ -1103,10 +1124,16 @@ export async function handlePosCatalogPull(
   const manifestHasRows = manifest
     ? hasCatalogRows(manifest, sync.mode)
     : false;
+  // The lease-bound RPC has already validated the complete page. Only a
+  // fresh, terminal shop-owned full snapshot can authorize a genuinely
+  // empty catalog. A delta cannot provide this complete empty proof.
+  const authoritativeEmpty =
+    sync.mode === "full_refresh" && sync.lowerBound === null &&
+    !continuation && isAuthoritativeEmptyCatalogPage(page);
 
   if (
     !manifest ||
-    !manifestHasRows ||
+    (!manifestHasRows && !authoritativeEmpty) ||
     !catalog ||
     (page.entityHasMore && page.rows.length !== page.pageLimit) ||
     (continuation &&
