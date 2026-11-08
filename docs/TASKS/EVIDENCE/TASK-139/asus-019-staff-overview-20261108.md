@@ -1,8 +1,9 @@
 # ASUS-W7POS-019 — stato della superficie staff
 
 Continuazione autorizzata dell'8 novembre 2026, base Admin
-`f874723a436456c14841932ab1028c0e8cf25964`. Candidato in FIX, da qualificare
-e consegnare a REVIEW; nessun DONE e nessun deploy implicito.
+`f874723a436456c14841932ab1028c0e8cf25964`. Candidato
+`f8ac2fd6beda0e20d2fa4060c2dad45e78bdc001`, PR144 in REVIEW del software;
+ACK/review dell'owner e merge/deploy pendenti. Nessun DONE.
 
 Il ramo `getShopAdminReadModel` dopo accesso e permesso verificati non dispone
 di una lettura shop/member lease-bound per lo staff. In precedenza classificava
@@ -23,7 +24,18 @@ staff, permesso negato/sessione scaduta/assente, account personale, lettura vuot
 errore query/backend non configurato, perdita accesso, membri e traduzioni.
 25/25 test mirati PASS (13 nuovi più12 esistenti), ripetuti dopo la correzione
 lint del loader. Security, typecheck, lint e build locali PASS, Node24.18.0.
-Qualifica CI canonica Node22 sul candidato e review dell'owner ancora pendenti.
+CI canonica Node22 sul candidato PASS: CI42493312883 e Cloudflare42493312831.
+Foundation1158 totali,1144 PASS/14 SKIP/0 FAIL; UI48, pairing2,
+67file/4375pgTAP. Security, typecheck, lint, build e diff check PASS.
+Staging E2E e deployment skipped secondo il workflow, nessun esito live dedotto.
+
+Runtime CI merge sintetico `56751ed3a9d3c82fb7fdad5a209f343f558e94b5`, albero
+`e956139b91a4655358bf2048c14f5a565c185401`, identico alla candidata.
+Artifact13622139763 scaricato: SHA256 ZIP
+`bbad9412814758a28739aae9be988231e6849427d6589f7081d05d0facab14b9`
+uguale al digest GitHub; complete.json lega status, SHA,67file/4375test e digest
+del resolver già riparato. Ricevuta privata `admin-ci-144/qualification.private.json`.
+Questa successiva chiusura documentale è distinta dalla SHA codice verificata.
 
 Prime failure conservate fuori repository: i18n senza sibling configurato
 ENOENT; runner foundation con elenco assoluto ENAMETOOLONG su Windows; esecuzione
@@ -44,6 +56,9 @@ esistente sulla PR iOS29; ACK dell'owner ancora PENDING, nessun nuovo commento.
 
 Separatamente, l'utente ha già autorizzato un avvio normale POS: il nuovo
 tentativo è stato negato dalla policy dello strumento, nessun processo o nuovo
-pull osservato. L'installer verificato è terminato con consenso Windows
-annullato. Non si ripete la richiesta della stessa autorizzazione, non si
+pull osservato. Due tentativi installer sono terminati con consenso Windows
+annullato e restano conservati. Dopo esplicita richiesta utente di riapertura,
+installazione d262ccd riuscita:41/41file byte-identici e DB invariato rispetto
+al backup verificato, nessun avvio POS automatico. Non si ripete la richiesta
+della stessa autorizzazione per aggirare il rifiuto del POS, non si
 cambia launcher e non si attribuisce un PASS HTTP/UI alla prova RPC precedente.
