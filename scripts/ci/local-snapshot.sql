@@ -66,5 +66,12 @@ SELECT jsonb_build_object(
      to_regprocedure('public.wechat_sales_filter_options_v1(uuid,date,date)')
    )
  ),
+ 'nativeEmptyScopeFunction',(
+   SELECT jsonb_build_object('body',p.prosrc,'metadataText',(to_jsonb(p)-'prosrc')::text)
+   FROM pg_proc p WHERE p.oid=to_regprocedure('app_private.resolve_pos_catalog_scope_v2(uuid)')
+ ),
+ 'nativeEmptyScopeLocalStatements',(
+   SELECT statements FROM supabase_migrations.schema_migrations WHERE version='20261108051044'
+ ),
  'authenticatedConfig',(SELECT rolconfig FROM pg_roles WHERE rolname='authenticated')
 ) AS snapshot;

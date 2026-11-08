@@ -1,5 +1,23 @@
 # MerchandiseControl Admin Web - Master Plan
 
+## ASUS-W7POS-019 — FIX catalogo nativo vuoto, 8 novembre 2026
+
+Continuazione esplicita della stessa task Win7POS, collegata al contratto
+[TASK-139](TASKS/TASK-139-pos-catalog-v2-pagination-snapshot.md#continuazione-asus-w7pos-019--catalogo-nativo-vuoto-8-novembre-2026).
+Unico scope attivo di questa continuazione: correggere il409 unmapped prima
+del primo articolo di uno shop nativo; nessun import/vendita o modifica di dati
+aziendali. Stato FIX, handoff finale verso REVIEW; nessun DONE automatico.
+Il checkpoint Windows d262ccd e la consegna documentale48d10f1 restano validi.
+
+Diagnosi read-only sul solo NEW_SHOP_019: shop attivo, lease valida pos_admin,
+nessun mapping e zero righe catalogo. Audit failure manifest/unmapped e corpo
+resolver installato identico alla migration sorgente. Patch con guard di drift
+per il solo resolver; no grant, bridge fittizi o mutazioni inventario. Build
+Cloudflare d021a4af verde con deploy skipped: nessuno SHA live viene inferito.
+Le qualifiche Getnet/Win7, il lavoro mobile e le sezioni storiche sotto restano
+separati e preservati. Dettagli e gate nella
+[ricevuta della continuazione](TASKS/EVIDENCE/TASK-139/asus-019-native-empty-scope-20261108.md).
+
 ## Chiusura integrazione Git — 14 ottobre 2026
 
 Il mandato utente recupera sul branch esistente l'harness manuale per il conflitto

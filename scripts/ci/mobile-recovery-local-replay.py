@@ -14,6 +14,9 @@ PRODUCT = "20261028132836_mobile_recovery_checkpoint_product_timestamp_memo.sql"
 SHARED = '20261104224833_mobile_recovery_shared_reader_fences.sql'
 MOBILE_SALES = '20261105220929_mobile_sales_read_v1.sql'
 MOBILE_SALES_SHA = '4111c78b85dd7e16160eaef8d73d2d9ae872c1caa14770e4864e06c25c092c1f'
+NATIVE_EMPTY = '20261108051044_asus_019_native_empty_catalog_scope.sql'
+NATIVE_EMPTY_SHA = 'af69667d6e8e9988a833c4cb2b818c4378061cbc6869c4821b29aa5e64e379ce'
+NATIVE_EMPTY_BODY_MD5 = '9622c4d3a4c793a7803d730b8a8c51d4'
 MOBILE_SALES_BODY_MD5 = '42bb90a0d49faa42e78558f9c610944c'
 SHARED_SHA = '6c6555304418c337da74c5be7549677d5604ea3d5e4e4ed7ba7d8941c6b29134'
 SHARED_BODY_MD5 = "7a1e3ec3050743656759432ad448a37b"
@@ -30,7 +33,7 @@ LOCAL_PROFILE = "ci"
 PROFILE_DB_PORTS = {"ci":54322, "task146-host":65422}
 WRITER_BODY_HASHES = {'app_private.acquire_sync_event_scope_fence_v1(uuid,uuid)': '8bc0089c0f2d0fbccd3286a4022d90ea', 'app_private.lock_catalog_scope_pair_v1(uuid,uuid)': '394bef66b0f19c3e64ae82e48d7187a3'}
 LOCAL_TEST_OVERLAYS = {"supabase/tests/cross_platform_sync_recovery_contract.sql": "5f2f2d4435f90e3e3e2353e0341c782dcba14aacbba73f59b3f177b6613f1343"}
-SNAPSHOT_SHA = '78beecbec68c2802570aeabd5601822df3ab320bee6740337085eed4eab8cb0e'
+SNAPSHOT_SHA = '147721aac551b6ac06bb782a986a83b83f7173b8b751b15066ebe3cb3f7c8388'
 
 def require(ok, message):
     if not ok:
@@ -154,6 +157,16 @@ def prefix_manifest(root):
         require(sha(mobile.read_bytes()) == binding["derivedLOCALSHA256"] == MOBILE_SALES_SHA,
                 "bound mobile sales target drift")
         declared.add("supabase/migrations/" + MOBILE_SALES)
+    require(sha((root / ".replay/native-empty-operator.sql").read_bytes()) == NATIVE_EMPTY_SHA,
+            "native empty scope operator drift")
+    native = root / "supabase/migrations" / NATIVE_EMPTY
+    if native.exists() or native.is_symlink():
+        require(not native.is_symlink() and native.is_file() and native.resolve().is_relative_to(root),
+                "native empty scope target escape")
+        binding = json.loads((root / ".replay/native-empty-binding.json").read_text())
+        require(sha(native.read_bytes()) == binding["derivedLOCALSHA256"] == NATIVE_EMPTY_SHA,
+                "bound native empty scope target drift")
+        declared.add("supabase/migrations/" + NATIVE_EMPTY)
     observed = {str(p.relative_to(root)) for p in (root / "supabase/migrations").rglob("*")
                 if p.is_file() or p.is_symlink()}
     require(observed == declared, "extra or missing migration input")
@@ -207,6 +220,9 @@ def prepare(repo, workdir):
     product = (repo / "supabase/migrations" / PRODUCT).read_bytes()
     shared = (repo / "supabase/migrations" / SHARED).read_bytes()
     mobile = (repo / "supabase/migrations" / MOBILE_SALES).read_bytes()
+    native = (repo / "supabase/migrations" / NATIVE_EMPTY).read_bytes()
+    require(sha(native) == NATIVE_EMPTY_SHA and MOBILE_SALES[:14] < NATIVE_EMPTY[:14],
+            "native empty scope source/order drift")
     require(sha(mobile) == MOBILE_SALES_SHA and SHARED[:14] < MOBILE_SALES[:14],
             "mobile sales source/order drift")
     require(sha(shared) == SHARED_SHA and PRODUCT[:14] < SHARED[:14], "shared reader source/order drift")
@@ -237,7 +253,7 @@ def prepare(repo, workdir):
             put(q, data)
     require((migration_dir / MOBILE_SALES).is_file()
             and (migration_dir / MOBILE_SALES).read_bytes() == mobile, "mobile sales not in committed HEAD")
-    for name, data in ((TARGET, operator), (PRODUCT, product), (SHARED, shared), (MOBILE_SALES, mobile)):
+    for name, data in ((TARGET, operator), (PRODUCT, product), (SHARED, shared), (MOBILE_SALES, mobile), (NATIVE_EMPTY, native)):
         target = migration_dir / name
         if target.exists():
             require(target.read_bytes() == data, "withheld file drift")
@@ -265,6 +281,7 @@ def prepare(repo, workdir):
     put(out / ".replay/product-operator.sql", product)
     put(out / ".replay/shared-reader-operator.sql", shared)
     put(out / ".replay/mobile-sales-operator.sql", mobile)
+    put(out / ".replay/native-empty-operator.sql", native)
 
 def local_docker():
     docker_host = os.environ.get("DOCKER_HOST", "")
@@ -881,7 +898,8 @@ def raw_apply(root, name, operator_name, binding_name, stage):
             "raw apply identity/auth/timeout drift")
     require(after["versions"] == before["versions"] + [name[:14]], "raw apply ledger version drift")
     ledger_key = {TARGET: "localStatement", PRODUCT: "productLocalStatement",
-                  SHARED: "sharedLocalStatements", MOBILE_SALES: "mobileSalesLocalStatements"}[name]
+                  SHARED: "sharedLocalStatements", MOBILE_SALES: "mobileSalesLocalStatements",
+                  NATIVE_EMPTY: "nativeEmptyScopeLocalStatements"}[name]
     ledger = after[ledger_key]
     verify_statement_sequence(ledger if isinstance(ledger, list) else [ledger], canonical)
     if name == TARGET:
@@ -903,6 +921,16 @@ def raw_apply(root, name, operator_name, binding_name, stage):
                 require(md5(current["body"].encode()) == SHARED_BODY_MD5 and current["metadataText"] == previous["metadataText"], "raw checkpoint body/metadata drift")
             else: require(current == previous, "raw unrelated shared function drift")
         require(len(after["sharedHelpers"]) == 4, "raw shared helper membership drift")
+    elif name == NATIVE_EMPTY:
+        previous = before["nativeEmptyScopeFunction"]
+        current = after["nativeEmptyScopeFunction"]
+        require(md5(current["body"].encode()) == NATIVE_EMPTY_BODY_MD5
+                and current["metadataText"] == previous["metadataText"],
+                "native empty scope body/metadata drift")
+        changed = {"versions", "nativeEmptyScopeFunction", "nativeEmptyScopeLocalStatements"}
+        require({k: v for k, v in after.items() if k not in changed}
+                == {k: v for k, v in before.items() if k not in changed},
+                "native empty scope changed unrelated catalog snapshot")
     else:
         require(name == MOBILE_SALES and after["mobileSalesStableDelegates"] == 7,
                 "mobile sales stable delegate contract drift")
@@ -938,12 +966,13 @@ def replay(repo, workdir, bootstrap_only=False):
     root = root_path(workdir); ERROR_ROOT = root
     inputs = prefix_manifest(root)
     tests = sorted(name for name in inputs["files"] if name.startswith("supabase/tests/") and name.endswith(".sql"))
-    require(len(tests) == 66, "reviewed HEAD database test membership changed")
+    require(len(tests) == 67 and "supabase/tests/asus_019_native_empty_catalog_scope.sql" in tests,
+            "reviewed HEAD database test membership changed")
     for name, action in (("fresh local gate", empty_local), ("prefix bootstrap", start_prefix),
                          ("observed local ownership", observe_owned_creation)):
         REPLAY_STAGE = name; print("Database replay: " + name, flush=True); action(root)
     if bootstrap_only:
-        dump(root / ".replay/bootstrap-complete.json", {"status":"PASS_OWNED_PREFIX_ONLY", "head":inputs["head"], "profile":LOCAL_PROFILE, "runnerSHA256":inputs["runnerSHA256"], "pendingPortableMigrations":[TARGET,PRODUCT,SHARED,MOBILE_SALES]})
+        dump(root / ".replay/bootstrap-complete.json", {"status":"PASS_OWNED_PREFIX_ONLY", "head":inputs["head"], "profile":LOCAL_PROFILE, "runnerSHA256":inputs["runnerSHA256"], "pendingPortableMigrations":[TARGET,PRODUCT,SHARED,MOBILE_SALES,NATIVE_EMPTY]})
         print("Database replay: owned prefix complete; portable overlays NOT_APPLIED",flush=True)
         return
     for name, operator, binding, stage in ((TARGET,"operator.sql","binding.json","metadata"),
@@ -958,11 +987,14 @@ def replay(repo, workdir, bootstrap_only=False):
     REPLAY_STAGE = "canonical raw mobile sales"
     print("Database replay: " + REPLAY_STAGE, flush=True)
     raw_apply(root, MOBILE_SALES, "mobile-sales-operator.sql", "mobile-sales-binding.json", "mobile-sales")
+    REPLAY_STAGE = "canonical raw native empty scope"
+    print("Database replay: " + REPLAY_STAGE, flush=True)
+    raw_apply(root, NATIVE_EMPTY, "native-empty-operator.sql", "native-empty-binding.json", "native-empty")
     REPLAY_STAGE = "pgTAP"; print("Database replay: pgTAP", flush=True)
     output = run([str(cli_binary()[0]), "--workdir", str(root), "test", "db", "--local"])
     put(root / ".replay/pgtap.stdout", output)
     summary = re.search(rb"(?m)^Files=(\d+), Tests=(\d+),", output)
-    require(summary is not None and int(summary[1]) == len(tests) and int(summary[2]) == 4347
+    require(summary is not None and int(summary[1]) == len(tests) and int(summary[2]) == 4375
             and re.search(rb"(?m)^Result: PASS\s*$", output) is not None, "database test summary mismatch")
     prefix_manifest(root)
     complete = {"status": "LOCAL_CANONICAL_BYTE_EXACT_AND_PGTAP_PASS", "head": inputs["head"],
@@ -979,6 +1011,9 @@ def replay(repo, workdir, bootstrap_only=False):
       "mobileSalesMigrationVersion": MOBILE_SALES[:14],
       "mobileSalesMigrationSHA256": MOBILE_SALES_SHA,
       "mobileSalesVerifiedSHA256": sha((root / ".replay/mobile-sales-raw-verified.json").read_bytes()),
+      "nativeEmptyScopeMigrationSHA256": NATIVE_EMPTY_SHA,
+      "nativeEmptyScopeBodyMD5": NATIVE_EMPTY_BODY_MD5,
+      "nativeEmptyScopeVerifiedSHA256": sha((root / ".replay/native-empty-raw-verified.json").read_bytes()),
       "pgtapStdoutSHA256": sha(output), "operatorSQLByteExactReplay": True,
       "localACLIsTESTEquivalent": "NOT_CLAIMED"}
     dump(root / ".replay/complete.json", complete); export_complete(complete)
@@ -1003,6 +1038,9 @@ def export_complete(complete):
               "mobileSalesMigrationVersion": complete["mobileSalesMigrationVersion"],
               "mobileSalesMigrationSHA256": complete["mobileSalesMigrationSHA256"],
               "mobileSalesVerifiedSHA256": complete["mobileSalesVerifiedSHA256"],
+              "nativeEmptyScopeMigrationSHA256": complete["nativeEmptyScopeMigrationSHA256"],
+              "nativeEmptyScopeBodyMD5": complete["nativeEmptyScopeBodyMD5"],
+              "nativeEmptyScopeVerifiedSHA256": complete["nativeEmptyScopeVerifiedSHA256"],
               "pgtapStdoutSHA256": complete["pgtapStdoutSHA256"],
               "operatorSQLByteExactReplay": complete["operatorSQLByteExactReplay"], "localACLIsTESTEquivalent": "NOT_CLAIMED",
               "profile": complete["profile"], "runnerSHA256": complete["runnerSHA256"]})
