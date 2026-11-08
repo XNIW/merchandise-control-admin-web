@@ -188,6 +188,24 @@ export type Dictionary = {
 const emptyExact: Record<string, string> = {};
 
 const itExact: Record<string, string> = {
+  "Unavailable for staff access": "Non disponibile per l'accesso staff",
+  "Page data": "Dati della pagina",
+  "Page actions": "Azioni della pagina",
+  "This page provides no editing actions.": "Questa pagina non prevede azioni di modifica.",
+  "No rows returned": "Nessuna riga restituita",
+  "Page data unavailable": "Dati della pagina non disponibili",
+  "This page is not available with a staff sign-in. Use an available section in the menu.":
+    "Questa pagina non è disponibile con l'accesso staff. Usa una sezione disponibile nel menu.",
+  "Access to this page is not authorized. Use an account with the required permission.":
+    "L'accesso a questa pagina non è autorizzato. Usa un account con il permesso richiesto.",
+  "This page could not load its data. Try again later.":
+    "Non è stato possibile caricare i dati di questa pagina. Riprova più tardi.",
+  "Page data is not configured for this environment.":
+    "I dati della pagina non sono configurati per questo ambiente.",
+  "The authorized read completed without returning rows for this page.":
+    "La lettura autorizzata è terminata senza restituire righe per questa pagina.",
+  "Rows are unavailable because this page has not completed an authorized read.":
+    "Le righe non sono disponibili perché questa pagina non ha completato una lettura autorizzata.",
   Storefront: "Vetrina",
   "After-sales": "Post-vendita",
   "Verified reviews": "Recensioni verificate",
@@ -1565,6 +1583,24 @@ const itExact: Record<string, string> = {
 };
 
 const esExact: Record<string, string> = {
+  "Unavailable for staff access": "No disponible para el acceso del personal",
+  "Page data": "Datos de la página",
+  "Page actions": "Acciones de la página",
+  "This page provides no editing actions.": "Esta página no ofrece acciones de edición.",
+  "No rows returned": "No se devolvieron filas",
+  "Page data unavailable": "Datos de la página no disponibles",
+  "This page is not available with a staff sign-in. Use an available section in the menu.":
+    "Esta página no está disponible con el acceso del personal. Usa una sección disponible en el menú.",
+  "Access to this page is not authorized. Use an account with the required permission.":
+    "El acceso a esta página no está autorizado. Usa una cuenta con el permiso necesario.",
+  "This page could not load its data. Try again later.":
+    "No se pudieron cargar los datos de esta página. Inténtalo más tarde.",
+  "Page data is not configured for this environment.":
+    "Los datos de la página no están configurados para este entorno.",
+  "The authorized read completed without returning rows for this page.":
+    "La lectura autorizada terminó sin devolver filas para esta página.",
+  "Rows are unavailable because this page has not completed an authorized read.":
+    "Las filas no están disponibles porque esta página no ha completado una lectura autorizada.",
   "After-sales": "Posventa",
   "Verified reviews": "Reseñas verificadas",
   Storefront: "Tienda",
@@ -2902,6 +2938,23 @@ const esExact: Record<string, string> = {
 };
 
 const zhExact: Record<string, string> = {
+  "Unavailable for staff access": "员工登录暂不支持此页面",
+  "Page data": "页面数据",
+  "Page actions": "页面操作",
+  "This page provides no editing actions.": "此页面不提供编辑操作。",
+  "No rows returned": "未返回任何行",
+  "Page data unavailable": "页面数据不可用",
+  "This page is not available with a staff sign-in. Use an available section in the menu.":
+    "员工登录暂不支持此页面。请使用菜单中可用的其他页面。",
+  "Access to this page is not authorized. Use an account with the required permission.":
+    "没有访问此页面的权限。请使用具有所需权限的账户。",
+  "This page could not load its data. Try again later.":
+    "无法加载此页面的数据。请稍后重试。",
+  "Page data is not configured for this environment.": "此环境尚未配置页面数据。",
+  "The authorized read completed without returning rows for this page.":
+    "已完成经过授权的读取，但未返回此页面的数据行。",
+  "Rows are unavailable because this page has not completed an authorized read.":
+    "此页面尚未完成经过授权的读取，因此数据行不可用。",
   "After-sales": "售后服务",
   "Verified reviews": "已验证评价",
   Storefront: "店铺前台",

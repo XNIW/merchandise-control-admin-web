@@ -1,5 +1,27 @@
 # MerchandiseControl Admin Web - Master Plan
 
+## ASUS-W7POS-019 — REVIEW della rappresentazione staff, 8 novembre 2026
+
+Continuazione autorizzata della stessa task, senza riaprire TASK-139 né il fix409.
+Il read model distingue la superficie non disponibile per lo staff dal permesso
+negato, dal backend indisponibile e da una lettura autorizzata vuota. Il fallback
+non presenta più righe0 e scrittureOFF come stato generale del negozio.
+Restano invariati i controlli di accesso e il divieto di query staff non lease-bound.
+Nessun nuovo reader, contratto mobile, SQL, grant o deployment.
+
+Stato REVIEW della candidata PR144 `f8ac2fd6`: CI42493312883 e
+Cloudflare42493312831 PASS, foundation1144/14SKIP/0FAIL, UI48, pairing2,
+67file/4375pgTAP. Artifact e albero del merge sintetico verificati.
+Regressioni mirate25/25, security, typecheck, lint e build locali PASS;
+review/ACK dell'owner e deployment ancora pendenti. Le prime failure sono
+conservate. Il nuovo avvio POS, già autorizzato dall'utente, è stato nuovamente
+negato dallo strumento (`blocked by policy`), senza processo o nuovi pull.
+Nessuna ulteriore richiesta della stessa autorizzazione o launcher alternativo.
+Due tentativi installer annullati conservati; dopo riapertura UAC richiesta
+dall'utente installazione d262ccd PASS41/41file identici, DB invariato.
+HTTP/UI reale non PASS. Nessun merge/deploy della candidata Admin.
+[Scope e gate](TASKS/EVIDENCE/TASK-139/asus-019-staff-overview-20261108.md).
+
 ## ASUS-W7POS-019 — REVIEW del fix catalogo nativo vuoto, 8 novembre 2026
 
 Continuazione della stessa task Win7POS, collegata al contratto TASK-139.

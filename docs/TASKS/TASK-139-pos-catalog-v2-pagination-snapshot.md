@@ -1,5 +1,12 @@
 # TASK-139 - POS Catalog v2 Pagination and Snapshot Correctness
 
+> Continuazione ASUS-W7POS-019 dell'8novembre: candidata Admin PR144
+> `f8ac2fd6` qualificata in CI e Cloudflare, in REVIEW dell'owner.
+> Il solo stato della superficie staff distingue capacità assente, permesso
+> negato e lettura autorizzata vuota; auth/lease/query staff e resolver409
+> invariati. Nessun merge, SQL o deployment. [Evidence e gate residui](EVIDENCE/TASK-139/asus-019-staff-overview-20261108.md).
+> Il DONE storico qui sotto resta riferito alla precedente approvazione utente.
+
 ## Informazioni generali
 
 - ID: `TASK-139`
