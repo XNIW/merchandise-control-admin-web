@@ -164,36 +164,62 @@ function fallbackSection(
   const statusByReadModel: Record<ShopAdminReadModel["status"], string> = {
     not_configured: "Not configured",
     unauthorized: "Unauthorized",
-    empty: "No rows visible",
+    staff_surface_unavailable: "Unavailable for staff access",
+    empty: "No rows returned",
     error: "Read blocked",
-    ready: "Read-only",
+    ready: "Unavailable",
   };
+  const descriptionByReadModel: Record<ShopAdminReadModel["status"], string> = {
+    not_configured: "Page data is not configured for this environment.",
+    unauthorized:
+      "Access to this page is not authorized. Use an account with the required permission.",
+    staff_surface_unavailable:
+      "This page is not available with a staff sign-in. Use an available section in the menu.",
+    empty:
+      "The authorized read completed without returning rows for this page.",
+    error: "This page could not load its data. Try again later.",
+    ready: "This page could not load its data. Try again later.",
+  };
+  const authorizedEmpty = readModel.status === "empty";
+  const description = descriptionByReadModel[readModel.status];
 
   return {
     ...base,
-    description: readModel.reason,
+    description,
     status: statusByReadModel[readModel.status],
     metrics: [
       metric(
-        "Supabase",
+        "Page data",
         statusByReadModel[readModel.status],
-        "Server-only read",
+        description,
+        authorizedEmpty ? "neutral" : "warning",
       ),
-      metric("Rows shown", "0", "No fallback rows are rendered", "muted"),
-      metric("Writes", "Off", "Read-only contract", "warning"),
+      metric(
+        "Rows shown",
+        authorizedEmpty ? "0" : "Unavailable",
+        authorizedEmpty
+          ? "The authorized read completed without returning rows for this page."
+          : "Rows are unavailable because this page has not completed an authorized read.",
+        "muted",
+      ),
+      metric(
+        "Page actions",
+        "Read-only",
+        "This page provides no editing actions.",
+        "muted",
+      ),
     ],
     liveData: {
       title: "Live shop data",
-      description:
-        "Live rows for the selected shop. Changes are not available on this page.",
+      description,
       columns: [
         { key: "field", label: "Field" },
         { key: "value", label: "Value" },
       ],
       rows: [],
       emptyState: {
-        title: "No live shop rows are visible",
-        description: readModel.reason,
+        title: authorizedEmpty ? "No rows returned" : "Page data unavailable",
+        description,
       },
     },
   };

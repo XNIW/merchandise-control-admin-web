@@ -99,7 +99,9 @@ export type ShopAdminReadModelAuditLog = {
 };
 
 export type ShopAdminReadModel = {
-  status: ShopAdminReadModelStatus;
+  // This capability state belongs to the shop-profile surface only. Other
+  // read-model domains keep their existing shared status contract.
+  status: ShopAdminReadModelStatus | "staff_surface_unavailable";
   selectedShop: ShopAdminReadModelShop | null;
   members: readonly ShopAdminReadModelMember[];
   auditLogs: readonly ShopAdminReadModelAuditLog[];
@@ -256,7 +258,7 @@ export async function getShopAdminReadModel(
 
   if (access.principalKind !== "personal_account") {
     return {
-      status: "unauthorized",
+      status: "staff_surface_unavailable",
       ...emptyRows,
       readOnly: true,
       source: "supabase_server",
