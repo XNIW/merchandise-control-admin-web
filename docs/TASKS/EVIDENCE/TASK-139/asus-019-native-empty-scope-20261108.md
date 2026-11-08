@@ -73,3 +73,17 @@ Nessun import Getnet, vendita, reset DB/outbox o revoca sperimentale è autorizz
 Sorgenti preparati: migration, nuovo test SQL, snapshot e runner canonici;
 MASTER-PLAN/TASK-139/ricevuta di questa continuazione. Verifiche finali e SHA
 saranno registrati con gli esiti reali; apply/deployment/live sono ancora NOT_RUN.
+
+## Prima failure conservata: pin della copia Windows
+
+Il candidato555f502, CI42450525097, si è fermato nel guard di preparazione:
+native empty scope source/order drift. Il pin della nuova migration era stato
+calcolato sui byte CRLF del checkout Windows; il blob Git canonico è LF.
+Nessun database o test è stato avviato da quel job. Artifact errore13605407170,
+archive SHA256 eb6dad7c04fbbe61afbdf4b520c85c8b45bde36d4e18c423926aea5e01ee6b2a,
+stage preparation/GUARD_REJECTED, conservato con il primo log.
+
+Corretto soltanto il pin ai byte LF committati:
+af69667d6e8e9988a833c4cb2b818c4378061cbc6869c4821b29aa5e64e379ce.
+Il verifier non normalizza o accetta nuovi hash alternativi; migration,28assert,
+expected e budget sono invariati. Il nuovo candidato richiede le proprie prove.
