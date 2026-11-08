@@ -29,6 +29,12 @@ HERE = Path(__file__).resolve().parent
 ERROR_ROOT = None
 EVIDENCE_ROOT = None
 REPLAY_STAGE = "preparation"
+PREFIX_START_FAILURE_CATEGORY = None
+PREFIX_START_CATEGORIES = frozenset({
+    "PREFIX_START_TIMEOUT", "PREFIX_IMAGE_RATE_LIMIT", "PREFIX_IMAGE_PULL_FAILED",
+    "PREFIX_CONTAINER_HEALTH_FAILED", "PREFIX_LOCAL_CONNECTION_FAILED",
+    "PREFIX_BOOTSTRAP_MIGRATION_FAILED", "PREFIX_START_FAILED",
+})
 LOCAL_PROFILE = "ci"
 PROFILE_DB_PORTS = {"ci":54322, "task146-host":65422}
 WRITER_BODY_HASHES = {'app_private.acquire_sync_event_scope_fence_v1(uuid,uuid)': '8bc0089c0f2d0fbccd3286a4022d90ea', 'app_private.lock_catalog_scope_pair_v1(uuid,uuid)': '394bef66b0f19c3e64ae82e48d7187a3'}
@@ -38,6 +44,24 @@ SNAPSHOT_SHA = '147721aac551b6ac06bb782a986a83b83f7173b8b751b15066ebe3cb3f7c8388
 def require(ok, message):
     if not ok:
         raise ValueError(message)
+
+
+def prefix_start_failure_category(stderr, timed_out):
+    # Project only a closed category. Never publish native output, exception
+    # messages, paths, arguments or credentials from the private startup log.
+    if timed_out:
+        return "PREFIX_START_TIMEOUT"
+    text = stderr[-65536:].decode("utf-8", errors="replace").lower()
+    for phrases, category in (
+        (("toomanyrequests", "too many requests", "429 too many", "status code: 429"), "PREFIX_IMAGE_RATE_LIMIT"),
+        (("failed to pull", "error pulling image", "failed to resolve reference", "manifest unknown"), "PREFIX_IMAGE_PULL_FAILED"),
+        (("unhealthy", "container is not healthy", "failed to start docker container", "failed to inspect docker container"), "PREFIX_CONTAINER_HEALTH_FAILED"),
+        (("connection refused",), "PREFIX_LOCAL_CONNECTION_FAILED"),
+        (("failed to apply migration", "error applying migration", "migration failed"), "PREFIX_BOOTSTRAP_MIGRATION_FAILED"),
+    ):
+        if any(phrase in text for phrase in phrases):
+            return category
+    return "PREFIX_START_FAILED"
 
 def sha(data):
     return hashlib.sha256(data).hexdigest()
@@ -842,6 +866,13 @@ def start_prefix(root):
               "stdoutSHA256": sha((root / ".replay/start.stdout").read_bytes()),
               "stderrSHA256": sha((root / ".replay/start.stderr").read_bytes())}
     dump(root / ".replay/start-result.json", result)
+    if timed_out or code != 0:
+        global PREFIX_START_FAILURE_CATEGORY
+        try:
+            PREFIX_START_FAILURE_CATEGORY = prefix_start_failure_category(
+                (root / ".replay/start.stderr").read_bytes(), timed_out)
+        except OSError:
+            PREFIX_START_FAILURE_CATEGORY = "PREFIX_START_FAILED"
     require(not timed_out and code == 0, "prefix startup failed; no bind/apply/test or automatic retry")
 
 def observe_owned_creation(root):
@@ -1051,6 +1082,10 @@ def export_error(error):
                     "TIMEOUT" if isinstance(error, subprocess.TimeoutExpired) else
                     "IO_ERROR" if isinstance(error, OSError) else
                     "GUARD_REJECTED" if isinstance(error, ValueError) else "UNEXPECTED_ERROR")
+        if (REPLAY_STAGE == "prefix bootstrap" and
+                isinstance(error, ValueError) and
+                PREFIX_START_FAILURE_CATEGORY in PREFIX_START_CATEGORIES):
+            category = PREFIX_START_FAILURE_CATEGORY
         try:
             dump(EVIDENCE_ROOT / "error.json",
                  {"status": "FAIL", "stage": REPLAY_STAGE, "category": category})

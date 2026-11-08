@@ -1,5 +1,38 @@
 # ASUS-W7POS-019 — stato della superficie staff
 
+## HTTP qualificato e guasto ambiente post-merge
+
+Correttivo codice3e56a3224cc8f54947c0a939cfa79e108b99db64, PR145 integrata
+normalmente infdb30f4c926bd2b76cbc6d8828ec4ef9874e9c14. CI42522680653 e
+Cloudflare42522680527 PASS; foundation1170totali/1156PASS/14SKIP/0FAIL,
+UI48/pairing2; artifact database complete.json PASS67file/4375pgTAP,
+merge sintetico44059ba099869bd4465e64b10efd64bca8d60919. Nessun verde dei
+predecessori trasferito a questa SHA. Staging E2E e deploy SKIPPED.
+
+Post-merge Verify PASS e Cloudflare42523315497 PASS. Database della
+CI42523315476 fallisce prefix bootstrap, prima di bind/apply/test; una sola
+ripetizione mirata del job fallito su nuovo runner ha riprodotto la stessa
+fase. Evento push conservato, TASK094 live E2E sempre SKIPPED. Prima failure,
+seconda failure e receipt GUARD_REJECTED preservate. La causa nativa precisa
+rimane UNKNOWN, non è attribuita a Docker/registry/password per ipotesi.
+
+Lacuna concreta del tool: error.json non distingue timeout, image pull/rate
+limit, health, connection o migration startup. Diagnostica minima nello stesso
+runner: legge il log privato e restituisce soltanto uno di sette enum chiusi
+nel campo category esistente. Nessun argv, output nativo, messaggio eccezione,
+path o secret entra nella proiezione. Errori della diagnostica non mascherano
+la failure primaria; budget1200s, tentativo unico e guard originali invariati.
+Test dinamico con sentinelle e categorie fuori allowlist, altro stage e IO_ERROR
+PASS. Primo test Windows sul writer Linux O_DIRECTORY fallito: corretto il test
+di proiezione usando un sink in memoria, senza rendere portabile o indebolire
+il writer originale. Nessun DB/server condiviso toccato da questa diagnostica.
+
+Le quattro RPC receipt/retire/correction/recovery sono presenti nel progetto
+remoto anche se le due versioni isolate non sono nella migration history:
+assenza di una riga history non è assenza del contratto. Non se ne deduce la
+compatibilità di tutto il Worker; resta da riconciliare sorgente servita e
+unità release, senza SQL automatiche o deploy main alla cieca.
+
 ## Prosecuzione autorizzata — 8 novembre, merge e HTTP reale
 
 PR144 fuori draft e integrata con merge normale919d1008884983075212064c88d790881a2b700e.

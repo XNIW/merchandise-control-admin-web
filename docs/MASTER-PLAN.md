@@ -1,5 +1,17 @@
 # MerchandiseControl Admin Web - Master Plan
 
+## ASUS019 — HTTP integrato, diagnostica bootstrap in EXECUTION
+
+PR145 codice3e56a322 qualificato: CI42522680653 e Cloudflare42522680527 PASS,
+foundation1156/14SKIP/0FAIL e67file/4375pgTAP. Merge normalefdb30f4;
+Verify e Cloudflare42523315497 post-merge PASS, database42523315476 FAIL
+prefix bootstrap in due tentativi, prima di bind/apply/test. Cause dettagliate
+non esposte dalla receipt; nessun terzo retry invariato o dispatch generico.
+Nuova diagnostica minima proietta soltanto categorie chiuse nel campo category
+già esistente di error.json. Timeout, tentativo unico, cleanup, SQL e raw log
+privati invariati. Tool testato con sentinelle; nessun dato nativo pubblicato.
+Rollout e qualifica Windows restano separati; nessun DONE.
+
 ## ASUS-W7POS-019 — EXECUTION HTTP vuoto, 8 novembre 2026
 
 PR144 integrata normalmente in919d100; CI42519626751 e build Cloudflare42519626731
