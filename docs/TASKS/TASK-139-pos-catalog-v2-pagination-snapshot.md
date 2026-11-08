@@ -98,8 +98,9 @@ dall'utente il `2026-07-25`: stato `DONE`.
 
 Il mandato corrente autorizza il FIX del409 unmapped osservato nel normale
 onboarding NEW_SHOP_019, senza creare una task duplicata. Lo stato DONE sopra
-rimane l'approvazione storica TASK-139; la continuazione cross-repository è FIX
-e termina in REVIEW, con qualifica live distinta dal commit e dai test.
+rimane l'approvazione storica TASK-139; la continuazione cross-repository è ora
+REVIEW, con server applicato e RPC reale verificato. HTTP/UI normale resta
+NOT_RUN per il blocco della policy di avvio, senza nuovi pull o tentativi alternativi.
 
 La causa è nel resolver installato: active shop privo di mapping e di tutte le
 righe catalogo produce legacy_owner_bridge/null/blocked. La lease corrente è
@@ -114,6 +115,7 @@ prima/dopo sono vincolati a digest del corpo. Il runner locale canonico è estes
 per questa sola migration successiva, preservando i guard di ownership/CLI/ordine,
 gli operatori e le quattro applicazioni tardive precedenti. Aggiunte28 assertion
 pgTAP con lease reale sintetica e isolamento/negativi, oltre alle4347 esistenti;
-67 file/4375 assertion sono gli attesi, non un PASS anticipato.
+67 file/4375 assertion sono PASS anche nel post-merge1a35034a; i14SKIP
+foundation restano dichiarati. Nessuna qualifica UI reale è dedotta dai sintetici.
 
 [Evidence, comandi, rollout e rollback](EVIDENCE/TASK-139/asus-019-native-empty-scope-20261108.md).
