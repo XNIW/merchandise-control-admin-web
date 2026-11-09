@@ -5,6 +5,14 @@ import { spawnSync, execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const TARGET = "merchandise-control-admin-web-staging";
+export function qualifiedPublicBuildTarget(url, publishableKey) {
+  if (url !== "https://jpgoimipbothfgkokyvm.supabase.co" ||
+      typeof publishableKey !== "string" ||
+      !/^sb_publishable_[A-Za-z0-9_-]+$/.test(publishableKey)) {
+    throw new Error("Reviewed staging public build configuration is missing or changed.");
+  }
+  return { projectRef: "jpgoimipbothfgkokyvm", publishableKeyIncluded: true };
+}
 export function qualifiedWorkerConfig(source) {
   const staging = source.env?.staging;
   if (staging?.name !== TARGET || staging.services?.length !== 1 ||
@@ -35,6 +43,8 @@ function files(root, current = root) {
 function sha(bytes) { return createHash("sha256").update(bytes).digest("hex"); }
 
 export function buildQualifiedWorkerArtifact(root) {
+  const publicBuild = qualifiedPublicBuildTarget(process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY);
   const output = join(root, "qualified-worker");
   if (existsSync(output)) throw new Error("Artifact output already exists; use a fresh build workspace.");
   const config = qualifiedWorkerConfig(JSON.parse(readFileSync(join(root, "wrangler.jsonc"), "utf8")));
@@ -60,7 +70,7 @@ export function buildQualifiedWorkerArtifact(root) {
   const manifest = { schema: "qualified-staging-worker-v1", sourceSha, sourceTree, target: TARGET,
     node: process.version, packages: versions, lockSha256: sha(readFileSync(join(root, "package-lock.json"))),
     sourceConfigSha256: sha(readFileSync(join(root, "wrangler.jsonc"))), files: entries,
-    remoteMutation: false, secretsIncluded: false };
+    publicBuild, remoteMutation: false, secretsIncluded: false };
   writeFileSync(join(output, "manifest.json"), JSON.stringify(manifest, null, 2), { flag: "wx" });
   console.log(JSON.stringify({ status: "PASS_QUALIFIED_ARTIFACT", sourceSha, sourceTree,
     files: entries.length, target: TARGET, remoteMutation: false }));

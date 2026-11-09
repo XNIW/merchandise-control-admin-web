@@ -52,6 +52,23 @@ quindi rollout e prove autenticate. Il Mac coordinatore citato nei documenti
 non è leggibile da questo host; la nota PR29 resta l'unico raccordo, senza
 aspettare CI mobile per lavoro indipendente. Non è un DONE.
 
+Prima candidata7804c1b: CI42628860727 e Cloudflare42628860692 PASS; artefatto
+13679288210, digestZIP55c273cc16c25aba7f20db7343b35ca0e06201d46fd3a551a6572bb6e111c9b0,
+57file verificati, merge sintetico6a9f768/albero74d0336 identico alla candidata.
+Next16.2.12/OpenNext1.20.2/AWS4.1.0/Workers CLI4.123.0 registrati; lock canonico
+invariato. Nessun upload di versioni o deploy remoto.
+
+Gate configurazione: nessun file browser di quella build incorpora l'URL del
+progetto e un file conserva la variabile pubblica non risolta. I soli binding
+Worker non qualificano le funzionalità browser. Il successore passa ai due
+step di build soltanto le due variabili pubbliche repository già esistenti;
+target e chiave publishable verificati privatamente contro il progetto
+Supabase. Nessuna nuova variabile/chiave o secret put. Packaging rifiuta URL
+diverso, assenza di configurazione o chiave secret e registra soltanto il
+projectRef e la presenza della configurazione, mai chiave o suo hash.
+Nuovi quattro vettori di configurazione: totale mirato73/73 PASS.
+Il verde7804 non è trasferito al successore; artefatto precedente conservato.
+
 Le sezioni seguenti conservano il checkpoint dell'8novembre.
 
 ## Stato corrente — software integrato, rollout non eseguito

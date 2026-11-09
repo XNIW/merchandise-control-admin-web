@@ -1,8 +1,22 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { qualifiedWorkerConfig } from "../../scripts/qualified-worker-artifact.mjs";
+import { qualifiedWorkerConfig, qualifiedPublicBuildTarget } from "../../scripts/qualified-worker-artifact.mjs";
 const source = JSON.parse(readFileSync("wrangler.jsonc", "utf8"));
+test("ASUS019 pins the public browser build to the reviewed staging project", () => {
+  const result=qualifiedPublicBuildTarget("https://jpgoimipbothfgkokyvm.supabase.co","sb_publishable_synthetic");
+  assert.deepEqual(result,{projectRef:"jpgoimipbothfgkokyvm",publishableKeyIncluded:true});
+  assert.ok(!JSON.stringify(result).includes("synthetic"));
+});
+for(const [name,url,key] of [
+  ["missing",undefined,undefined],
+  ["wrong project","https://other.supabase.co","sb_publishable_synthetic"],
+  ["secret key","https://jpgoimipbothfgkokyvm.supabase.co","sb_secret_synthetic"],
+]) {
+  test("ASUS019 refuses unsafe public browser build configuration: "+name,()=>{
+    assert.throws(()=>qualifiedPublicBuildTarget(url,key));
+  });
+}
 test("ASUS019 portable Worker keeps effective staging bindings and runtime flags", () => {
   const config=qualifiedWorkerConfig(source);
   assert.equal(config.name,source.env.staging.name);
