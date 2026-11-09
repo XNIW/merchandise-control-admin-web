@@ -1,5 +1,26 @@
 # Shop Admin Dual Access Model
 
+## Aggiornamento autorevole ASUS019 — 9 novembre 2026
+
+Le sezioni TASK037/038 sotto descrivono milestone storiche: manager-only,
+mutator personal-only e admin-client staff generico non rappresentano il runtime
+corrente. La baseline b5c2dbc ammette manager/pos_admin/courier con stato e
+permessi espliciti; pos_admin è già un ruolo schema e il provisioning iniziale
+1001 gli assegna full_access. `admin` resta escluso dal predicate corrente.
+Principal staff/personale, sessioni e audit restano distinti; email non implica
+ownership e codice1001 non concede privilegi da solo.
+
+Le operazioni staff implementate usano RPC nominali con lease e revalidazione,
+non una query privilegiata generale autorizzata dal solo filtro shop. Esistono
+mutator catalog/lifecycle e reader Staff; overview/settings/members e altre
+superfici hanno ancora reader staff mancanti. L'equivalenza di permesso non
+dimostra copertura funzionale. Badge shop_manager è una proiezione generica,
+non il ruolo staff effettivo. Owner-only e Master restano confini separati.
+
+Contratto, matrice, gap e patch future sono nel
+[piano ASUS019 B/C](ASUS019-ADMIN-OPERATIONS-HISTORY-PLAN.md), solo PLANNING.
+Le sezioni storiche restano per provenienza e non autorizzano nuovi grant/reset.
+
 ## Terminologia prodotto TASK-047
 
 - `Master Console`: nome breve della console globale. Route tecnica: `/platform`. Principal ammesso: account personale con ruolo tecnico `platform_admin`.

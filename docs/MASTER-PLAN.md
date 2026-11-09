@@ -1,5 +1,31 @@
 # MerchandiseControl Admin Web - Master Plan
 
+## ASUS019 — Planning Admin persistente, Windows separatamente in qualifica
+
+Unica continuazione coordinata ASUS-W7POS-019. B/C sono soltanto PLANNING,
+documento READY_FOR_REVIEW; nessuna nuova Execution Admin, ruolo, credenziale,
+grant/RLS, schema, dato o distribuzione. TASK-139/140 storiche restano DONE;
+i numeri delle PR Admin non riaprono task omonime. Il backlog B/C è nel
+[piano canonico](ARCHITECTURE/ASUS019-ADMIN-OPERATIONS-HISTORY-PLAN.md).
+
+Baseline Admin b5c2dbc: provisioning iniziale1001→pos_admin/full_access già presente.
+Badge Manager shop da proiezione generica; overview staff_surface_unavailable
+segue l'autorizzazione e indica reader mancante. Reader Staff già qualificato
+non equivale a un reader Panoramica. Full operativo resta shop-scoped con
+protezioni owner-only esplicite. Piano: identità/capability/copertura B, wizard
+storico tre passaggi e ledger cloud/cutover a unico writer C; nessuna funzione
+futura dichiarata PASS. Comandi npm/SQL/E2E soltanto riportati per Execution.
+
+Windows a397a49: Windows-All15/15 e quattro workflow SUCCESS. Successore QA
+5d8e704 (src identico) congelato per qualifica completa; installato ancora
+a8286c6, consegna/percorso reale aperti nella task Windows. Display200% già
+ripristinato, nuova matrice DPI ancora da concludere. Quattro originali legacy
+in una ricevuta Apply/un lotto attivo, moderni bloccati da C. Win7 fisico
+NOT_RUN/BLOCKED_TARGET. Nessun Apply/undo degli originali per provare la UI.
+[Handoff corrente](TASKS/EVIDENCE/TASK-139/asus-019-staff-overview-20261108.md).
+
+Le sezioni datate sotto sono checkpoint, non il registro corrente.
+
 ## ASUS019 — successore148 servito, verifica autenticata PASS
 
 Software148 pronto alla REVIEW, operatività reale ancora ACTIVE nella stessa
@@ -18,8 +44,12 @@ FAIL e rollback399720d2 restano conservati. Nessun SQL/grant/secret put,
 TASK150 deploy workflow o dispatch commerciale. Avvio quotidiano Windows,
 catalogo autorevole vuoto e analisi UI dei sette XLSX osservati PASS.
 Il solo scope legacy applicabile è salvato e riconciliato; errore UI dopo
-commit conservato e correzione Windows mirata in qualifica. Nessun retry
-live o annullamento del lotto valido. Moderni ancora bloccati dalla prova
+commit conservato. Correzione Windows a8286c6 qualificata nei quattro workflow
+exact-SHA, installato41/41 e nuovo login/empty/workbench PASS sul profilo
+conservato; ledger/ricevuta logici e invarianti commerciali PASS dopo update.
+QA scaricato smoke8/52 in49.678s; consultazione/reimport sul successore ancora
+da concludere. Form nativo100/125 osservato intero, ripristino200% pendente.
+Nessun annullamento del lotto valido. Moderni ancora bloccati dalla prova
 temporale C; questa dipendenza non riapre il rilascio Admin.
 [Matrice corrente](TASKS/EVIDENCE/TASK-139/asus-019-staff-overview-20261108.md).
 
@@ -3929,26 +3959,27 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
 - Task TASK-157: `TASK-157 - Client Commerce Staging E2E and Closeout`
 - Stato TASK-157: `DONE`
 - Fase TASK-157: `REVIEW`
-- Stato globale attuale: `IDLE`
-- Task attivo: `NESSUNO`
+- Stato globale attuale: `PLANNING / ASUS019_ADMIN_FOLLOWUP`
+- Task attivo: `ASUS-W7POS-019 — continuazione coordinata, B/C Planning`
 - Task precedente:
   `TASK-152 - Mobile Storefront Authoring Boundary` (`DONE / REVIEW`)
-- Prossimo task pianificato: `NESSUNO`; il train
-  `CLIENT_COMMERCE_JOURNEY_COMPLETION` è chiuso senza production activation.
+- Prossimo lavoro pianificato: tranche B/C del piano ASUS019, senza nuova
+  attivazione Execution o riapertura di task chiuse. Il train storico
+  `CLIENT_COMMERCE_JOURNEY_COMPLETION` resta chiuso senza production activation.
 - Ultimo task chiuso: `TASK-157 - Client Commerce Staging E2E and Closeout`
 - Ultimo task completato: `TASK-157 - Client Commerce Staging E2E and Closeout`
 - Marker compatibilità harness storico — Ultimo task chiuso: `TASK-081 - Win7POS Sales Sync, Revenue, Stock Sync, Shop Admin Dashboard and UX alignment`
 - Marker compatibilità harness storico — Ultimo task completato: `TASK-081 - Win7POS Sales Sync, Revenue, Stock Sync, Shop Admin Dashboard and UX alignment`
-- File task corrente: `NESSUNO`
+- File task corrente: `docs/ARCHITECTURE/ASUS019-ADMIN-OPERATIONS-HISTORY-PLAN.md`
 - Ultimo file task:
   `docs/TASKS/TASK-149-admin-trusted-pos-product-image-v1.md`
-- Evidence task corrente: `NESSUNO`
+- Evidence task corrente: `docs/TASKS/EVIDENCE/TASK-139/asus-019-staff-overview-20261108.md`
 - Ultima evidence task: `docs/TASKS/EVIDENCE/TASK-149/README.md`
-- Stato task: `IDLE`
+- Stato task: `READY_FOR_REVIEW / PLANNING_ONLY`
 - Stato task precedente: `DONE`
-- Fase: `REVIEW`
+- Fase: `PLANNING / REVIEW_DOCUMENTALE`
 - Milestone interna:
-  `CLIENT_COMMERCE_JOURNEY_COMPLETION_COMPLETE`
+  `ASUS019_ADMIN_BC_PLAN_READY_FOR_REVIEW`
 - Correzione P2 riproducibile approvata sul secondo e ultimo PR Admin:
   read model owner-scoped delle righe storiche d'ordine per il post-vendita e
   quantità residua rivalidata dalla mutation; nessuna dipendenza dal catalogo

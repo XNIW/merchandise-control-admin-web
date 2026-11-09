@@ -1,5 +1,37 @@
 # ASUS-W7POS-019 — stato della superficie staff
 
+## 9 novembre — follow-up Admin pianificato, consegna Windows aperta
+
+[Piano persistente B/C](../../../ARCHITECTURE/ASUS019-ADMIN-OPERATIONS-HISTORY-PLAN.md)
+READY_FOR_REVIEW, funzioni future NOT_IMPLEMENTED/NOT_RUN. Baseline Admin
+b5c2dbc; status/fetch/log/diff e letture mirate effettuati. Nessun comando npm,
+test SQL/HTTP/E2E o nuova verifica live avviato per questo Planning. Nessun
+ruolo, credenziale, grant/RLS, schema, dato o Worker cambiato. TASK139/140 chiuse
+non riaperte; unica continuazione ASUS019 nel registro Master.
+
+Traccia verificata nel sorgente:1001 è provisionato pos_admin/full_access;
+staffShellShop proietta shop_manager soltanto per la shell; il badge usa tale
+proiezione. Panoramica autorizzata ritorna staff_surface_unavailable per reader
+session-bound mancante. Sola lettura è lo stato delle azioni di pagina. La lista
+Staff usa invece staff_web_staff_read_v1 e DTO safe. Dispositivi/audit/POS live/
+ricavi e cronologia mobile hanno ulteriori reader staff mancanti, da distinguere
+da un denial reale. Restano intenzionali le protezioni owner/platform su peer
+pos_admin, credenziali/permessi privilegiati e titolarità; nessuna recovery1001.
+
+Il piano include matrice, template ruolo condivisi, wizard tre passaggi, ledger
+Getnet separato, parità parser, migrazione/replica e cutover con un solo writer.
+History Android/iOS esistente non è storico incassi. Se una vecchia postazione
+offline può ancora importare localmente, cutover BLOCKED: nessun web writer
+indipendente finché aggiornamento/ritiro e riconciliazione non sono provati.
+
+Windows a397a49 ha Windows-All15/15 e quattro workflow SUCCESS. Nuovo5d8e704
+aggiunge soltanto prova MainWindow pagamento/guida (src identico), qualifica
+congelata in corso; a828 resta installato. Display200%/2880×1800 ripristinato;
+nuova matrice DPI, installazione e percorso reale ancora aperti. Legacy: una
+ricevuta Apply/un lotto attivo per quattro originali; nessun nuovo Apply/undo.
+Moderni C e Win7 fisico indisponibile restano limiti distinti. Le evidence di
+release148 sotto restano attribuite al relativo Worker, non a funzioni B/C future.
+
 ## Corrente —148 qualificata e servita, controllo autenticato PASS
 
 Codicecc7b835ac59004e6acd2988be15fdc372d06c7cd, normale merge
@@ -32,15 +64,24 @@ Staff con lettura autorizzata safe osservate. La sessione resta valida nella
 navigazione; nessun account, PIN o permesso modificato. Le sessioni revocate
 dal difetto147 non sono state riattivate dal DB.
 
-Sul successore, avvio del collegamento quotidiano verificato sull'installato
-1823697 e profilo NEW_SHOP_019 conservato; login manuale, catalogo autorevole
-vuoto e workbench reale PASS. Sette XLSX analizzati nella UI con preview
+Avvio del collegamento quotidiano verificato prima sull'installato1823697,
+poi sul nuovo a8286c6, profilo NEW_SHOP_019 conservato: login manuale, catalogo
+autorevole vuoto e workbench reale PASS. Sette XLSX analizzati nella UI con preview
 NeedsEvidence e confronto indipendente; solo quattro legacy applicabili
 salvati. Backup prodotto e riconciliazione esatta PASS, ricevuta e report/CSV
 consultabili. Errore NullReference UI successivo al commit conservato: un test
-Windows sintetico riproduce la rientranza della conferma, patch mirata in
-qualifica. Non è dimostrato lo stack originale live. Nessun retry Apply o
-undo del lotto valido; moderni ancora bloccati dalla prova temporale C.
+Windows sintetico riproduce la rientranza della conferma; fix minimo qualificato
+e installato41/41: codice/pacchetto a8286c669a7c0d8ec4f82e1e7a31fc1b5d46eed3,
+versione1.0.0-dev.a8286c669a7c. CI42673051923, Security42673051757,
+Release42674141171 e WPF42675026366 SUCCESS; canonica15, functional20,
+foundation5/37, smoke8/52 e load11 con M/E/S=true. QA scaricato40 verificato,
+smoke sul PC49.678s PASS8/52 e cleanup/fingerprint invariati. Backup prodotto
+prima update, profilo byte-invariato durante installer; dopo riapertura ledger
+e ricevuta logici esatti, SQLite/FK e invarianti commerciali PASS. Lettura UI,
+nuovo CSV e reimport duplicate-only sul successore da concludere. Nativi100/125
+osservati interi; ripristino200% richiesto e pendente. Non è dimostrato lo stack
+originale live; prime failure UI/CI/locali conservate nei report Windows.
+Nessun undo del lotto valido; moderni ancora bloccati dalla prova temporale C.
 Le evidenze Windows sono separate dalla CI Admin e dalla qualifica fisica
 Win7, già dichiarata indisponibile.
 

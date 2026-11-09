@@ -2,6 +2,23 @@
 
 Status: `REVIEW`
 
+Current clarification, ASUS019 2026-11-09: staff role permissions are keyed by
+shop and role, not individual account. Initial1001 provisioning assigns pos_admin;
+role/status/capabilities authorize, never the code1001 or the generic Manager
+badge. Staff requests must use named lease-bound operations that revalidate
+actor/shop/session/version/permission, not a generic service-role table query
+filtered by a browser shop parameter. Personal membership/RLS and staff session
+boundaries remain separate.
+
+`getShopAdminReadModel` explicitly returns `staff_surface_unavailable` after
+authorization for unsupported staff shop/member surfaces. Device/audit/POS/revenue
+readers still overload `unauthorized` for missing staff readers: this is a known
+coverage/error-semantics gap, not proof that the account lacks those capabilities.
+Page read-only, authorized empty, true denial and expired session/backend failure
+must stay distinct. Staff safe reads already have their dedicated RPC; protected
+peer pos_admin/credential/ownership actions retain owner/platform enforcement.
+See the [planning-only ASUS019 contract](ASUS019-ADMIN-OPERATIONS-HISTORY-PLAN.md).
+
 This document records the Admin Web authorization model used by TASK-053. It separates identity, permission layers, read models and mutation boundaries so staff POS access stays inside the Shop Admin Console without becoming a third console.
 
 ## Identity model

@@ -1,12 +1,24 @@
 # TASK-139 - POS Catalog v2 Pagination and Snapshot Correctness
 
+> 9 novembre, aggiornamento coordinamento: TASK-139 resta DONE storico.
+> La continuazione ASUS019 mantiene Windows in Execution separata; il nuovo
+> [follow-up Admin B/C](../ARCHITECTURE/ASUS019-ADMIN-OPERATIONS-HISTORY-PLAN.md)
+> è PLANNING / READY_FOR_REVIEW, senza modifiche runtime, SQL o deploy.
+> Windows a397 qualificato, successore solo QA5d8e704 in qualifica, installato
+> ancora a828. Ripristino200% già confermato; nuova matrice DPI aperta.
+> Quattro originali legacy corrispondono a una ricevuta Apply/un lotto attivo.
+> I checkpoint sotto conservano la loro data e non definiscono lo stato corrente.
+
 > Corrente9novembre: software successore148 pronto alla REVIEW, reale ACTIVE.
 > Merge9016054, CI42641653938/Cloudflare42641652917 postmerge PASS.
 > Artifact13684508006/57file verificato, servito come Workera68ebec2,
 > deployment1cd437f1/100% tag9016054; pubblico e nuovo controllo
 > autenticato pos_admin PASS: overview staff-unavailable distinta da denial,
 > reader Staff safe autorizzato. POS vuoto/workbench e analisi7 reali PASS;
-> legacy salvato e riconciliato, correzione UI Windows postcommit in qualifica.
+> legacy salvato e riconciliato; fix Windows a8286c6 qualificato nei quattro
+> workflow exact-SHA e installato41/41, QA scaricato8/52 PASS in49.678s.
+> Nuovo avvio/login/empty/workbench e ledger conservato PASS; consultazione e
+> reimport corrente da concludere. Form100/125 intero, restore200% pendente.
 > Moderni bloccati dalla prova temporale C. Prima147 web FAIL e rollback
 > pinned399720d2 preservati; nessun SQL/grant/secret put o nuova task.
 > Il DONE storico sotto non si estende alla continuazione.

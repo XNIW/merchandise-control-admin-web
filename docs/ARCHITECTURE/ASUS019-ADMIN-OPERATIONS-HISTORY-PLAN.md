@@ -1,0 +1,394 @@
+# ASUS019 — controllo operativo Admin e futuro storico web
+
+Stato del documento: **READY_FOR_REVIEW / PLANNING**, 9 novembre 2026.
+Le funzioni B/C sono **NOT_IMPLEMENTED / NOT_RUN**, non qualificate da questo piano.
+Unica continuazione coordinata: ASUS-W7POS-019; nessuna riapertura dei TASK-139/140
+chiusi, nessun nuovo task numerico assegnato, nessuna seconda task Windows.
+Questo è il backlog delle tranche B/C fino alla successiva autorizzazione Execution.
+
+## Mandato, baseline e confini
+
+Il mandato utente separa A, consegna Windows già in Execution, da B/C, sola analisi
+e documentazione Admin. Nessun ruolo, credenziale, grant/RLS, schema, dato o deploy
+modificato da questa pianificazione. Nessun reset/recovery1001, test SQL/HTTP/E2E,
+dispatch CI Admin o comando npm di qualifica eseguito per B/C.
+
+- Admin letto su main/origin `b5c2dbc291adb4010624d2aabaaeaaabe2adcc2d`, worktree
+  privato della stessa ASUS019. Il checkout principale dell'utente resta intatto.
+- Windows `a397a49ac4a4028d0b9e909e621c776c257325d3`: Windows-All15/15, Core1745,
+  functional22, smoke8/52, crash5, load11 PASS; quattro workflow exact-SHA SUCCESS.
+  Il successore `5d8e704b2d0027c4ee1d5a9f4cb6b10842b85b54` aggiunge soltanto la
+  prova MainWindow pagamento e aggiorna la guida. Albero `src`
+  `d540bb0963a634ee6140f720fef17456a4b87775` identico ad a397; nuova qualifica
+  congelata in corso. Non trasferire i PASS di a397 al successore.
+- Installato al checkpoint: a8286c6. Installazione e percorso reale del successore
+  restano aperti nella [task Windows](https://github.com/XNIW/Win7POS/tree/main/docs/plans/ASUS-W7POS-019_GETNET_HISTORY).
+- Getnet V1 reale: quattro originali legacy hanno prodotto **una ricevuta Apply e
+  un lotto attivo**, riconciliati; nessun nuovo Apply/undo consentito per provare UI.
+  Tre moderni restano NeedsEvidence per C. La colonna Z non verifica la semantica
+  del provider. Copertura osservata parziale non significa interi mesi completi.
+- Win7 fisico: NOT_RUN/BLOCKED_TARGET, già dichiarato indisponibile. Nessun SDK
+  moderno richiesto sul registratore; kit net48/x86 e checklist da aggiornare in A.
+
+Coordinamento e prove attuali: [handoff ASUS019](../TASKS/EVIDENCE/TASK-139/asus-019-staff-overview-20261108.md)
+e [commento coordinatore unico](https://github.com/XNIW/iOSMerchandiseControl/pull/29#issuecomment-6722613449).
+TASK/PR numerici di repository diversi non sono identità intercambiabili.
+
+## Causa e catena di autorizzazione dimostrata dal sorgente
+
+| Passaggio | Evidenza nella baseline | Conseguenza |
+|---|---|---|
+| Provisioning iniziale | `20260707183000_mac_admin_w7pos_009_pos_admin_staff_role.sql`, `task051_insert_initial_manager`: inserisce1001 attivo come `pos_admin` e il set canonico. `permissions.ts:101` espone `POS_ADMIN_STAFF_PERMISSION_KEYS`, incluso `shop_admin.full_access`. | 1001 è il codice iniziale, non una regola universale di autorizzazione. Il runtime non deve ripromuovere un1001 revocato. |
+| Identità staff | `staff-web-auth.ts:365`, `staff-web-runtime-boundary.ts`, `access-principal.ts`: cookie staff separato, sessione/versione/credenziale/stato, ruolo manager/pos_admin/courier e permessi espliciti. | Staff non diventa `profiles`, non usa `auth.uid()` come identità staff. Il ruolo `admin` resta escluso dal predicate corrente. |
+| Scope e capability | `data-access.ts:116` e `resolveShopAdminDataAccess`: shop richiesto diverso respinto; permessi personali o staff distinti; `revalidateShopAdminDataAccessForPublish` ricontrolla identità/sessione/versione/permesso. | Un parametro shop nel browser è navigazione, mai autorità. La cache React qui è per richiesta, non autorizza risposte successive. |
+| Proiezione shell | `data-access.ts:86` `staffShellShop` assegna `role: shop_manager`; `ShopShell.tsx:915` usa `formatRole(selectedShop.role)` salvo override courier; `shop/layout.tsx` passa il metodo di accesso, non il ruolo staff effettivo al badge. | “Manager shop” non prova un downgrade di pos_admin. Correggere DTO e copy del badge, non i dati account. |
+| Panoramica | `shop/overview/page.tsx` → `shop-section-data.ts:3650` → `read-model.ts:239`. Prima richiede `settings.view`, poi per staff ritorna `staff_surface_unavailable` senza query generale. | L'identità può essere autorizzata ma il reader della superficie non esiste. Non è una lettura riuscita vuota. |
+| Stato pagina | `shop-section-data.ts:160` `fallbackSection`; `ShopSectionPage.tsx` separa dati e azioni. `Page actions = Read-only` descrive l'assenza di azioni di quella pagina. | Non implica che tutte le scritture dell'account siano disabilitate. |
+| Reader Staff già recuperato | `staff-read-model.ts:143`, `staff-web-lease-bound-rpc.ts:46` → `staff_web_staff_read_v1`, vincoli actor/shop/session/version, whitelist e massimo100 righe. | Riutilizzare il modello di boundary, non il contenuto della lista Staff per costruire una Panoramica fittizia. |
+| Azioni implementate | `action-context.ts` → `staff-mutations.ts` / `staff-aware-mutations.ts` → RPC nominali catalog/lifecycle, audit attore separato. | Non cancellare i boundary staff esistenti; “tutti i mutator personal-only” è documentazione storica superata. |
+
+Il provisioning TypeScript `staff-manager-provisioning.ts` contiene anche
+`recoverInitialManager1001`: il recupero può ricreare account o sostituire la
+credenziale. Non è un rimedio per la Panoramica e non è stato invocato.
+
+Limite live: la sessione servita dopo PR148 era stata osservata valida su
+Panoramica/staff; il vecchio rollout147 aveva invece revocato pos_admin ed è stato
+corretto e verificato separatamente. Questa pianificazione non rilegge token,
+hash o metadati live e non pretende una nuova attestazione dell'account corrente.
+Il badge/screenshot non sono una prova del set effettivo live.
+
+### Cinque esiti da conservare nel contratto UI/API
+
+| Esito | Stato operativo da mostrare | Azione |
+|---|---|---|
+| Permesso mancante/shop diverso | Non autorizzato | Nessuna query/dato; richiedere il ruolo appropriato. |
+| Principal autorizzato, reader assente | Funzione non disponibile per questo accesso | Offrire sezione realmente utilizzabile; mantenere distinto dal denial. |
+| Pagina consultiva | Sola lettura di questa pagina | Dati autorizzati consultabili; nessuna conclusione sui privilegi globali. |
+| Lettura autorizzata senza righe | Nessun dato per filtro/periodo | Zero righe vero; copertura/totali solo se conosciuti. |
+| Errore backend o sessione scaduta | Errore temporaneo oppure nuovo accesso richiesto | Non esporre errori nativi; eliminare dati stale, login solo se sessione non valida. |
+
+Le superfici `device-read-model.ts:258`, `audit-read-model.ts:214`,
+`pos-live-read-model.ts:382`, `pos-revenue-read-model.ts:499` e
+`history-read-model.ts:2818` oggi ritornano ancora `unauthorized` per un reader staff
+mancante. B deve correggere questo contratto e aggiungere i reader autorizzati,
+senza classificare tutti quei ritorni come permessi realmente negati.
+
+## Matrice ruolo/funzione: contratto desiderato e copertura corrente
+
+Legenda: sì = diritto operativo desiderato nello shop autorizzato, sempre con
+stato/credenziale/sessione validi; P = permesso esplicito/template; O = owner o
+platform protetto; C = nuova tranche cloud, oggi assente. Un diritto non attesta
+che un reader o un flusso sia già implementato.
+
+| Funzione | Iniziale pos_admin | Manager staff delegato | Cassiere / viewer staff | Personale owner / manager | Platform Master |
+|---|---|---|---|---|---|
+| Lettura catalogo / modifica | sì / sì | P / P | POS secondo permessi; web escluso dal ruolo corrente | sì / sì | Solo console/boundary globale autorizzato, nessuna impersonificazione automatica |
+| Import/export catalogo | sì | P | no di default | sì / sì | Operazioni piattaforma esplicite |
+| Report/ricavi operativi | sì, reader staff da completare | P (`pos.dashboard.read`) | POS secondo permessi; nessun web automatico | sì / sì, dati realmente disponibili | Ambito globale dedicato, nessun accesso implicito per login shop |
+| Staff delegati non protetti | sì, con limiti server | P `staff.write` | no | sì / sì con limiti | sì attraverso azioni piattaforma auditabili |
+| Ruoli/template non protetti | sì entro delega sicura | soltanto capability autorizzata; non basta il nome manager | no | sì / sì entro limiti owner-only | sì attraverso boundary dedicato |
+| Peer pos_admin, credenziali privilegiate, privilegi protetti | O | O | no | owner sì / manager no | sì, recupero distinto e auditato |
+| Dispositivi ordinari | sì (`devices.write`), reader UI da completare | lettura P; scrittura owner-only oggi non delegabile a manager | no | owner modifica / manager legge | azioni piattaforma autorizzate |
+| Impostazioni operative | sì dove implementate; distinguere profilo fiscale | lettura P; scrittura protetta oggi | no | owner secondo funzione / manager lettura | titolarità e identità fiscale nei flussi Master previsti |
+| Storico Getnet: lettura / import / undo / export | C, permessi dedicati separati | C, ciascun permesso esplicito | C sola lettura se delegata; nessun import implicito | C secondo ruolo e permessi | Nessun import commerciale implicito da privilegio globale |
+| Titolarità legale / Master Console / altri shop | no / no / no | no / no / no | no / no / no | solo membership/ownership effettive; email da sola non basta | ruolo platform verificato; cambio titolarità tramite flusso protetto |
+
+Copertura reale da cui partire:
+
+- Catalogo: page-access distingue canImport/canExport/canManageProducts, reader e
+  mutator staff hanno RPC nominali. Verificare le operazioni esatte in B, non
+  sostituirle con query service-role generiche.
+- Staff: lettura safe e lifecycle presenti. `canManagePosAdminRoleFromAccess`
+  permette solo personale shop_owner. Metadati `owner_only_role_keys` includono
+  pos_admin/courier e ruoli con permessi protetti. Non equiparare courier a pos_admin:
+  è una restrizione specifica da preservare/valutare nel boundary corrente.
+- Panoramica/settings/members, dispositivi, audit, storico mobile, POS live e
+  ricavi: gap reader staff documentati sopra. Scritture dispositivi già presenti
+  nel lifecycle non equivalgono a un percorso pagina leggibile e completo.
+- Profilo shop e identità fiscale hanno il codice intenzionale
+  `shop_settings_managed_by_master_console` in `action-context.ts` /
+  `settings-mutations.ts`; pieno operativo non trasferisce titolarità legale.
+- Getnet web non esiste. `/shop/history` è cronologia Android/iOS di catalogo,
+  `shared_sheet_sessions` e attività sync, non registro storico degli incassi.
+  Nuova superficie proposta `/shop/payment-history`, senza riuso delle tabelle mobile.
+
+### Decisione proposta sui controlli owner-only
+
+Conservare in B owner/platform per creazione/promozione/gestione di altri pos_admin,
+reset delle loro credenziali, permessi protetti e titolarità. L'iniziale pos_admin
+gestisce gli operatori ordinari del proprio shop senza poter aumentare il proprio
+set, conferire a un delegato privilegi che non può delegare o aggirare il divieto
+usando reset/riattivazione/cambio ruolo/template. Motivazione obbligatoria, audit
+actor/target e conferma esplicita per azioni sensibili. Eventuale futura delega di
+privilegi protetti richiede una capability separata e un flusso approvato con
+riautenticazione; è una decisione ulteriore, non effetto del reader overview.
+
+Le migrazioni TASK140 PIN/login e concurrency hardening contengono guard SQL e
+trigger owner/platform: leggere le definizioni finali successive prima di una
+patch. Non modificare migrazioni storiche già applicate; future migrazioni additive.
+
+## Successivi operatori e permessi effettivi
+
+`getEnabledStaffRolePermissions` legge `staff_role_permissions` per
+`(shop_id, role_key, enabled=true)`, non per staffId. 1002/1003 con lo stesso ruolo
+condividono il set. La UI esistente già dice che i permessi appartengono ai ruoli;
+il link “creare/modificare ruoli” è da verificare perché `/shop/roles` oggi è una
+matrice read-only e non crea ruoli.
+
+B riusa i template esistenti: `catalog_manager`, `staff_manager`, `viewer`,
+`courier_tracking` e `shop_manager_full` soltanto dove i controlli owner-only lo
+consentono. Prima del salvataggio mostra ruolo, persone interessate e diritti
+aggiunti/rimossi. Non promettere un override individuale oggi inesistente.
+
+Se serve differenziare due persone con lo stesso ruolo nominale, raccomandazione
+futura: ruoli personalizzati shop-scoped con template versionati, mantenendo
+pos_admin/built-in protetti. Alternativa più costosa: override per account.
+
+| Modello futuro | Precedenza e revoca | Caching/consumatori |
+|---|---|---|
+| Ruoli personalizzati (preferito se richiesto) | Un set esplicito per ruolo, nessuna unione nascosta; delegabili solo capability del grantor e mai protette. Cambio ruolo/set incrementa permissionRevision. Stato/credenziale/revoca prevalgono sempre. | Nuovi role key oggi non passano schema e predicate web: migrazioni, login/lease, POS e web devono supportarli insieme; rifiuto fail-closed sui client vecchi. |
+| Override per account (solo decisione esplicita) | deny account > allow account limitato al delegabile > ruolo; nessun allow prevale su sospensione/revoca o owner-only. Mostrare l'origine di ciascun permesso. | Identità include staffId e permissionRevision; invalidare cache e sessioni interessate. Nuovo resolver effettivo comune per web, RPC e attestation POS. |
+
+In entrambi: nessuna autoescalation modificando il proprio ruolo/set, revoca
+effettiva al prossimo boundary, nuova verifica prima del commit/pubblicazione;
+invalidare sessioni/cache e rispettare la durata delle attestazioni offline POS.
+Non dichiarare revoca offline istantanea senza un contratto di lease aggiornato.
+Questa estensione non è necessaria al primo B con template esistenti.
+
+## UX Admin e importazione in tre passaggi
+
+Badge composto da ruolo effettivo + ambito shop; metodo di accesso separato
+(“codice negozio” / “account personale”). Per pos_admin: “Amministratore negozio”,
+senza leggere `staffShellShop.role` come autorità. Menu da capability server e
+copertura implementata. Fino al reader overview, landing sulla prima sezione
+utilizzabile autorizzata (catalogo o Staff); courier conserva il proprio percorso.
+Se non esiste sezione disponibile, messaggio operativo con accesso/assistenza,
+senza dashboard vuota o zero inventati. Link diretti conservano i medesimi guard.
+
+1. **Carica export originali.** `.xlsx` supportati, hash e riconoscimento da
+   intestazioni. Elenco file e stato/progresso; nessuna conversione silenziosa.
+   CSV di report resta output; CSV input non qualificato resta BLOCKED_INPUT.
+2. **Controlla.** Periodo osservato per file, valuta, nuove/duplicate/respinte,
+   cancellazioni/conflitti, lordo firmato/netto noto e copertura. Evidenziare
+   sconosciuto e lacune; non equiparare righe respinte a ricavi. Richiedere soltanto
+   le decisioni applicabili nella tabella sotto, mantenendo preview non applicabile
+   leggibile quando manca una prova.
+3. **Conferma e ricevuta/lotti.** Piano immutabile con hash originali, parser,
+   mapping/policy revision, dataset revision e autorizzazione fresca. Una richiesta
+   idempotente, progress/recupero dello stato dopo interruzione, ricevuta immutabile
+   separata dallo stato corrente del lotto. Nessun secondo Apply per scoprire se il
+   primo è riuscito. Undo distinto, con motivo e preview: disattiva il lotto,
+   **non esegue un rimborso bancario**.
+
+| Quando chiedere | Domanda comprensibile | Decisione tracciata / riuso |
+|---|---|---|
+| Legacy senza valuta esplicita | “Questi importi sono in CLP?” | Scope shop/formato/versione e fonte, conferma esplicita; niente default economico implicito. |
+| Identità esercente non conosciuta | “A quale esercente verificato appartiene questo export?” | Binding alias → esercente canonico con documento pertinente e revisore. Nomi simili non fondono gruppi. |
+| Moderni Z/offset non verificati | “Come rappresenta Getnet gli orari in questo formato?” con confronto dei due esiti | Documento provider o riscontro voucher/portale; stringa compilata non prova verificata. Conservare raw, offset, interpretazione, versione, fonte. Nessun fuso del PC. |
+| Overlap reale o confine POS ignoto | “Quando è iniziato l'uso reale del POS? Questi movimenti sono già presenti?” | Fonte/data effettiva e riconciliazione; attestazione mai-usato conservata, installazione non è prima vendita. |
+| Correzione di movimento inattivo | “Vuoi riattivare questa versione? Ecco le differenze.” | Approvazione su contenuto/revisione precisi, non conferma generica; conflitto attivo non sostituito. |
+
+Mapping/policy già approvati si riusano solo se **verificati, versionati, pertinenti
+a shop/esercente/formato/periodo e non revocati**. Un cambio file/policy/mapping o
+permission invalida il piano. La V1 locale oggi conserva riferimenti testuali e
+binding, non un archivio provider di prove verificate: migrare come
+`legacy_attested`, senza promozione automatica a `provider_verified`.
+IT/ES/EN/ZH, progress accessibile/aria-live, etichette esplicite, tastiera/focus,
+errori associati al campo e ritorno al riepilogo senza perdere la sessione.
+
+## Backlog eseguibile e ordine delle dipendenze
+
+### A — Windows, Execution esistente
+
+Finire qualifica del candidato congelato e verificare installer/manifest/hash,
+backup prodotto/profilo preservato, avvio quotidiano e identità prima del PIN.
+Percorso reale: login → shell autenticata vuota → riepilogo → storico volontario
+→ chiusura → riepilogo → cassa con processo/sessione vivi. Vendita ancora negata
+per catalogo vuoto. Solo lettura ricevuta/lotto e review legacy nuovi=0, mai Apply/undo.
+Test mutazioni/pronto solo fixture isolate. Completare DPI100/125/200 e1024×768,
+1024×600 limite documentato, ripristino200%/2880×1800. Win7 fisico e secondo monitor
+assente restano NOT_RUN distinti. La guida Windows ora descrive la shell normale;
+i risultati successivi restano nel suo PLAN/EXECUTION/report, non duplicati qui.
+
+### B — Identità e copertura operativa Admin, futura Execution
+
+| Ordine | Patch futura e file precisi | Accettazione / dipendenza |
+|---|---|---|
+| B0 | Baseline, inventario capability/azioni e migrazioni finali; `docs/ARCHITECTURE/SHOP-ADMIN-DUAL-ACCESS-MODEL.md`, `AUTHORIZATION-MODEL.md`, questo piano. | Contratto matrice approvato; chiarire che full operativo non è owner legale. Nessun uso recovery1001. |
+| B1 | DTO ruolo/scope/metodo/capability in `access-principal.ts`, `data-access.ts`, `page-access.ts`; `src/app/shop/layout.tsx`, `src/components/shop/ShopShell.tsx`, landing `src/app/shop/page.tsx`, dizionari `src/i18n`. | Badge pos_admin corretto, landing utilizzabile, nessuna autorizzazione dal client/codice1001; negativi immutati. Può precedere il reader completo. |
+| B2 | Nuovo reader overview session-bound nominale in nuova migration; wrapper in `staff-web-lease-bound-rpc.ts`, DTO in `read-model.ts`, stati in `shop-section-data.ts`/`ShopSectionPage.tsx` e overview route. Typegen `src/lib/supabase/database.types.ts`. | Shop derivato da sessione, actor/session/token hash/version/permesso rivalidati nella transazione e prima della pubblicazione; DTO limitato. Nessuna `.from(shops)` privilegiata staff con solo filtro browser. |
+| B3 | Stesso modello per `device-read-model.ts`, `audit-read-model.ts`, `pos-live-read-model.ts`, `pos-revenue-read-model.ts`, `history-read-model.ts` (dominio mobile distinto), impostazioni/members per il solo scope consentito; nuove RPC limitate per superficie. Riusare `staff-aware-mutations.ts`, `staff-mutations.ts`, `device-mutations.ts`, `settings-mutations.ts`. | Lista/read/detail/export/action della stessa funzione coerenti per i due principal; gap espliciti fino alla consegna di ciascuna superficie. Nessun dato ricavi inventato, nessuna espansione owner-only. |
+| B4 | `src/app/shop/staff/page.tsx`, `src/app/shop/_components/StaffActionPanel.tsx`, `staff-read-model.ts`, `staff-web-permissions.ts` e test. | Preview dell'effetto su tutti gli utenti del ruolo, template esistenti, lock server su set protetti, nessuna autoescalation. Ruoli custom/override rinviati se non richiesti. |
+| B5 | Foundation, pgTAP/HTTP/e2e e sessione web servita; docs/handoff dello stesso ASUS019. | Tutte le operazioni dichiarate coperte hanno prove eseguite positive/negative; nuovo login non revoca pos_admin valido; revoca e modifiche permessi fermano query/commit stale. |
+
+B2 non può chiamare `staff_web_staff_read_v1` fingendo sia un reader shop. Il
+contratto SQL di tale RPC risulta attestato nelle prove della release servita ma
+non compare come definizione nelle migration del checkout: prima di riuso/upgrade
+acquisire preimage, ACL, digest e definizione autorevole, poi renderlo riproducibile
+nel replay senza modificare retroattivamente migrazioni applicate. È una dipendenza
+documentale concreta, non autorizzazione ad applicare SQL ora.
+
+### C — Registro cloud e passaggio a unico import web, futura Execution
+
+| Ordine | Contratto e patch future proposte | Gate |
+|---|---|---|
+| C0 — parità parser | Nuovo dominio `src/server/payment-history/`, corpus `tests/fixtures/payment-history/` e `tests/foundation/payment-history-*.test.mjs`; fixture canoniche versionate condivise con Win7POS. Leggere/adattare `GetnetExcelImportReader`, adapter legacy/modern e Core `HistoricalSalesTimeRules`, `HistoricalSalesValueRules`, `HistoricalSalesImportModels`. | Equivalenza byte/campi normalizzati/importi interi CLP, IDs leading-zero/precision, vendita/cancellazione/respinta, subtipo, netto unknown, date/offset e chiavi. Parser/versione nel piano; corpus sintetico senza dati reali. |
+| C1 — ledger server | Migration additiva nuova, tipi generati; tabelle nuove per source upload, evidence policy, canonical merchant+alias, job, batch, movement version, osservazioni duplicate, receipt/audit e revision log. Permessi separati proposti `payment_history.read/import/cancel/export/migrate` con allowlist server/SQL, non `history.write` del catalogo. | Shop sempre dal principal; RLS per personale e RPC staff con lease, niente accesso browser privilegiato. Ricevute immutabili, stato batch separato; nessun insert in vendite native/stock/fisco/outbox commerciale. |
+| C2 — import web | Route proposta `/shop/payment-history`, componenti wizard3passi e API upload/analysis/preview/commit/status; worker bounded riavviabile, storage privato e checksum. | Idempotency key legata a shop+actor+request digest; stessa chiave diverso contenuto = conflitto. Lease di lavoro con fencing, commit singolo, ripresa/receipt lookup dopo timeout. Revoca prima del commit impedisce applicazione. |
+| C3 — migrazione locale | Win7POS futuro exporter di migrazione vicino a `HistoricalSalesImportService.cs`, manifest e reader server dedicati; backup prodotto, mapping localID→globalID e report riconciliazione. | Migrare dati, mapping/prove con livello corretto, original receipts, stato attivo/annullato e provenance device/dataset; registri locali non diventano UUID globali per semplice copia. Nessun write via outbox sales. |
+| C4 — sync read dedicata | Endpoint versionato `/api/pos/history/...` proposto; Win7POS Core contratti, Data replica storico, WPF report origin/coverage; niente articolo artificiale. | Auth device/shop/lease dedicata; snapshot+keyset e revision cursor vincolati a shop/dataset, checksum/counts, revision gap→resnapshot, tombstone/undo propagati. Replica consultabile offline con watermark e stato stale espliciti. |
+| C5 — cutover | WriterAuthority/epoch per shop, minimum client version, inventario di tutte le postazioni, disattivazione importer WPF futura dopo reconcile, web writer abilitato solo alla chiusura del gate. | Stesso export preesistente nuovi=0 e totali invariati; tutti i device convergono (anche undo); preesistenti consultabili, export confrontati e backup recuperabile. Una sola autorità di scrittura per shop. |
+
+Identità globale proposta: `(shop, provider, canonicalMerchant, externalNamespace,
+externalId)`, con movimento/versione e semantica coerenti con il parser V1, mai
+soltanto hash del file. File identico, export sovrapposti, device diversi e retry
+devono osservare lo stesso movimento. Payload differente su chiave attiva è
+conflitto, non upsert che sovrascrive valori. Un batch duplicate-only non acquisisce
+la proprietà del movimento; undo del proprietario propaga disattivazione e audit.
+Alias/gruppi locali non provano identità globale: collisioni o corrispondenze
+incerte richiedono evidenza, non merge automatico per nome/RUT incompleto.
+
+Cutover concreto: prima snapshot/backup e upload di migrazione, poi blocco scritture
+locali su tutte le versioni abilitate e drain dei job, riconciliazione freeze, infine
+epoch server e web unico writer. Un vecchio POS offline non riceve un divieto remoto:
+se non è aggiornato, ritirato o provatamente escluso dalle scritture, **C5 è BLOCKED**
+e il web non diventa writer. Il nuovo client deve negare l'import locale quando non
+può verificare la propria autorità. La consultazione resta disponibile. Nessuna
+simultaneità di due writer indipendenti durante la fase di migrazione.
+
+Rollback C: prima del cutover disabilitare il nuovo writer e recuperare il backup
+locale verificato; dopo import cloud non riabilitare semplicemente il vecchio
+writer. Congelare scritture, esportare/reconciliare ogni revisione cloud e tombstone,
+ripristinare dati/mapping/receipt coerenti e assegnare un nuovo epoch solo dopo
+convergenza. Conservare cloud/receipts/audit; nessun drop o purge per rollback UI.
+Se la riconciliazione non passa, modalità consultazione e writer fermo.
+
+## Verifiche future: comandi derivati dai runner, non eseguiti ora
+
+Prima del codice Next, leggere la guida locale pertinente come impone AGENTS.
+Su futura candidata B/C, in checkout isolato e con dipendenze locked:
+
+```text
+npm run typecheck
+npm run security:scan
+npm run lint
+npm run build
+node --test tests/foundation/asus-019-staff-overview-unavailable.test.mjs tests/foundation/task-039-staff-aware-shop-admin-completion.test.mjs tests/foundation/task-051-platform-provisioning-fiscal-pos-first.test.mjs
+node --test tests/foundation/asus-019-served-staff-read.test.mjs
+```
+
+Aggiornare il primo file: oggi richiede intenzionalmente unsupported per
+overview/members/settings. Aggiungere i positivi del reader implementato,
+conservando denial, nessuna query prima di auth, payload errato, dati cross-shop,
+segreti/colonne inattese, revoca prima di pubblicazione e reader realmente assente.
+Foundation e test statici non sostituiscono SQL/HTTP/sessione reale.
+
+Replay database canonico corrente, Linux/CI isolata con CLI2.109.0 e Docker:
+
+```bash
+python3 scripts/ci/mobile-recovery-local-replay.py run \
+  --repo "$GITHUB_WORKSPACE" \
+  --workdir "$RUNNER_TEMP/asus019-admin-local" \
+  --evidence-dir "$RUNNER_TEMP/asus019-admin-db-evidence"
+```
+
+Derivato da `.github/workflows/ci.yml`, non un `db reset` del progetto linked.
+Root nuove assolute; output error/complete anche se FAIL; nessun retry live
+automatico. Estendere `supabase/tests/task_140_staff_pin_reset_login.sql` solo
+per regressioni pertinenti e aggiungere file pgTAP nuovi overview/history/lease.
+Verificare l'inclusione di ogni nuova migration/test nel manifest pinned del replay
+prima di eseguirlo; aggiornare il manifest per la nuova candidata, non aggirare hash.
+
+Runner browser esistente:
+
+```text
+node scripts/testing/run-playwright-target.mjs local tests/e2e/task-140-staff-pin-reset-login.spec.ts --project=chromium-desktop --workers=1
+node scripts/testing/run-playwright-target.mjs staging tests/e2e/task-140-staff-pin-reset-login.spec.ts --project=chromium-desktop --workers=1
+```
+
+Sono comandi futuri con prerequisiti, non pronti da eseguire indiscriminatamente.
+TASK140 richiede `CONFIRM_TASK140_STAFF_PIN_E2E=yes`, target esplicito, chiavi nel
+canale segreto; locale richiede porta Supabase verificata
+`TASK140_EXPECTED_SUPABASE_PORT`, workdir isolato e app loopback. Staging richiede
+anche linked project/dev-staging coerenti, allowlist e denylist produzione,
+`ALLOW_STAGING_E2E=yes`, `CONFIRM_TASK140_STAGING_SQL=yes` e gli URL verificati.
+Il test TASK140 crea/resetta fixture: usarlo solo sul dataset sintetico autorizzato,
+mai su NEW_SHOP_019. Derivare identico wrapper per nuovi
+`tests/e2e/staging/asus019-admin-operations.spec.ts` e
+`tests/e2e/staging/asus019-payment-history.spec.ts` (file futuri, oggi inesistenti).
+
+Per ogni live: dichiarare target staging, SHA/tree/Worker servito e versione SQL,
+dataset sintetico univoco, actor/metodo di accesso, azioni consentite, preimage,
+backup/rollback, timeout e cleanup esatto. Manifest degli ID creati privato;
+conteggio residue=0 obbligatorio, fallimento cleanup conserva FAIL. Nessun token,
+PIN, URL con credenziali o dettaglio economico nei report condivisi. Metadati
+reali disponibili soltanto se già in scope e redatti, senza reset per reperirli.
+
+### Fixture e acceptance obbligatori
+
+| Gruppo | Positivi | Negativi/invarianti |
+|---|---|---|
+| Identità | Provisioning1001→pos_admin, sessione nuova valida, stesso shop; personale owner/manager con membership valida. |1001 revocato resta revocato; email senza membership; cashier/viewer web; altro shop URL/API; scadenza/lockout/versione/cookie errati; nessuna promozione dal badge/codice. |
+| Capability/azioni |1002/1003 template limitati, parità delle operazioni implementate tra principal, lettura vuota vera, pagina consultiva vera. | Permessi cambiati durante richiesta/sessione bloccano publish/commit stale; no autoescalation o gestione peer protetto; unsupported distinto da denial/backend. |
+| Import | Legacy/moderni con prove verificate, preview/commit/receipt, duplicati tra file e device, interruzione prima/dopo commit e ripresa. | C mancante blocca Apply ma non preview; valuta ignota; alias incerto; sovrapposizione reale; file mutato; conflitti attivi; correzioni inattive non approvate; revoca durante job. |
+| Migrazione/report | Active/annullato e receipt ricostruiti, offline/reconnect e resnapshot, POS/Getnet/both, coverage e netto unknown. | Stesso export non raddoppia totali; no doppia proprietà; undo converge; nessuna variazione vendite native, stock, cassa/fisco/outbox; zero distinto da sconosciuto. |
+| UX | IT/ES/EN/ZH, desktop/mobile, zoom/tastiera/focus, errori operativi e stato progress/retry. | Nessuna perdita sessione chiudendo il wizard, nessun dettaglio tecnico come unica istruzione, nessuna azione UI abilitata senza corrispondente guard server. |
+
+## Prestazioni, costo e recuperabilità
+
+B: DTO overview bounded, query/index shop-scoped, niente scansione globale o N+1
+identità. Riutilizzare cache per richiesta; niente cache cross-actor delle capability.
+Budget proposto da misurare: overview p95≤1s con1000device/100staff e risposte≤256KiB,
+nessuna query senza indice shop/chiave. Se il limite fallisce, conservare FAIL e
+profilare, non alzare soglie per accettare il candidato.
+
+C: proposta iniziale da validare su corpus:10file/job,20MiB/file,100MiB/job,
+100000righe/job, espansione ZIP/memoria/celle bounded e rifiuto zip-bomb. Questi sono
+limiti applicativi proposti, non limiti del provider attestati. Analisi in worker
+bounded con code/backpressure; pagina movimenti≤200, chunk replica≤1000. UI non
+blocca sul parsing; progress e cancel prima del commit, receipt lookup dopo.
+Benchmark10k/100k/duplicati100%, memoria/CPU/query/egress e p50/p95 prima dei limiti
+finali; nessuna promessa di tempo cloud dedotta dal solo runner locale Windows.
+
+Parità economica non significa ampliare input senza limiti: la V1 Windows ammette
+32 file, 32MiB/file,128MiB/selezione e100000 righe complessive, con limiti anche su
+XML/celle/shared strings (`GetnetExcelImportReader.cs`). Se il web mantiene limiti
+inferiori, spiegarli prima dell'upload e coprire gli stessi dati con job idempotenti
+separati. La parità richiesta riguarda contenuto, decisioni e risultato; ogni
+variazione di capacità deve essere deliberata e misurata.
+
+Costo da stimare nella futura Execution con piano/provider effettivo e misure:
+storage originali + versioni/revocation/audit, CPU parsing e retry, DB indici/backup,
+egress replica e conservazione. Formula di preventivo: byte conservati×mesi +
+job×CPU media + query/IO + byte replicati×device; registrare tariffa/data e volume,
+senza inventare prezzi. Retention proposta: upload temporanei7giorni dopo ricevuta,
+originali/evidence secondo periodo approvato e diritto d'accesso; ricevute/audit
+non cancellati dal cleanup upload. Nessun log di riga finanziaria nel monitoraggio.
+
+Rollback B: Worker precedente qualificato pinned; migrazioni additive compatibili
+con vecchio client. Fermare la superficie nuova se auth/DTO/regressione; nessun
+reset di credenziali o grant per ripristinare una pagina. Preimage/ACL/digest prima
+di apply e verifica post-rollback. Storico147 FAIL e rollback non riscritti.
+
+## Evidence, decisioni e passaggio di fase
+
+Eseguito per questo Planning: status/fetch/log/diff Admin e letture mirate di
+AGENTS, Master/task/handoff, sorgenti, migrazioni e runner sopra. Nessun gate npm,
+SQL, HTTP o nuova sessione live eseguito. `git diff --check` documentale registrato
+al salvataggio; le eventuali evidence precedenti mantengono SHA e data propri.
+
+Decisioni proposte pronte alla review: mantenere pos_admin esistente, owner-only
+protetto, template ruolo condivisi; nuova superficie incassi distinta da History
+mobile; parser con corpus equivalente, ledger separato e unica write authority.
+Decisioni ancora aperte prima di C Execution: fonte provider C per moderni; scelta
+storage/worker e retention effettiva; inventario completo dispositivi/versioni per
+cutover; eventuale requisito vero di permessi individuali. B reader non dipende da
+C e non autorizza implicitamente C. Prova C assente non blocca la consultazione
+legacy già valida né autorizza una interpretazione moderna arbitraria.
+
+Prossimo passo A: chiudere i run5d8e704 e consegna reale già autorizzati.
+Prossimo passo B dopo review/Execution: B0+B1, poi reader overview con boundary SQL
+riproducibile e prove negative, senza recupero1001 o espansione owner-only.
+C resta pianificata fino ai suoi gate. PASS richiede prove eseguite; FAIL/TIMEOUT
+si conservano, BLOCKED nomina prerequisito/sblocco, NOT_RUN non è PASS_WITH_NOTES.
+Nessun DONE senza accettazione esplicita dell'utente.
