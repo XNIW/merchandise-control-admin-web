@@ -82,6 +82,17 @@ jobs:
       - name: Diff whitespace check
         run: git diff --check
 
+      - name: Package qualified staging Worker
+        run: node scripts/qualified-worker-artifact.mjs
+
+      - name: Preserve qualified staging Worker
+        uses: actions/upload-artifact@v4
+        with:
+          name: qualified-worker-${{ github.sha }}
+          path: qualified-worker/
+          if-no-files-found: error
+          retention-days: 7
+
   deploy-staging:
     name: Deploy staging
     needs: cloudflare-build

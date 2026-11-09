@@ -1,5 +1,59 @@
 # ASUS-W7POS-019 — stato della superficie staff
 
+## 9 novembre — candidata di compatibilità release in EXECUTION
+
+Main6173964 e Windows e115ebf ricontrollate. Worker399720d2/deployment291c5cb8
+ancora attivi. Tool readonly di export usa il normale consumer OAuth Wrangler
+in memoria e soltanto GET circoscritti al Worker staging; cinque vettori di
+path confinement PASS, timeout e limite32MiB, nessun token/hash credenziale
+persistito o stampato. Identità prima/dopo uguale, un modulo11446015byte,
+SHA256c7a50bc0328a5c26a5797bc3837def712e38ea60ab405d8727ae0eb8c101ee43.
+Questo è l'artefatto servito, non una pretesa equivalenza dello snapshot8ottobre.
+
+Confronto statico delle stringhe contratto nel bundle servito e nei725file
+server della main compilata:130 contro128; gli unici nomi presenti solo nel
+servito sono s3_v3 (libreria) e staff_web_staff_read_v1. È un discriminante,
+non prova automatica di equivalenza semantica. Il caller servito e il decoder
+staff sono stati estratti privatamente dal bundle per il recupero mirato.
+La main rifiutava questa superficie; distribuirla invariata perderebbe una
+correzione TASK140F già online. Nessun deploy eseguito su quella candidata.
+
+Percorso B in qualifica: wrapper RPC esatto già servito, schema Arg tipizzato,
+decoder vincolato a shop/actor/session/version,19colonne safe, UUID/timestamp/
+enum/conteggi validi,100righe massimo, niente duplicati e ruoli owner-only
+validati. Stessi DTO e policy della pagina; overview/members/settings PR144
+rimangono senza reader staff. Nessuna nuova capacità DB o grant. RPC remota:
+firma uuid/uuid/uuid/text/integer→jsonb, bodyMD5fcdb20fbb3d87cf31e3117ffb1e59ba4,
+service_role EXECUTE true, anon/authenticated false. Il corpo riacquisisce e
+pubblica la lease nella stessa transazione. Gli altri contratti commerce/
+receipt/retire/correction/recovery pertinenti risultano presenti nei metadati;
+nessuna assenza dedotta dalla sola migration history.
+
+Rosso di mancata superficie e wrapper preservato;17 nuovi test di positivo,
+binding errati, DTO/colonne estranee, overflow/duplicati, denial/errori/assenza
+sessione e metadati owner-only PASS. Con overview e HTTP:63/63 PASS.
+Ulteriori boundary preesistenti:53/53 PASS. Typecheck iniziale FAIL di tipo
+owner-role; annotato il predicate string, nuovo PASS. Security iniziale FAIL
+per RPC non registrata: aggiunto soltanto quel nome alla allowlist del modulo
+contenuto, coerente col contratto remoto già esistente; nuovo scan PASS
+(check Win7POS esterno SKIPPED nella configurazione locale). Lint PASS.
+
+OpenNext Windows: Next build PASS, successivo bundling FAIL EPERM symlink
+sharp. Prima failure conservata, nessuna build fallita distribuita, proxy e
+patch dipendenze ripristinati. Docker non disponibile sul PATH.
+Il workflow Cloudflare esistente produce ora dopo tutti i gate un artefatto
+Linux portabile: dry-run Wrangler, bundle/assets, configurazione solo staging
+con gli stessi binding/flag, SHA/tree e lock/config/file checksum. Sei test
+di configurazione target/service/assets/entrypoint PASS. Nessun nuovo secret,
+dipendenza, dispatch CI generico o modifica al deploy TASK150.
+
+Restano da qualificare la SHA esatta, artefatto e compatibilità complessiva,
+quindi rollout e prove autenticate. Il Mac coordinatore citato nei documenti
+non è leggibile da questo host; la nota PR29 resta l'unico raccordo, senza
+aspettare CI mobile per lavoro indipendente. Non è un DONE.
+
+Le sezioni seguenti conservano il checkpoint dell'8novembre.
+
 ## Stato corrente — software integrato, rollout non eseguito
 
 PR144 merge919d100, PR145 mergefdb30f4 e PR146
