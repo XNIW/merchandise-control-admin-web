@@ -9,6 +9,7 @@ import type {
   ShopAdminReadModelStatus,
 } from "./read-model";
 import { canShopAdmin } from "./permissions";
+import { callStaffWebStaffRead } from "./staff-web-lease-bound-rpc";
 import {
   canStaffWebPerformShopAdminAction,
   hasStaffFullShopAdminWebAccess,
@@ -80,6 +81,97 @@ const builtInStaffRoleKeys = [
   "pos_admin",
   "viewer",
 ] as const;
+
+const staffReadColumns = new Set([
+  "staff_id", "shop_id", "staff_code", "display_name", "role_key", "status",
+  "credential_kind", "credential_status", "credential_updated_at",
+  "credential_expires_at", "credential_version", "must_change_credential",
+  "failed_attempts", "locked_until", "last_login_at", "session_invalidated_at",
+  "web_access_revoked_at", "created_at", "updated_at",
+]);
+
+function record(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+function isLeaseBoundStaffRow(value: unknown, shopId: string): value is StaffSafeRow {
+  if (!record(value) || Object.keys(value).some((key) => !staffReadColumns.has(key)) ||
+      value.shop_id !== shopId || typeof value.staff_id !== "string" ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value.staff_id)) return false;
+  for (const key of ["staff_code", "display_name", "role_key", "status", "credential_status"]) {
+    if (typeof value[key] !== "string" || !value[key]) return false;
+  }
+  if (!builtInStaffRoleKeys.some((role) => role === value.role_key) ||
+      !["pending_credential", "active", "suspended", "archived"].includes(value.status as string) ||
+      !["pending_setup", "active", "rotation_required", "locked"].includes(value.credential_status as string) ||
+      (value.credential_kind !== null && value.credential_kind !== "pin" && value.credential_kind !== "password") ||
+      !Number.isSafeInteger(value.credential_version) || (value.credential_version as number) < 1 ||
+      !Number.isSafeInteger(value.failed_attempts) || (value.failed_attempts as number) < 0 ||
+      typeof value.must_change_credential !== "boolean") return false;
+  for (const key of ["created_at", "updated_at"]) {
+    if (typeof value[key] !== "string" || !Number.isFinite(Date.parse(value[key]))) return false;
+  }
+  for (const key of ["credential_updated_at", "credential_expires_at", "locked_until",
+    "last_login_at", "session_invalidated_at", "web_access_revoked_at"]) {
+    if (value[key] !== null && (typeof value[key] !== "string" ||
+        !Number.isFinite(Date.parse(value[key])))) return false;
+  }
+  return true;
+}
+
+async function leaseBoundStaffBundle(
+  access: Extract<ResolvedShopStaffAccess, { status: "ready"; principalKind: "pos_staff_manager" }>,
+): Promise<{ ownerOnlyRoleKeys: readonly string[]; readModel: ShopStaffReadModel }> {
+  const blocked = {
+    ownerOnlyRoleKeys: builtInStaffRoleKeys,
+    readModel: {
+      status: "error" as const, ...emptyRows, readOnly: true as const,
+      source: "supabase_server" as const,
+      reason: "Staff metadata could not be verified through the session-bound operation.",
+    },
+  };
+  const session = access.principal.staffWebSession;
+  if (!session) return blocked;
+  try {
+    const { data, error } = await callStaffWebStaffRead({
+      actorStaffId: access.principal.staff.staffId, selectedShop: access.selectedShop,
+      staffWebSession: session,
+    });
+    if (error || !record(data)) return blocked;
+    if (data.ok !== true || data.code !== "success") {
+      return { ...blocked, readModel: { ...blocked.readModel, status: "unauthorized" } };
+    }
+    if (data.shop_id !== access.selectedShop.shopId ||
+        data.actor_staff_id !== access.principal.staff.staffId ||
+        data.staff_web_session_id !== session.sessionId ||
+        data.credential_version !== session.credentialVersion ||
+        !Array.isArray(data.staff_accounts) || data.staff_accounts.length > 100 ||
+        !Array.isArray(data.owner_only_role_keys) ||
+        !data.owner_only_role_keys.every((key): key is string => typeof key === "string" &&
+          builtInStaffRoleKeys.some((role) => role === key)) ||
+        !data.owner_only_role_keys.includes("pos_admin") ||
+        !data.owner_only_role_keys.includes("courier")) return blocked;
+    const rows: ShopStaffReadModelStaffAccount[] = [];
+    const seen = new Set<string>();
+    for (const row of data.staff_accounts) {
+      if (!isLeaseBoundStaffRow(row, access.selectedShop.shopId)) return blocked;
+      const mapped = mapStaffSafeRow(row);
+      if (!mapped || seen.has(mapped.staffId)) return blocked;
+      seen.add(mapped.staffId);
+      rows.push(mapped);
+    }
+    return {
+      ownerOnlyRoleKeys: Array.from(new Set(data.owner_only_role_keys)),
+      readModel: {
+        status: "ready", selectedShop: access.selectedShop, staffAccounts: rows,
+        readOnly: true, source: "supabase_server",
+        reason: "Staff metadata loaded under the current shop-scoped staff session.",
+      },
+    };
+  } catch {
+    return blocked;
+  }
+}
 
 function redactStaffReadModelError(error: unknown): ShopAdminReadModelError {
   const code =
@@ -209,14 +301,7 @@ async function staffReadModelFromAccess(
   }
 
   if (access.principalKind !== "personal_account") {
-    return {
-      status: "unauthorized",
-      ...emptyRows,
-      readOnly: true,
-      source: "supabase_server",
-      reason:
-        "Staff account reads require a lease-bound staff read operation that is not available for this surface.",
-    };
+    return (await leaseBoundStaffBundle(access)).readModel;
   }
 
   const { selectedShop, supabase } = access;
@@ -342,10 +427,11 @@ export async function resolveStaffPageBundle(
     requestedShopId,
     strictRequestedShop: true,
   });
-  const [ownerOnlyRoleKeys, readModel] = await Promise.all([
-    ownerOnlyRoleKeysFromAccess(access),
-    staffReadModelFromAccess(access),
-  ]);
+  const staffBundle = access.status === "ready" && access.principalKind === "pos_staff_manager"
+    ? await leaseBoundStaffBundle(access) : null;
+  const [ownerOnlyRoleKeys, readModel] = staffBundle
+    ? [staffBundle.ownerOnlyRoleKeys, staffBundle.readModel]
+    : await Promise.all([ownerOnlyRoleKeysFromAccess(access), staffReadModelFromAccess(access)]);
 
   return {
     canManagePosAdminRole: canManagePosAdminRoleFromAccess(access),

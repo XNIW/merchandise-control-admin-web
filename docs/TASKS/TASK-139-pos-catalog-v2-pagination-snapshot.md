@@ -1,5 +1,12 @@
 # TASK-139 - POS Catalog v2 Pagination and Snapshot Correctness
 
+> ASUS019, 9 novembre: EXECUTION della compatibilità release. Export del bundle
+> servito ha dimostrato che la main perderebbe il reader staff TASK140F.
+> Recupero mirato del contratto già online e artefatto Linux qualificato nel
+> workflow esistente, senza SQL/grant/deploy automatico. CI della nuova unità
+> da raccogliere; stato e prove sotto non si trasferiscono al nuovo candidato.
+> [Evidence](EVIDENCE/TASK-139/asus-019-staff-overview-20261108.md).
+
 > Continuazione corrente ASUS019: PR144/145/146 integrate, ultima mergef57afa6.
 > CI42526220441 e Cloudflare42526220439 post-merge PASS, live E2E/deploy
 > SKIPPED. Login POS1823697 PASS; HTTP500 catalog_v2_empty_manifest reale

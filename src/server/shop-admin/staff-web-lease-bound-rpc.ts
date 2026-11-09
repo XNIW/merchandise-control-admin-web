@@ -40,6 +40,19 @@ function staffLeaseBoundAdminClient() {
     : null;
 }
 
+// Preserves the TASK140F operation already served by the staging Worker.
+export function callStaffWebStaffRead(context: StaffWebLeaseBoundContext) {
+  const supabase = staffLeaseBoundAdminClient();
+  if (!supabase) return unavailableRpcResult();
+  return supabase.rpc("staff_web_staff_read_v1", {
+    p_expected_credential_version: context.staffWebSession.credentialVersion,
+    p_session_token_hash: context.staffWebSession.sessionTokenHash,
+    p_shop_id: context.selectedShop.shopId,
+    p_staff_id: context.actorStaffId,
+    p_staff_web_session_id: context.staffWebSession.sessionId,
+  });
+}
+
 /**
  * The service-role client is deliberately contained in this module. Callers
  * receive only named RPC operations whose SQL implementations reacquire and

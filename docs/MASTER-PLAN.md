@@ -1,5 +1,29 @@
 # MerchandiseControl Admin Web - Master Plan
 
+## ASUS019 — EXECUTION compatibilità della release, 9 novembre 2026
+
+Worker staging399720d2 e deployment291c5cb8 ricontrollati invariati.
+Esportato in sola lettura il bundle realmente servito, con identità verificata
+prima/dopo: worker.js SHA256c7a50bc0328a5c26a5797bc3837def712e38ea60ab405d8727ae0eb8c101ee43.
+Il confronto col server compilato della main6173964 ha trovato una regressione
+concreta: manca staff_web_staff_read_v1, già servita da TASK140F. La main non
+viene pubblicata invariata. Stessa ASUS019, nessuna nuova task.
+
+Candidata percorso B: recuperare quel reader esistente con le stesse guardie
+di shop/actor/session/version, whitelist dei DTO e metadati owner-only. RPC
+remota e ACL service-role-only verificati; nessun nuovo SQL, grant o permesso.
+Regressioni nuove17/17, più46 esistenti PASS; conservato il rosso precedente.
+La full HTTP vuota PR145 e lo stato overview PR144 restano distinti.
+
+Build Cloudflare locale interrotta da EPERM sui symlink Windows, proxy e
+patch temporanee ripristinati. Il workflow Cloudflare conserva ora l'artefatto
+Linux dopo i gate, con SHA/tree/lock/config e manifest dei file, configurazione
+portabile solo staging, nessun secret put o deploy da questo packaging.
+Qualifica esatta della candidata e confronto finale ancora da completare.
+[Evidence corrente](TASKS/EVIDENCE/TASK-139/asus-019-staff-overview-20261108.md).
+
+Le sezioni sotto sono checkpoint precedenti.
+
 ## ASUS019 — software integrato e qualificato, REVIEW con rollout aperto
 
 Stato corrente8novembre: PR144/145/146 integrate normalmente, ultima

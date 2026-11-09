@@ -71,9 +71,15 @@ jobs:
         run: npm run lint
 
       - name: Next build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
         run: npm run build
 
       - name: Cloudflare OpenNext build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
         run: npm run cf:build
 
       - name: Cloudflare local smoke
@@ -81,6 +87,20 @@ jobs:
 
       - name: Diff whitespace check
         run: git diff --check
+
+      - name: Package qualified staging Worker
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/qualified-worker-artifact.mjs
+
+      - name: Preserve qualified staging Worker
+        uses: actions/upload-artifact@v4
+        with:
+          name: qualified-worker-${{ github.sha }}
+          path: qualified-worker/
+          if-no-files-found: error
+          retention-days: 7
 
   deploy-staging:
     name: Deploy staging
