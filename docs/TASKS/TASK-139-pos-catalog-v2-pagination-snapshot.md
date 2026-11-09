@@ -1,5 +1,11 @@
 # TASK-139 - POS Catalog v2 Pagination and Snapshot Correctness
 
+> ASUS019 corrente: primo rollout147 ha superato catalogo/workbench POS ma
+> fallito la verifica web pos_admin; rollback399720d2 e check pubblico PASS.
+> Correzione in EXECUTION: riusare il predicate dei ruoli web già ammessi,
+> conservando tutti i fence della sessione.45mirati PASS, qualifica del
+> successore e nuovo live ancora da eseguire. Il DONE storico non si estende.
+
 > ASUS019, 9 novembre: EXECUTION della compatibilità release. Export del bundle
 > servito ha dimostrato che la main perderebbe il reader staff TASK140F.
 > Recupero mirato del contratto già online e artefatto Linux qualificato nel

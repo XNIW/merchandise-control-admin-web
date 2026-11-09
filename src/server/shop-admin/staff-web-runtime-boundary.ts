@@ -2,6 +2,7 @@ import "server-only";
 
 import type { SupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/database.types";
+import { isPosStaffWebAdminRoleKey } from "./access-principal";
 
 type JsonObject = Record<string, unknown>;
 
@@ -406,7 +407,7 @@ export async function resolveStaffWebRuntimeSession(
     sessionCredentialVersion !== staff.credentialVersion ||
     shop.shopStatus !== "active" ||
     staff.status !== "active" ||
-    staff.roleKey !== "manager" ||
+    !isPosStaffWebAdminRoleKey(staff.roleKey) ||
     staff.credentialStatus !== "active" ||
     staff.mustChangeCredential ||
     staff.webAccessRevokedAt !== null ||

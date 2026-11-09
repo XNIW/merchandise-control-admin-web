@@ -1,5 +1,28 @@
 # MerchandiseControl Admin Web - Master Plan
 
+## ASUS019 — regressione live del ruolo e rollback, 9 novembre
+
+PR147 integrata cdebb26; CI42632336586 e Cloudflare42632336513 post-merge PASS.
+Unità Linux13681780138 qualificata, source3caa754/tree4f6424c equivalente al
+merge; pubblicata come Worker5cbf018f, variabili/binding conservati e check
+pubblico PASS. POS1823697 avviato manualmente dopo rifiuto policy dello
+strumento: login, full vuota e workbench storico osservati PASS; vendite bloccate.
+
+Console autenticata FAIL: due sessioni pos_admin nuove e non scadute revocate
+dal guard runtime che ammetteva solo manager. La qualifica iniziale ha mancato
+questa seconda differenza TASK140F; l'inventario dei nomi RPC non provava
+equivalenza di autorizzazione. Failure conservata, POS task fermato per
+identità verificata prima del rollback. Ripristinata399720d2 con deployment
+1c2aaf19; identità e check pubblico PASS, nessuna SQL/chiave/grant modificata.
+
+EXECUTION nello stesso ASUS019: il runtime usa ora il predicate dei ruoli web
+già condiviso dal principal e servito da TASK140F. Nessun nuovo ruolo o
+permesso. Rosso pos_admin/courier conservato;45mirati PASS con scope/session/
+version/revoca e ruoli esclusi. Successore da qualificare esattamente prima
+del nuovo rollout; non trasferire il verde147. Nessun DONE.
+
+Le sezioni sotto descrivono i checkpoint precedenti.
+
 ## ASUS019 — EXECUTION compatibilità della release, 9 novembre 2026
 
 Worker staging399720d2 e deployment291c5cb8 ricontrollati invariati.

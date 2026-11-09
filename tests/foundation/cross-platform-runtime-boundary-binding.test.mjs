@@ -28,7 +28,21 @@ async function loadModule(relativePath) {
   );
   const tempDir = await mkdtemp(join(tmpdir(), "runtime-boundary-"));
   const modulePath = join(tempDir, "boundary.mjs");
-  const { outputText } = ts.transpileModule(source, {
+  // Keep the shared production role predicate; server data dependencies are
+  // unused by that predicate and are deliberately absent from this unit host.
+  if (source.includes('from "./access-principal"')) {
+    const principal = ts.createSourceFile("access-principal.ts",
+      readFileSync(join(root, "src/server/shop-admin/access-principal.ts"), "utf8"),
+      ts.ScriptTarget.Latest, true);
+    const isolated = ts.factory.updateSourceFile(principal,
+      principal.statements.filter((statement) => !ts.isImportDeclaration(statement)));
+    const roleModule = ts.transpileModule(ts.createPrinter().printFile(isolated), {
+      compilerOptions: { module: ts.ModuleKind.ES2022, target: ts.ScriptTarget.ES2022 },
+    }).outputText;
+    await writeFile(join(tempDir, "access-principal.mjs"), roleModule, "utf8");
+  }
+  const { outputText } = ts.transpileModule(source.replace(
+    'from "./access-principal"', 'from "./access-principal.mjs"'), {
     compilerOptions: {
       module: ts.ModuleKind.ES2022,
       target: ts.ScriptTarget.ES2022,
@@ -439,6 +453,41 @@ function staffRuntime() {
     },
   };
 }
+
+for (const role of ["manager", "pos_admin", "courier"]) {
+  test("ASUS019 served staff runtime role remains usable: " + role, async () => {
+    const { cleanup, module } = await loadModule("src/server/shop-admin/staff-web-runtime-boundary.ts");
+    try {
+      const runtime = staffRuntime();
+      runtime.staff.role_key = role;
+      const result = await module.resolveStaffWebRuntimeSession(adminReturning(runtime), TOKEN_HASH);
+      assert.equal(result.kind, "ok");
+      assert.equal(result.runtime.staff.roleKey, role);
+      assert.deepEqual(result.runtime.permissions, ["sync.read"]);
+      for (const change of [
+        (value) => { value.session.shop_id = OTHER_SHOP; },
+        (value) => { value.session.staff_id = OTHER_SHOP; },
+        (value) => { value.session.staff_credential_version = 4; },
+        (value) => { value.session.status = "revoked"; },
+        (value) => { value.staff.must_change_credential = true; },
+      ]) {
+        const invalid = structuredClone(runtime);change(invalid);
+        const denied = await module.resolveStaffWebRuntimeSession(adminReturning(invalid), TOKEN_HASH);
+        assert.notEqual(denied.kind, "ok");
+      }
+    } finally { await cleanup(); }
+  });
+}
+test("ASUS019 runtime still refuses roles outside the existing web role policy", async () => {
+  const { cleanup, module } = await loadModule("src/server/shop-admin/staff-web-runtime-boundary.ts");
+  try {
+    for (const role of ["cashier", "viewer", "admin", "custom"]) {
+      const runtime=staffRuntime();runtime.staff.role_key=role;
+      assert.deepEqual(await module.resolveStaffWebRuntimeSession(adminReturning(runtime), TOKEN_HASH),
+        {kind:"denied"});
+    }
+  } finally {await cleanup();}
+});
 
 test("staff web lookup, session and commit bind requested identities", async () => {
   const { cleanup, module } = await loadModule(
