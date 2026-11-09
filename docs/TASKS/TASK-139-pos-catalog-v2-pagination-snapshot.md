@@ -1,5 +1,13 @@
 # TASK-139 - POS Catalog v2 Pagination and Snapshot Correctness
 
+> Corrente9novembre: software successore148 pronto alla REVIEW, reale ACTIVE.
+> Merge9016054, CI42641653938/Cloudflare42641652917 postmerge PASS.
+> Artifact13684508006/57file verificato, servito come Workera68ebec2,
+> deployment1cd437f1/100% tag9016054; pubblico PASS, nuovo controllo
+> autenticato pos_admin ancora da osservare. Prima147 web FAIL e rollback
+> pinned399720d2 preservati; nessun SQL/grant/secret put o nuova task.
+> Il DONE storico sotto non si estende alla continuazione.
+
 > ASUS019 corrente: primo rollout147 ha superato catalogo/workbench POS ma
 > fallito la verifica web pos_admin; rollback399720d2 e check pubblico PASS.
 > Correzione in EXECUTION: riusare il predicate dei ruoli web già ammessi,

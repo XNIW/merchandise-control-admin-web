@@ -1,5 +1,23 @@
 # MerchandiseControl Admin Web - Master Plan
 
+## ASUS019 — successore148 servito, verifica autenticata in corso
+
+Software148 pronto alla REVIEW, operatività reale ancora ACTIVE nella stessa
+ASUS019. Codicecc7b835/merge9016054,45mirati PASS; Cloudflare42638650988 e
+CI42638651781 attempt2 PASS. Attempt1 PREFIX_CONTAINER_HEALTH_FAILED prima di
+bind/apply/test conservato, un solo rerun failed jobs, TASK094 live SKIPPED.
+Postmerge CI42641653938 e Cloudflare42641652917 PASS.
+
+Artifact13684508006, source434e312/tree918a24e equivalente,57checksum e
+lock/config/dry-run no-bundle verificati. Ora Worker staginga68ebec2,
+deployment1cd437f1,100% tag9016054, pubblico PASS; nuovo login pos_admin
+manuale richiesto dopo la correzione, non ancora qualificato. Primo live147
+FAIL e rollback399720d2 restano conservati. Nessun SQL/grant/secret put,
+TASK150 deploy workflow o dispatch commerciale. Windows1823697 invariato.
+[Matrice corrente](TASKS/EVIDENCE/TASK-139/asus-019-staff-overview-20261108.md).
+
+I checkpoint sotto restano storia, non stato corrente.
+
 ## ASUS019 — regressione live del ruolo e rollback, 9 novembre
 
 PR147 integrata cdebb26; CI42632336586 e Cloudflare42632336513 post-merge PASS.

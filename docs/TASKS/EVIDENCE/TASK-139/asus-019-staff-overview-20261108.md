@@ -1,5 +1,42 @@
 # ASUS-W7POS-019 — stato della superficie staff
 
+## Corrente —148 qualificata e servita, controllo autenticato pending
+
+Codicecc7b835ac59004e6acd2988be15fdc372d06c7cd, normale merge
+9016054ab6fea1a8d9ad7e6765255662af5afafe.45mirati e typecheck/security/lint
+locali PASS, con check esterno Win7POS SKIPPED solo localmente.
+Cloudflare42638650988 PASS, CI42638651781 attempt2 database/Verify PASS.
+Attempt1 PREFIX_CONTAINER_HEALTH_FAILED prima di bind/apply/test preservato
+con artifact13683128351 e log; bootstrap/config immutati rispetto a b0a25e8,
+un solo rerun targeted failed jobs. TASK094 live SKIPPED, nessun dispatch.
+Postmerge CI42641653938 e Cloudflare42641652917 PASS.
+
+Artefatto Linux13684508006, ZIP SHA256
+9f5902b105078c35896b531b42e54a6bf30f50a01a6fd026cfa3d238f7c9b01a;
+compiled source434e31214ed04820bfb89b9441b054d4d2e3c155,
+tree918a24eeeb78e83ae98c5f396dac8231ce1a6ab4 equivalente a candidata e merge.
+57checksum e canonical git blob lock/config PASS; dry-run no-bundle verifica
+Worker SHA2567d87a0968c9728acdc6993248c794598b94fd7b2fcdc38a0070de97f8e30b08f
+byte-identico. Configurazione portabile solo staging, due sole variabili
+browser pubbliche legate al progetto staging verificato; nessuna chiave server.
+
+Deploy CLI bounded/no-bundle/keep-vars terminato0. Worker
+a68ebec2-3c55-46f8-bf4d-502e326187af, deployment
+1cd437f1-0608-408b-ba42-eb0f9716c7e8,100% e tag9016054 verificati,
+cf:check:staging PASS. Nessun secret put, SQL, grant, produzione o suite live
+commerciale. Primo rilascio147 e rollback pinned399720d2 preservati sotto.
+
+Controllo autenticato della148 ancora pending: vecchie sessioni erano state
+revocate dal difetto147, non riattivate dal DB. Scheda Admin019 predisposta
+sul normale login shop-code, nuova immissione mascherata dell'utente richiesta.
+Non trasferire il PASS pubblico alla sessione reale. POS1823697 del primo
+rollout aveva confermato catalogo vuoto e aperto Historical workspace; fermato
+prima del rollback, trust conservato. Riapertura ordinaria/profilo quotidiano
+e analisi7XLSX restano verifiche Windows, non esiti dedotti dalla CI Admin.
+
+Software pronto alla REVIEW; continuazione reale ACTIVE, nessun DONE.
+I checkpoint successivi sono storia.
+
 ## Primo live147: catalogo PASS, console FAIL, rollback verificato
 
 PR147 mergecdebb26c8b25a1204b4bea7fc8e0342b833bf6cb; CI42632336586 e
