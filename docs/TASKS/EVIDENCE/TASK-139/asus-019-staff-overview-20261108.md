@@ -1,6 +1,6 @@
 # ASUS-W7POS-019 — stato della superficie staff
 
-## Corrente —148 qualificata e servita, controllo autenticato pending
+## Corrente —148 qualificata e servita, controllo autenticato PASS
 
 Codicecc7b835ac59004e6acd2988be15fdc372d06c7cd, normale merge
 9016054ab6fea1a8d9ad7e6765255662af5afafe.45mirati e typecheck/security/lint
@@ -26,13 +26,23 @@ a68ebec2-3c55-46f8-bf4d-502e326187af, deployment
 cf:check:staging PASS. Nessun secret put, SQL, grant, produzione o suite live
 commerciale. Primo rilascio147 e rollback pinned399720d2 preservati sotto.
 
-Controllo autenticato della148 ancora pending: vecchie sessioni erano state
-revocate dal difetto147, non riattivate dal DB. Scheda Admin019 predisposta
-sul normale login shop-code, nuova immissione mascherata dell'utente richiesta.
-Non trasferire il PASS pubblico alla sessione reale. POS1823697 del primo
-rollout aveva confermato catalogo vuoto e aperto Historical workspace; fermato
-prima del rollback, trust conservato. Riapertura ordinaria/profilo quotidiano
-e analisi7XLSX restano verifiche Windows, non esiti dedotti dalla CI Admin.
+Controllo autenticato della148 PASS dopo nuova immissione mascherata utente:
+scheda Admin019, panoramica «non disponibile per accesso staff» e pagina
+Staff con lettura autorizzata safe osservate. La sessione resta valida nella
+navigazione; nessun account, PIN o permesso modificato. Le sessioni revocate
+dal difetto147 non sono state riattivate dal DB.
+
+Sul successore, avvio del collegamento quotidiano verificato sull'installato
+1823697 e profilo NEW_SHOP_019 conservato; login manuale, catalogo autorevole
+vuoto e workbench reale PASS. Sette XLSX analizzati nella UI con preview
+NeedsEvidence e confronto indipendente; solo quattro legacy applicabili
+salvati. Backup prodotto e riconciliazione esatta PASS, ricevuta e report/CSV
+consultabili. Errore NullReference UI successivo al commit conservato: un test
+Windows sintetico riproduce la rientranza della conferma, patch mirata in
+qualifica. Non è dimostrato lo stack originale live. Nessun retry Apply o
+undo del lotto valido; moderni ancora bloccati dalla prova temporale C.
+Le evidenze Windows sono separate dalla CI Admin e dalla qualifica fisica
+Win7, già dichiarata indisponibile.
 
 Software pronto alla REVIEW; continuazione reale ACTIVE, nessun DONE.
 I checkpoint successivi sono storia.

@@ -1,6 +1,6 @@
 # MerchandiseControl Admin Web - Master Plan
 
-## ASUS019 — successore148 servito, verifica autenticata in corso
+## ASUS019 — successore148 servito, verifica autenticata PASS
 
 Software148 pronto alla REVIEW, operatività reale ancora ACTIVE nella stessa
 ASUS019. Codicecc7b835/merge9016054,45mirati PASS; Cloudflare42638650988 e
@@ -10,10 +10,17 @@ Postmerge CI42641653938 e Cloudflare42641652917 PASS.
 
 Artifact13684508006, source434e312/tree918a24e equivalente,57checksum e
 lock/config/dry-run no-bundle verificati. Ora Worker staginga68ebec2,
-deployment1cd437f1,100% tag9016054, pubblico PASS; nuovo login pos_admin
-manuale richiesto dopo la correzione, non ancora qualificato. Primo live147
+deployment1cd437f1,100% tag9016054, pubblico e nuovo login pos_admin PASS.
+Nella console reale la panoramica distingue «non disponibile per accesso
+staff»; la pagina Staff legge la riga autorizzata con il reader safe.
+Nessuna credenziale o autorizzazione modificata. Primo live147
 FAIL e rollback399720d2 restano conservati. Nessun SQL/grant/secret put,
-TASK150 deploy workflow o dispatch commerciale. Windows1823697 invariato.
+TASK150 deploy workflow o dispatch commerciale. Avvio quotidiano Windows,
+catalogo autorevole vuoto e analisi UI dei sette XLSX osservati PASS.
+Il solo scope legacy applicabile è salvato e riconciliato; errore UI dopo
+commit conservato e correzione Windows mirata in qualifica. Nessun retry
+live o annullamento del lotto valido. Moderni ancora bloccati dalla prova
+temporale C; questa dipendenza non riapre il rilascio Admin.
 [Matrice corrente](TASKS/EVIDENCE/TASK-139/asus-019-staff-overview-20261108.md).
 
 I checkpoint sotto restano storia, non stato corrente.

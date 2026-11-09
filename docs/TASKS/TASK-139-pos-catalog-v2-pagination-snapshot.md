@@ -3,8 +3,11 @@
 > Corrente9novembre: software successore148 pronto alla REVIEW, reale ACTIVE.
 > Merge9016054, CI42641653938/Cloudflare42641652917 postmerge PASS.
 > Artifact13684508006/57file verificato, servito come Workera68ebec2,
-> deployment1cd437f1/100% tag9016054; pubblico PASS, nuovo controllo
-> autenticato pos_admin ancora da osservare. Prima147 web FAIL e rollback
+> deployment1cd437f1/100% tag9016054; pubblico e nuovo controllo
+> autenticato pos_admin PASS: overview staff-unavailable distinta da denial,
+> reader Staff safe autorizzato. POS vuoto/workbench e analisi7 reali PASS;
+> legacy salvato e riconciliato, correzione UI Windows postcommit in qualifica.
+> Moderni bloccati dalla prova temporale C. Prima147 web FAIL e rollback
 > pinned399720d2 preservati; nessun SQL/grant/secret put o nuova task.
 > Il DONE storico sotto non si estende alla continuazione.
 
