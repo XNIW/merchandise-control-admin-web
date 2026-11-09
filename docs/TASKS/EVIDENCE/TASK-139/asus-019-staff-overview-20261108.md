@@ -1,5 +1,52 @@
 # ASUS-W7POS-019 — stato della superficie staff
 
+## Primo live147: catalogo PASS, console FAIL, rollback verificato
+
+PR147 mergecdebb26c8b25a1204b4bea7fc8e0342b833bf6cb; CI42632336586 e
+Cloudflare42632336513 post-merge PASS. Artefatto13681780138, digestZIP
+86f847f9cd84f4baa0c6251ec55569c582d3af8f7bb17c838ca1984aa4f8e4d9,
+57checksum PASS. Source compilata3caa754861a06de281e080022fec67282d79cf93,
+tree4f6424cf5ef7b48bcf4e5391154196a8850e7447 identico alla candidata b0a25e8
+e al merge. Worker SHA256118b4f6a302d0ffae6078b700af8dcddf8b1876f387a914a001549a3079bac66;
+dry-run no-bundle byte-identico, configurazione browser corretta verificata.
+
+Deploy staging5cbf018f-a7ed-4e9d-8406-f8488a9654b7, deployment
+94808d91-191e-46e5-b0fc-e328622d8fcd, tagcdebb26. Plain variables uguali,
+nomi secret binding uguali, nessun secret put o SQL; pubblico PASS.
+Avvio POS installato rifiutato dallo strumento, nessun processo/pull nuovo;
+utente esegue lo stesso avvio ordinario e inserisce credenziale mascherata.
+Login, catalogo completo zero e storico disponibile osservati; workbench
+Historical workspace aperto. Cassa/vendite/pagamenti restano non pronti.
+
+Controllo console FAIL: la pagina dichiara sessione staff non attiva. Metadata
+readonly: due sessioni appena emesse, non scadute, credential version coerente,
+actor pos_admin attivo, revocate subito dopo il login. Nessun token/hash
+credenziale letto o pubblicato. Causa dimostrata nel codice: il resolver della
+main controlla roleKey===manager, mentre il Worker precedente usa il predicate
+condiviso dei ruoli web, già comprensivo di pos_admin/courier. Login e principal
+li ammettevano, poi il resolver li negava. L'inventario di stringhe RPC non
+aveva rilevato questa differenza semantica; il primo giudizio di compatibilità
+non copriva il ruolo effettivo. Nessun PASS live globale.
+
+Prima failure e log POS preservati privatamente. Processo POS della task
+fermato verificando PID/creationTime/path/window, nessun import eseguito,
+trust conservato. Rollback pinned399720d2 eseguito, nuovo deployment
+1c2aaf19-ce73-4faa-8ce1-d5ae0c7374ed,100%; identità e pubblico PASS.
+Nessuna revoca o modifica di account eseguita come cleanup.
+
+Successore minimo: import e uso di isPosStaffWebAdminRoleKey già esistente,
+al posto della costante manager nel solo resolver runtime. Nessun nuovo ruolo,
+grant o fallback. Fence token/shop/staff/version/time/status invariati.
+Test del modulo reale: manager/pos_admin/courier ammessi sotto la stessa lease,
+15casi scope/version/revoca/must-change respinti, cashier/viewer/admin/custom
+negati. Rosso pos_admin/courier conservato; insieme alle regressioni esistenti
+45/45 PASS. Il loader isola soltanto gli import server non usati del principal
+ed esegue il predicate di produzione, senza copiarne la policy nel test.
+Typecheck/security/lint locali PASS con lo SKIP esterno Win7POS già descritto.
+Qualifica SHA/artefatto e nuovo rollout da eseguire, nessun verde trasferito.
+
+Le sezioni sotto conservano la prima candidata e la qualifica antecedente al live.
+
 ## 9 novembre — candidata di compatibilità release in EXECUTION
 
 Main6173964 e Windows e115ebf ricontrollate. Worker399720d2/deployment291c5cb8
