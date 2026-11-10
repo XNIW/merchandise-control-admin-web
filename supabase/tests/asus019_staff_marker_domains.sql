@@ -10,9 +10,9 @@ delete from public.staff_role_permissions where shop_id='10000000-0000-4000-8000
 insert into public.staff_accounts(staff_id,shop_id,staff_code,display_name,role_key,status,credential_kind,
  credential_hash,credential_updated_at,credential_expires_at,must_change_credential,credential_version,credential_status)
 values('20000000-0000-4000-8000-000000093019','10000000-0000-4000-8000-000000093019','1001',
- 'Synthetic admin','pos_admin','active','password','argon2id:synthetic-not-a-login',clock_timestamp(),clock_timestamp()+interval '1 hour',false,7,'active');
+ 'Synthetic scoped manager','manager','active','password','argon2id:synthetic-not-a-login',clock_timestamp(),clock_timestamp()+interval '1 hour',false,7,'active');
 insert into public.staff_role_permissions(shop_id,role_key,permission_key,enabled) values
- ('10000000-0000-4000-8000-000000093019','pos_admin','catalog.read',true),
+ ('10000000-0000-4000-8000-000000093019','manager','catalog.read',true),
  ('10000000-0000-4000-8000-000000093019','manager','settings.read',true)
 on conflict(shop_id,role_key,permission_key) do update set enabled=true;
 insert into public.staff_web_sessions(staff_web_session_id,shop_id,staff_id,session_token_hash,staff_credential_version,status,issued_at,expires_at)
@@ -32,7 +32,7 @@ create function pg_temp.marker(p_op text default 'marker',p_payload jsonb defaul
  select public.staff_web_mobile_operations_read_v1('10000000-0000-4000-8000-000000093019','20000000-0000-4000-8000-000000093019','30000000-0000-4000-8000-000000093019',p_hash,7,p_op,p_payload);$$;
 create temp table marker_context(key text primary key,value jsonb);
 grant all on marker_context to service_role;
-insert into public.payment_history_role_permissions(shop_id,role_key,capability,enabled) values('10000000-0000-4000-8000-000000093019','pos_admin','read',false);
+insert into public.payment_history_role_permissions(shop_id,role_key,capability,enabled) values('10000000-0000-4000-8000-000000093019','manager','read',false);
 select set_config('request.jwt.claim.role','service_role',true);
 set local role service_role;
 insert into marker_context values('catalog',pg_temp.marker());
@@ -56,8 +56,8 @@ insert into public.inventory_products(id,owner_user_id,shop_id,barcode,product_n
 set local role service_role;
 select isnt(pg_temp.marker()#>>'{sync,eventMarker}',(select value#>>'{sync,eventMarker}' from marker_context where key='catalog'),'catalog change reaches the existing poll');
 set local role postgres;
-update public.staff_role_permissions set enabled=false where shop_id='10000000-0000-4000-8000-000000093019' and role_key='pos_admin' and permission_key='catalog.read';
-insert into public.staff_role_permissions(shop_id,role_key,permission_key,enabled) values('10000000-0000-4000-8000-000000093019','pos_admin','sync.read',true);
+update public.staff_role_permissions set enabled=false where shop_id='10000000-0000-4000-8000-000000093019' and role_key='manager' and permission_key='catalog.read';
+insert into public.staff_role_permissions(shop_id,role_key,permission_key,enabled) values('10000000-0000-4000-8000-000000093019','manager','sync.read',true);
 set local role service_role;
 insert into marker_context values('history',pg_temp.marker());
 select is((select value->>'code' from marker_context where key='history'),'success','sync-only staff can discover history revisions');
@@ -65,12 +65,12 @@ select is((select value->'marker_domains' from marker_context where key='history
 select is(pg_temp.marker('history_list','{"page":"1","pageSize":"10","month":"","query":"","status":"all"}')->>'code','success','UI history.read correctly uses its persisted sync.read grant');
 select ok(not exists(select 1 from marker_context c,jsonb_array_elements(c.value#>'{sync,rows}') r where c.key='history' and r->>'domain'<>'history'),'sync-only staff sees no catalog event rows');
 set local role postgres;
-update public.staff_role_permissions set enabled=false where shop_id='10000000-0000-4000-8000-000000093019' and role_key='pos_admin';
+update public.staff_role_permissions set enabled=false where shop_id='10000000-0000-4000-8000-000000093019' and role_key='manager';
 set local role service_role;
 select is(pg_temp.marker()->>'code','permission_denied','absence of a permitted domain is not an empty marker');
 select is(pg_temp.marker('history_list','{"page":"1","pageSize":"10","month":"","query":"","status":"all"}')->>'code','permission_denied','history read is still denied without sync.read');
 set local role postgres;
-update public.staff_role_permissions set enabled=true where shop_id='10000000-0000-4000-8000-000000093019' and role_key='pos_admin';
+update public.staff_role_permissions set enabled=true where shop_id='10000000-0000-4000-8000-000000093019' and role_key='manager';
 set local role service_role;
 select is(pg_temp.marker()->'marker_domains','["catalog","prices","history"]'::jsonb,'both independent permissions compose the discovery domains');
 set local role postgres;
