@@ -6,8 +6,8 @@ select plan(18);
 insert into public.shops(shop_id,shop_code,shop_name,shop_status) values('10000000-0000-4000-8000-000000103019','OWNER019','Synthetic ownership','active');
 insert into public.shop_devices(shop_device_id,shop_id,device_identifier,display_name,device_type,status)
  values('20000000-0000-4000-8000-000000103019','10000000-0000-4000-8000-000000103019','SYNTHETIC-OWNER','Synthetic ownership','pos','active');
-insert into public.staff_accounts(staff_id,shop_id,staff_code,display_name,role_key,status)
- values('30000000-0000-4000-8000-000000103019','10000000-0000-4000-8000-000000103019','TEST-OWNER','Synthetic manager','manager','active');
+insert into public.staff_accounts(staff_id,shop_id,staff_code,display_name,role_key,status,credential_kind,credential_hash,credential_updated_at)
+ values('30000000-0000-4000-8000-000000103019','10000000-0000-4000-8000-000000103019','TEST-OWNER','Synthetic manager','manager','active','password','argon2id:synthetic-not-a-login',clock_timestamp());
 insert into public.payment_history_runtime(shop_id) values('10000000-0000-4000-8000-000000103019');
 insert into public.payment_history_uploads(upload_id,shop_id,actor_kind,actor_id,object_key,file_name,file_sha256,byte_length,state,verified_at)
  values('60000000-0000-4000-8000-000000103019','10000000-0000-4000-8000-000000103019','pos_staff_manager','30000000-0000-4000-8000-000000103019','history/10000000-0000-4000-8000-000000103019/60000000-0000-4000-8000-000000103019','synthetic.zip',repeat('a',64),1,'verified',clock_timestamp());
