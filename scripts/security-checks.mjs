@@ -429,6 +429,7 @@ function checkReadOnlyContracts() {
         "staff_web_staff_read_v1",
         "staff_web_shop_profile_read_v1",
         "staff_web_operations_read_v1",
+        "staff_web_mobile_operations_read_v1",
         "staff_web_catalog_mutate_v1",
         "staff_web_catalog_update_product_if_revision_v1",
         "staff_web_catalog_set_product_archived_if_revision_v1",

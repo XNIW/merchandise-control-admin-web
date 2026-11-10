@@ -85,3 +85,27 @@ nessun cambiamento SQL. Le nuove migrazioni rimangono additive.
 
 Residui in Execution: device/mobile-history/sync staff, domini C0–C5 e relativi
 gate. La candidata non completa questi residui né qualifica l'esperienza live.
+
+## Checkpoint B3 — dispositivo, storico mobile e sync
+
+Aggiunto reader nominale staff_web_mobile_operations_read_v1 per dispositivi,
+lista/dettaglio storico mobile e sync. Riusa admin_sync_event_read_v1 e il parser
+applicativo già esistente: scope legacy solo dal mapping verificato del server,
+colonne/filtri limitati, pagine massime200 e budget risposta4 MB. Fonte non
+risolta rimane unmapped; dati troppo grandi richiedono una pagina minore e non
+vengono troncati silenziosamente. Mapper e analisi sessioni esistenti condivisi,
+conteggi esatti e dettaglio autorizzato nello stesso scope. Nessun dato Getnet in
+questo dominio. Aggiunti19 test funzionali e25 pgTAP da eseguire in CI.
+
+Foundation1312:1310 PASS,0 FAIL,2 SKIP;38 prove funzionali sulle nuove superfici
+PASS. Security PASS. Prime failure mobile: remote_id era erroneamente verificato
+come UUID; corretto per mantenere gli identificativi testuali canonici.
+
+PR149 in bozza. CI8e077af: Verify e Cloudflare build PASS; replay applica le due
+migrazioni byte esatte e conserva i contratti precedenti, ma pgTAP FAIL. Aggiunta
+proiezione chiusa di file/righe/categorie, senza output SQL o valori attesi/reali.
+CIc05dced conferma CHECK_CONSTRAINT nel test profile:riga69. La fixture impostava
+revoked senza revoked_at; corretta rispettando il vincolo esistente, senza
+modificare schema o autorizzazione. Nessun PASS SQL anticipato. I run e le prime
+failure sono conservati; staging E2E resta skipped su evento PR, nessun deploy.
+`nTypecheck, lint e build della tranche mobile/device: PASS. Nessuna prova live attribuita.`n

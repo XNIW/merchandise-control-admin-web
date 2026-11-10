@@ -1,4 +1,6 @@
 import "server-only";
+import { readStaffMobileOperations } from "./staff-mobile-operations-read";
+import type { StaffOperationsAccess } from "./staff-operations-read";
 
 import type { SupabaseAdminClient } from "@/lib/supabase/admin";
 import type { SupabaseServerClient } from "@/lib/supabase/server";
@@ -2768,6 +2770,28 @@ async function loadHistoryListMetricSessions(input: {
   );
 }
 
+async function staffHistoryRead(access:StaffOperationsAccess,operation:"history_list"|"sync",options?:{filters:NonNullable<ShopHistoryReadModel["filters"]>;page:number;pageSize:10|25|50|100|200}):Promise<ShopHistoryReadModel> {
+  const result=await readStaffMobileOperations(access,operation,options?{page:String(options.page),pageSize:String(options.pageSize),month:options.filters.month??"",query:options.filters.query??"",status:options.filters.status}:{});
+  if(!result.data) return {status:result.status,...emptyRows,selectedShop:access.selectedShop,filters:options?.filters,readOnly:true,source:"supabase_server",reason:result.reason};
+  const {sync,rows,totalCount}=result.data;
+  const syncEvents=sync.rows.map(mapSyncEvent);
+  const sessions=(rows.sessions as unknown as ScopedSharedSheetSessionRow[]).map(row=>mapSession(row,syncEvents));
+  const m=result.data.mapping;
+  const mapping=m?{mappingId:m.shop_inventory_source_id,ownerUserId:m.owner_user_id,sourceKind:m.source_kind}:null;
+  const from=options?(options.page-1)*options.pageSize:0;
+  return {status:"ready",selectedShop:access.selectedShop,mapping,syncEvents,sessions,filters:options?.filters,listMode:options?"light":undefined,
+    pagination:options?{page:options.page,pageSize:options.pageSize,from,to:from+options.pageSize-1,currentPageRows:sessions.length,rangeStart:sessions.length?from+1:0,rangeEnd:sessions.length?from+sessions.length:0,totalCount,totalCountStatus:"exact",totalPages:Math.max(1,Math.ceil(totalCount/options.pageSize)),hasNextPage:from+sessions.length<totalCount,hasPreviousPage:options.page>1}:undefined,
+    summary:{historySessionsTotal:totalCount,historySessionsTotalAvailable:true,syncEventsTotal:sync.totalCount,syncEventsTotalAvailable:true,latestFailedSyncEvents:syncEvents.filter(event=>event.status==="failed").length,latestChangedAt:[...sessions.map(row=>row.entryDate),...syncEvents.map(row=>row.createdAt)].sort().pop()??null},readOnly:true,source:"supabase_server",reason:result.reason};
+}
+async function staffHistoryDetailRead(access:StaffOperationsAccess,entry:Exclude<ParsedHistoryEntry,{kind:"invalid"}>):Promise<ShopHistoryDetailReadModel> {
+  const result=await readStaffMobileOperations(access,"history_detail",{kind:entry.kind,id:entry.value});
+  if(!result.data) return {status:result.status,...emptyDetail,selectedShop:access.selectedShop,readOnly:true,source:"supabase_server",reason:result.reason};
+  const {sync,rows}=result.data;const m=result.data.mapping;
+  const events=sync.rows.map(mapSyncEvent);
+  const detail=entry.kind==="sync_event"?(sync.rows[0]?mapSyncEventDetail(sync.rows[0]):null):(rows.sessions[0]?mapSessionDetail(rows.sessions[0] as unknown as ScopedSharedSheetSessionDetailRow,events):null);
+  return {status:detail?"ready":"not_found",selectedShop:access.selectedShop,mapping:m?{mappingId:m.shop_inventory_source_id,ownerUserId:m.owner_user_id,sourceKind:m.source_kind}:null,detail,readOnly:true,source:"supabase_server",reason:result.reason};
+}
+
 export async function getShopHistoryListReadModel(
   options: GetShopHistoryReadModelOptions = {},
 ): Promise<ShopHistoryReadModel> {
@@ -2815,19 +2839,7 @@ export async function getShopHistoryListReadModel(
     };
   }
 
-  if (access.principalKind !== "personal_account") {
-    return {
-      status: "unauthorized",
-      ...emptyRows,
-      filters,
-      pagination: emptyPagination,
-      listMode: "light",
-      readOnly: true,
-      source: "supabase_server",
-      reason:
-        "History list reads require a lease-bound staff read operation that is not available for this surface.",
-    };
-  }
+  if (access.principalKind === "pos_staff_manager") { return staffHistoryRead(access,"history_list",{filters,page,pageSize}); }
 
   const { selectedShop, supabase } = access;
   const historyListClient = supabase;
@@ -3102,16 +3114,7 @@ export async function getShopSyncReadModel(
     };
   }
 
-  if (access.principalKind !== "personal_account") {
-    return {
-      status: "unauthorized",
-      ...emptyRows,
-      readOnly: true,
-      source: "supabase_server",
-      reason:
-        "Sync reads require a lease-bound staff read operation that is not available for this surface.",
-    };
-  }
+  if (access.principalKind === "pos_staff_manager") { return staffHistoryRead(access,"sync"); }
 
   const { selectedShop, supabase } = access;
   const sourceState = await resolveHistorySourceState(supabase, selectedShop);
@@ -3229,16 +3232,7 @@ export async function getShopHistoryReadModel(
     };
   }
 
-  if (access.principalKind !== "personal_account") {
-    return {
-      status: "unauthorized",
-      ...emptyRows,
-      readOnly: true,
-      source: "supabase_server",
-      reason:
-        "History reads require a lease-bound staff read operation that is not available for this surface.",
-    };
-  }
+  if (access.principalKind === "pos_staff_manager") { return staffHistoryRead(access,"history_list",{filters:{month:null,query:null,status:"all"},page:1,pageSize:25}); }
 
   const { selectedShop, supabase } = access;
   const sourceState = await resolveHistorySourceState(supabase, selectedShop);
@@ -3523,16 +3517,7 @@ export async function getShopHistoryDetailReadModel(
     };
   }
 
-  if (access.principalKind !== "personal_account") {
-    return {
-      status: "unauthorized",
-      ...emptyDetail,
-      readOnly: true,
-      source: "supabase_server",
-      reason:
-        "History detail reads require a lease-bound staff read operation that is not available for this surface.",
-    };
-  }
+  if (access.principalKind === "pos_staff_manager") { return staffHistoryDetailRead(access,parsedEntry); }
 
   const { selectedShop, supabase } = access;
   const sourceState = await resolveHistorySourceState(supabase, selectedShop);

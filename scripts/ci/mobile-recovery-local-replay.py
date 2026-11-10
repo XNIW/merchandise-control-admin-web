@@ -18,6 +18,7 @@ NATIVE_EMPTY = '20261108051044_asus_019_native_empty_catalog_scope.sql'
 NATIVE_EMPTY_SHA = 'af69667d6e8e9988a833c4cb2b818c4378061cbc6869c4821b29aa5e64e379ce'
 NATIVE_EMPTY_BODY_MD5 = '9622c4d3a4c793a7803d730b8a8c51d4'
 REVIEWED_EXTENSIONS = {
+    '20261110022056_asus019_staff_mobile_device_reads.sql': {'sha256':'336bb7611b21235ea3a6cde9e7c8283e8b94c5c2edfadfee6eca5f3e9cb8891e','additionalAssertions':25,'testFile':'supabase/tests/asus019_staff_mobile_operations_read.sql'},
     '20261110020325_asus019_staff_operations_read.sql': {'sha256':'2b4c17b47f5f27e767224204f4d3fd694afb835903bdb09baa9ad8968b909e86','additionalAssertions':31,'testFile':'supabase/tests/asus019_staff_operations_read.sql'},
     '20261110012505_asus019_staff_operational_reads.sql': {
         'sha256': '571ea7d0a7628e8f9b10e0b6fd8ec9005fb6974ce1e5538456eee954e24217ab',
@@ -100,7 +101,7 @@ def closed_pgtap_diagnostics(stdout, stderr, known):
     # No exception text, SQL, expected/actual values, paths or CLI output is exported.
     source = (stdout + b'\n' + stderr).decode('utf-8', errors='replace')
     locations = set()
-    for match in re.finditer(r'psql:[^\r\n]*?([A-Za-z0-9_-]+\.sql):(\d+):', source):
+    for match in re.finditer(r'psql:[^\r\n]*?([A-Za-z0-9_-]+\.sql):(\d+):\s+ERROR:', source):
         if match[1] in known:
             locations.add((match[1], int(match[2])))
     failures = sorted({int(m[1]) for m in re.finditer(r'(?m)^\s*(?:#\s*)?not ok\s+(\d+)\b', source)})
