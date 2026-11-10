@@ -4235,6 +4235,7 @@ function checkTask019PosAuthFoundationImplementation() {
     "src/app/api/pos/catalog/pull/route.ts",
     "src/app/api/pos/orders/ack/route.ts",
     "src/app/api/pos/orders/claim/route.ts",
+    "src/app/api/pos/payment-history/route.ts",
     "src/app/api/pos/session/heartbeat/route.ts",
   ]);
   if (isTask041RuntimeCompletionActive()) {
@@ -4402,6 +4403,7 @@ function checkTask020Win7PosIntegrationPlanning() {
     "src/app/api/pos/catalog/pull/route.ts",
     "src/app/api/pos/orders/ack/route.ts",
     "src/app/api/pos/orders/claim/route.ts",
+    "src/app/api/pos/payment-history/route.ts",
     "src/app/api/pos/session/heartbeat/route.ts",
   ]);
   if (isTask041RuntimeCompletionActive()) {
@@ -4535,6 +4537,7 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
     catalogPullRoutePath,
     "src/app/api/pos/orders/ack/route.ts",
     "src/app/api/pos/orders/claim/route.ts",
+    "src/app/api/pos/payment-history/route.ts",
     heartbeatRoutePath,
   ]);
   if (isTask041RuntimeCompletionActive()) {
