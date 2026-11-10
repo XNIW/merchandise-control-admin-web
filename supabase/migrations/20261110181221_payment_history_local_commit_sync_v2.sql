@@ -195,7 +195,7 @@ declare k text;t jsonb;clock text;utc_clock text;raw_ticks bigint;utc_ticks bigi
   if minutes is distinct from (f->>'offset_minutes')::integer then raise exception using errcode='22023',message='payment_history_offset_invalid';end if;
   raw_ticks:=app_private.payment_history_ticks_v1(f->>'timestamp_raw');
   utc_ticks:=case when f->>'time_interpretation'='IsoUtc' then raw_ticks else raw_ticks-minutes::bigint*600000000 end;
-  if business_ticks is distinct from case when f->>'time_interpretation'='IsoUtc' then raw_ticks+minutes::bigint*600000000 else raw_ticks end then
+  if business_ticks is distinct from (case when f->>'time_interpretation'='IsoUtc' then raw_ticks+minutes::bigint*600000000 else raw_ticks end) then
    raise exception using errcode='22023',message='payment_history_timestamp_invalid';end if;
   v_ms:=floor((utc_ticks::numeric-621355968000000000)/10000)::bigint;
   if v_ms is distinct from (f->>'occurred_at_utc_ms')::bigint then raise exception using errcode='22023',message='payment_history_timestamp_invalid';end if;
