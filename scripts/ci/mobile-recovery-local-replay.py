@@ -88,8 +88,31 @@ def run(argv):
             (directory / (name + ".stdout")).write_bytes(r.stdout)
             (directory / (name + ".stderr")).write_bytes(r.stderr)
             (directory / (name + ".json")).write_text(json.dumps({"argv": argv, "exit": r.returncode}))
+        if REPLAY_STAGE == "pgTAP" and EVIDENCE_ROOT is not None and ERROR_ROOT is not None:
+            known = {p.name for p in (ERROR_ROOT / "supabase/tests").glob("*.sql")}
+            dump(EVIDENCE_ROOT / "pgtap-diagnostics.json", closed_pgtap_diagnostics(r.stdout, r.stderr, known))
         raise ValueError("command failed; private evidence retained; no retry")
     return r.stdout
+
+
+def closed_pgtap_diagnostics(stdout, stderr, known):
+    # Only repository test basenames, line/assertion numbers and closed categories.
+    # No exception text, SQL, expected/actual values, paths or CLI output is exported.
+    source = (stdout + b'\n' + stderr).decode('utf-8', errors='replace')
+    locations = set()
+    for match in re.finditer(r'psql:[^\r\n]*?([A-Za-z0-9_-]+\.sql):(\d+):', source):
+        if match[1] in known:
+            locations.add((match[1], int(match[2])))
+    failures = sorted({int(m[1]) for m in re.finditer(r'(?m)^\s*(?:#\s*)?not ok\s+(\d+)\b', source)})
+    files = sorted({name for name in known if re.search(r'\b' + re.escape(name) + r'\b', source)})
+    categories = [category for pattern, category in (
+        (r'violates check constraint', 'CHECK_CONSTRAINT'), (r'violates not-null constraint', 'NOT_NULL_CONSTRAINT'),
+        (r'duplicate key value', 'UNIQUE_CONSTRAINT'), (r'column .+ does not exist', 'MISSING_COLUMN'),
+        (r'function .+ does not exist', 'MISSING_FUNCTION'), (r'permission denied', 'PERMISSION_DENIED'),
+        (r'syntax error', 'SYNTAX_ERROR'), (r'Bad plan|planned \d+ tests but ran', 'TEST_PLAN_MISMATCH'),
+    ) if re.search(pattern, source, re.I)]
+    return {'status':'FAIL', 'testFiles':files, 'sqlLocations':[{'file':name,'line':line} for name,line in sorted(locations)],
+            'failedAssertionNumbers':failures, 'categories':categories or ['UNCLASSIFIED_PGTAP_FAILURE']}
 
 def put(path, data):
     require(not path.exists() and not path.is_symlink(), "output already exists")
