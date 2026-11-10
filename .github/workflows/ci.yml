@@ -59,6 +59,7 @@ jobs:
           path: |
             ${{ runner.temp }}/database-replay-evidence/error.json
             ${{ runner.temp }}/database-replay-evidence/pgtap-diagnostics.json
+            ${{ runner.temp }}/database-replay-evidence/extension-diagnostics.json
             ${{ runner.temp }}/database-replay-evidence/complete.json
           if-no-files-found: warn
 
