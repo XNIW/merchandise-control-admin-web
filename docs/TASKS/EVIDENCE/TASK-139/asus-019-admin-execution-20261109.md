@@ -108,4 +108,63 @@ CIc05dced conferma CHECK_CONSTRAINT nel test profile:riga69. La fixture impostav
 revoked senza revoked_at; corretta rispettando il vincolo esistente, senza
 modificare schema o autorizzazione. Nessun PASS SQL anticipato. I run e le prime
 failure sono conservati; staging E2E resta skipped su evento PR, nessun deploy.
-`nTypecheck, lint e build della tranche mobile/device: PASS. Nessuna prova live attribuita.`n
+
+Typecheck, lint e build della tranche mobile/device: PASS. Nessuna prova live attribuita.
+
+
+## Checkpoint C0 — parser portato e oracolo CLR indipendente
+
+Nuovo dominio payment-history separato dal catalogo/storico mobile. Lettura ZIP e
+XML streaming, limiti dichiarati, rifiuto path duplicati/traversal, contenuti attivi,
+relazioni esterne, DTD, formule, ordine celle/righe non valido e UTF malformato.
+Nessun numero binario per CLP: BigInt interno, stringhe decimali nelle DTO. Identità
+leading-zero, annullamenti con segno, respinte separate e netto unknown conservati;
+timestamp a100ns senza timezone del PC. Overflow aggregato produce totali unknown e
+impedisce preparazione. La preparazione parser non equivale ad autorizzazione Apply.
+
+Copiati corpus e due XLSX sintetici byte esatti con manifest Windows. Eseguito un
+oracolo CLR net48/x86 che richiama il vero HistoricalSalesImportAnalyzer dagli
+assembly del pacchetto QA5d8e704. Snapshot normalizzati e hash assembly conservati
+nelle fixture, senza percorsi/dati reali. Confronto di tutti i campi dei movimenti,
+respinte e summary nelle tre interpretazioni temporali PASS.36 prove parser PASS.
+Il profilo Windows e gli originali non sono stati aperti/modificati da questa prova.
+
+Aggiunta dipendenza saxes6.0.0 bloccata e xmlchars transitive per parsing XML
+streaming rigoroso; nessun install script autorizzato globalmente. Lockfile cambia
+solo per questi due pacchetti. Audit production: i due pacchetti nuovi non segnalati;
+5 advisory su dipendenze già presenti nella closure production (1moderate,3high,1critical) da
+mantenere visibili e valutare, senza npm audit fix indiscriminato.
+Fonte API: https://github.com/lddubeau/saxes (repository archiviato; versione pinned).
+
+Benchmark sintetico parser, non dedup/ledger/job end-to-end:10k507ms/166MiB peakRSS;
+100k4692ms/394MiB;100k identità ripetute4773ms/394MiB. PASS dei conteggi/importi
+letterali; nessuna promessa p95 cloud. Il parser non deve essere eseguito dentro
+il Worker HTTP Admin: Workers limita ogni isolate a128MB (documentazione ufficiale
+https://developers.cloudflare.com/workers/platform/limits/, verificata10novembre).
+C2 richiede processo/worker dedicato bounded o una variante streaming fino allo
+staging DB; nessun nuovo servizio live è stato creato. Budget Node proposto1GiB,
+concorrenza1; prova dell'intero worker ancora da implementare/eseguire.
+Web:10file/20MiB/100MiB job, worksheet XML32MiB (Windows128MiB), stessi limiti
+righe/celle/strings. Capacità più bassa esplicita, senza cambi economici silenziosi.
+C1–C5 restano in Execution, writer cloud spento e importer Windows invariato.
+
+C0 dopo gli ultimi fix: typecheck/lint/build/security PASS; foundation1348 test,
+1346 PASS,0 FAIL,2 SKIP.36 parser PASS, inclusi UTF16 e overflow summary unknown.
+Prima failure UTF16 era una mutazione fixture senza dichiarazione encoding: corretta
+aggiungendo una dichiarazione esplicita nel solo ZIP in memoria. Fonte e hash dei
+file canonici invariati. Oracolo riproducibile in tools/PaymentHistoryClrOracle.
+
+## Gate B SQL chiuso sulla candidata d2de24a
+
+CI42747737445: Database migrations and pgTAP PASS, Verify PASS; Cloudflare build
+42747737131 PASS. Le tre migrazioni aggiuntive sono applicate byte esatte nel
+replay isolato e il gate controlla che i contratti precedenti restino invariati.
+Staging E2E skipped per evento PR, nessun deploy o applicazione SQL live.
+Fixture inizialmente scorrette corrette rispettando i vincoli già presenti:
+revoked_at per sessione revocata; shop non attivo con stato valido; remote_id
+canonico lower/UUID per evento atomico; source unmapped con owner conservato.
+Le prime failure dei run42741667088/42742080558/42743059586/42744052484/
+42745544635/42746667539 rimangono conservate. Nessuna guard rimossa per il PASS.
+Questo PASS riguarda B; non viene trasferito al futuro codice C o alla prova live.
+
+Artifact13732536171 complete.json: 70 file pgTAP, 4462 assertion PASS; replay byte esatto true.

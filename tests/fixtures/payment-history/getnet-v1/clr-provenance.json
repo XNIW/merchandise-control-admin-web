@@ -1,0 +1,14 @@
+{
+  "sourceCommit": "5d8e704b2d0027c4ee1d5a9f4cb6b10842b85b54",
+  "oracle": "HistoricalSalesImportAnalyzer, qualified QA assemblies, CLR net48/x86",
+  "assemblies": {
+    "Win7POS.Data.dll": "296776fb69c789f499b7749c054c64ace7dacc5536823272a31e4c8bf9063e53",
+    "Win7POS.Core.dll": "d0a1d895cd340cda821559c4ac2b99813afa1b7d5b1c17ec7d1fea689e9e91e9"
+  },
+  "syntheticOnly": true,
+  "modes": [
+    "IsoUtc",
+    "ExportedLocal",
+    "Unresolved"
+  ]
+}
