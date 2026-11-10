@@ -51,8 +51,8 @@ set local role service_role;
 select is(pg_temp.marker()#>>'{sync,eventMarker}',(select value#>>'{sync,eventMarker}' from marker_context where key='catalog'),'history-only changes do not alter a catalog-only marker');
 set local role postgres;
 select app_private.acquire_sync_event_scope_fence_v1('00000000-0000-4000-8000-000000093019','10000000-0000-4000-8000-000000093019');
-insert into public.sync_events(owner_user_id,shop_id,domain,event_type,source,client_event_id,changed_count,entity_ids,metadata)
- values('00000000-0000-4000-8000-000000093019','10000000-0000-4000-8000-000000093019','catalog','catalog_changed','pos_catalog_import_sync','synthetic-marker-093019',1,'{"product_ids":["61000000-0000-4000-8000-000000093019"]}','{"status":"success"}');
+insert into public.inventory_products(id,owner_user_id,shop_id,barcode,product_name)
+ values('61000000-0000-4000-8000-000000093019','00000000-0000-4000-8000-000000093019','10000000-0000-4000-8000-000000093019','SYNTHETIC-MARKER-093019','Synthetic marker product');
 set local role service_role;
 select isnt(pg_temp.marker()#>>'{sync,eventMarker}',(select value#>>'{sync,eventMarker}' from marker_context where key='catalog'),'catalog change reaches the existing poll');
 set local role postgres;
