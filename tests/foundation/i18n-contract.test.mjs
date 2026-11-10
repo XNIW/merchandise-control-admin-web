@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { createRequire } from "node:module";
 import { dirname, extname, join, relative } from "node:path";
@@ -200,7 +200,7 @@ test("i18n contract scanner fails on missing keys and placeholder mismatches", (
     ["admin-missing-exact", /missing exact key/],
     ["admin-placeholder-mismatch", /exact placeholder mismatch/],
     ["admin-untranslated-exact", /untranslated exact key/],
-    ["pos-missing-key", /missing loc key reports\.fileSaved/],
+    ["pos-missing-key", /missing loc key history\.title/],
     ["pos-placeholder-mismatch", /pos:es: placeholder mismatch in reports\.fileSaved/],
     ["pos-core-edit-hardcoded", /pos:core: hardcoded UI text.*Edit/],
     ["pos-reachable-hardcoded", /pos:reachable-legacy: hardcoded UI text/],
@@ -250,10 +250,20 @@ test("i18n scanner validates runtime registration forms and bounded dynamic fami
     for (const path of [
       "src/Win7POS.Core/Pos/CustomerDisplaySettings.cs",
       "src/Win7POS.Core/Hardware/SingleFlightDiagnostic.cs",
+      "src/Win7POS.Core/Reports/SalesReportEntry.cs",
       "src/Win7POS.Data/Operations/SettingsOperationsService.cs",
     ]) {
       cpSync(join(posRoot, path), join(fixture, path), { recursive: true });
     }
+    // Mutation regexes operate on canonical source lines on both Windows and CI.
+    const canonicalize = directory => {
+      for (const entry of readdirSync(directory, { withFileTypes: true })) {
+        const path = join(directory, entry.name);
+        if (entry.isDirectory()) canonicalize(path);
+        else writeFileSync(path, readFileSync(path, "utf8").replace(/\r\n/g, "\n"));
+      }
+    };
+    canonicalize(fixture);
     const result = JSON.parse(run());
     assert.equal(result.status, "pass");
     assert.equal(result.POS_CORE_UI_HARDCODED.count, 0);
@@ -270,6 +280,11 @@ test("i18n scanner validates runtime registration forms and bounded dynamic fami
       assert.equal(JSON.parse(run()).status, "pass", "a noninterpolated raw literal is not an executable sink");
     } finally { writeFileSync(diagnosticFile, originalDiagnostic); }
     for (const [path, edit, expected] of [
+      [`${wpf}Localization/PosLocalization.cs`, source => source.replace("AddHistoricalImportTranslations(catalog);", ""), /unregistered locale provider/],
+      [`${wpf}Localization/PosLocalization.HistoricalImport.cs`, source => source.replace(/HistoryText\(catalog,"title",[^\n]+/, ""), /missing loc key history\.title/],
+      [`${wpf}Localization/PosLocalization.HistoricalImport.cs`, source => source.replace('en, es, it, zh', 'es, en, it, zh'), /unsupported locale provider registration/],
+      [`${wpf}Localization/PosLocalization.AnalyticalReports.cs`, source => source.replace('catalog["es"][row[0]] = row[2];', ''), /unsupported locale provider registration/],
+      ["src/Win7POS.Core/Reports/SalesReportEntry.cs", source => source.replace('VerifiedEmpty }', 'VerifiedEmpty, Unexpected }'), /dynamic translation domain changed/],
       [recovery, (source) => source.replace(/^.*RecoveryText\(catalog, "title",.*\n/m, ""), /missing loc key importRecovery\.title/],
       [recovery, (source) => source.replace('catalog["es"]["importRecovery." + key] = es;', ""), /unsupported RecoveryText registration for es/],
       [direct, (source) => source.replace(/^.*\["supplierExcelImport.statusOperationCancelling"\].*\n/gm, ""), /missing loc key supplierExcelImport\.statusOperationCancelling/],

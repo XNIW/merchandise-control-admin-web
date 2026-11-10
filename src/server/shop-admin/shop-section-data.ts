@@ -960,6 +960,7 @@ export function buildStaffSection(readModel: ShopStaffReadModel): ShopSection {
     const statusByReadModel: Record<ShopStaffReadModel["status"], string> = {
       not_configured: "Not configured",
       unauthorized: "Unauthorized",
+    staff_surface_unavailable: "Unavailable for staff access",
       empty: "No rows visible",
       error: "Read blocked",
       ready: "Read-only",
@@ -1055,6 +1056,7 @@ function inventoryStatusLabel(status: ShopInventoryReadModel["status"]) {
   const labels: Record<ShopInventoryReadModel["status"], string> = {
     not_configured: "Not configured",
     unauthorized: "Unauthorized",
+    staff_surface_unavailable: "Unavailable for staff access",
     empty: "No rows visible",
     error: "Read blocked",
     ready: "Read-only",
@@ -1959,6 +1961,7 @@ function historyStatusLabel(
   > = {
     not_configured: "Not configured",
     unauthorized: "Unauthorized",
+    staff_surface_unavailable: "Unavailable for staff access",
     empty: "No rows visible",
     error: "Read blocked",
     ready: "Read-only",

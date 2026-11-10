@@ -18,6 +18,7 @@ NATIVE_EMPTY = '20261108051044_asus_019_native_empty_catalog_scope.sql'
 NATIVE_EMPTY_SHA = 'af69667d6e8e9988a833c4cb2b818c4378061cbc6869c4821b29aa5e64e379ce'
 NATIVE_EMPTY_BODY_MD5 = '9622c4d3a4c793a7803d730b8a8c51d4'
 REVIEWED_EXTENSIONS = {
+    '20261110020325_asus019_staff_operations_read.sql': {'sha256':'2b4c17b47f5f27e767224204f4d3fd694afb835903bdb09baa9ad8968b909e86','additionalAssertions':31},
     '20261110012505_asus019_staff_operational_reads.sql': {
         'sha256': '571ea7d0a7628e8f9b10e0b6fd8ec9005fb6974ce1e5538456eee954e24217ab',
         'additionalAssertions': 31,
@@ -1053,7 +1054,7 @@ def replay(repo, workdir, bootstrap_only=False):
                          ("observed local ownership", observe_owned_creation)):
         REPLAY_STAGE = name; print("Database replay: " + name, flush=True); action(root)
     if bootstrap_only:
-        dump(root / ".replay/bootstrap-complete.json", {"status":"PASS_OWNED_PREFIX_ONLY", "head":inputs["head"], "profile":LOCAL_PROFILE, "runnerSHA256":inputs["runnerSHA256"], "pendingPortableMigrations":[TARGET,PRODUCT,SHARED,MOBILE_SALES,NATIVE_EMPTY]})
+        dump(root / ".replay/bootstrap-complete.json", {"status":"PASS_OWNED_PREFIX_ONLY", "head":inputs["head"], "profile":LOCAL_PROFILE, "runnerSHA256":inputs["runnerSHA256"], "pendingPortableMigrations":[TARGET,PRODUCT,SHARED,MOBILE_SALES,NATIVE_EMPTY,*sorted(REVIEWED_EXTENSIONS)]})
         print("Database replay: owned prefix complete; portable overlays NOT_APPLIED",flush=True)
         return
     for name, operator, binding, stage in ((TARGET,"operator.sql","binding.json","metadata"),

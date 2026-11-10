@@ -16,7 +16,7 @@ import {
   type ShopInventoryReadModel,
 } from "./inventory-read-model";
 
-type DetailStatus = "error" | "invalid_entry" | "not_found" | "ready" | "unmapped" | "unauthorized" | "not_configured" | "empty";
+type DetailStatus = "staff_surface_unavailable" | "error" | "invalid_entry" | "not_found" | "ready" | "unmapped" | "unauthorized" | "not_configured" | "empty";
 
 export type ProductDetailModalProduct = {
   productId: string;

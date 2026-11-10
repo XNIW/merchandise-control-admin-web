@@ -141,7 +141,7 @@ function staffActionLabels(
     ),
     roleToModify: t("Role to modify"),
     rolesAndPermissionsDescription: t(
-      "Permissions belong to shop roles, not to a single staff account. To create or modify roles, go to Roles.",
+      "Permissions apply to everyone with the selected role. Use the existing templates below; Roles shows the permission matrix.",
     ),
     rolesAndPermissionsTitle: t("Roles and permissions"),
     roleOptions: {

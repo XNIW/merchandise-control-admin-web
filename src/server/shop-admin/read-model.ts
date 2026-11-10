@@ -49,6 +49,7 @@ export type ShopAdminReadModelStatus =
   | "unauthorized"
   | "empty"
   | "error"
+  | "staff_surface_unavailable"
   | "ready";
 
 export type ShopAdminReadModelError = {
@@ -102,7 +103,7 @@ export type ShopAdminReadModelAuditLog = {
 export type ShopAdminReadModel = {
   // This capability state belongs to the shop-profile surface only. Other
   // read-model domains keep their existing shared status contract.
-  status: ShopAdminReadModelStatus | "staff_surface_unavailable";
+  status: ShopAdminReadModelStatus;
   selectedShop: ShopAdminReadModelShop | null;
   members: readonly ShopAdminReadModelMember[];
   auditLogs: readonly ShopAdminReadModelAuditLog[];

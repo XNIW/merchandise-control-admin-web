@@ -1,4 +1,6 @@
 import "server-only";
+import { readStaffOperations } from "./staff-operations-read";
+import type { ShopAdminDataAccess } from "./data-access";
 
 import {
   createSupabaseAdminClient,
@@ -496,12 +498,12 @@ export async function getShopPosRevenueReadModel(
     );
   }
 
-  if (access.principalKind !== "personal_account") {
-    return errorResult(
-      null,
-      "unauthorized",
-      "POS revenue reads require a lease-bound staff read operation that is not available for this surface.",
-    );
+  if (access.principalKind === "pos_staff_manager") {
+    const parts=datePartsInChile(),month=normalizeMonth(options.month),year=normalizeYear(options.year);
+    const result=await readStaffOperations(access,"pos_revenue",{month,year,today:parts.today});
+    if (!result.rows) return errorResult(access.selectedShop,result.status,result.reason);
+    const r=result.rows;
+    return publishRevenueModel(access,{today:(r.today[0] as unknown as DailySummaryRow)??null,month:r.month as unknown as DailySummaryRow[],year:r.year as unknown as DailySummaryRow[],sales:r.sales as unknown as PosSaleRow[],batches:r.batches as unknown as BatchRow[],devices:r.devices as unknown as DeviceRow[],staff:r.staff as unknown as StaffRow[],warnings:r.warnings as unknown as StockWarningRow[]},{month,year,today:parts.today});
   }
 
   const adminConfig = resolveSupabaseAdminConfig();
@@ -626,6 +628,14 @@ export async function getShopPosRevenueReadModel(
     );
   }
 
+  return publishRevenueModel(access,{today:todayResult.data,month:monthResult.data??[],year:yearResult.data??[],sales:recentSalesResult.data??[],batches:batchesResult.data??[],devices:devicesResult.data??[],staff:staffResult.data??[],warnings:stockWarningsResult.data??[]},{month,year,today:parts.today});
+}
+
+async function publishRevenueModel(access:Extract<ShopAdminDataAccess,{status:"ready"}>,rows:{today:DailySummaryRow|null;month:DailySummaryRow[];year:DailySummaryRow[];sales:PosSaleRow[];batches:BatchRow[];devices:DeviceRow[];staff:StaffRow[];warnings:StockWarningRow[]},filters:{month:string;year:string;today:string}):Promise<ShopPosRevenueReadModel> {
+  const selectedShop=access.selectedShop;
+  const {month,year,today}=filters;
+  const parts={today};
+  const todayResult={data:rows.today},monthResult={data:rows.month},yearResult={data:rows.year},recentSalesResult={data:rows.sales},batchesResult={data:rows.batches},devicesResult={data:rows.devices},staffResult={data:rows.staff},stockWarningsResult={data:rows.warnings};
   const monthDays = (monthResult.data ?? [])
     .map(rowToDaily)
     .filter((row) => row.businessDate);

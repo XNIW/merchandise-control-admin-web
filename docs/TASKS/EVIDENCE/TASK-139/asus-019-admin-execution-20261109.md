@@ -56,3 +56,32 @@ supporto individuale inventato. Reader degli altri domini e C ancora in Executio
 - React: patch server/client separata, DTO minimi, nessun nuovo effetto o dipendenza,
   label accesso distinta dal ruolo e navigazione da capability server. Restano da
   verificare live localizzazione/focus con l'operatore. Nessun PASS live dichiarato.
+
+## Checkpoint B3 — letture audit/POS e riparazione gate
+
+Checkout con dipendenze fisiche, branch codex/asus019-admin-operations-history-physical.
+Implementati reader audit lista/dettaglio, POS live e ricavi tramite nuova RPC
+nominale staff_web_operations_read_v1. Filtri e colonne chiusi, limiti per gruppo,
+shop/attore/sessione/versione vincolati, lease prima e dopo la lettura e audit,
+revalidazione applicativa prima della pubblicazione. Nessuna nuova query generica
+staff e nessun accesso auth.users. Mapper dei ricavi condiviso con il percorso
+personale; esempio sintetico:300 CLP e2 vendite danno ticket medio150 CLP.
+
+B4: corretta la descrizione dei permessi condivisi. I template esistenti operano
+sul ruolo; la pagina Ruoli mostra la matrice. Traduzioni IT/ES/ZH aggiunte.
+Il set protetto owner/platform e il trattamento server di1001 restano invariati.
+
+Gate locali dopo le correzioni: typecheck, lint e security PASS; suite foundation
+1293 test,1291 PASS,0 FAIL,2 SKIP. Nuovi19 test eseguono reader e mapper reali con
+fixture; nuovi31 pgTAP operations oltre ai31 profile ancora NOT_RUN SQL.
+Build candidata PASS. Nessun SQL/live/deploy eseguito.
+
+Prime failure conservate nei log privati: full foundation1212/1224 con10 FAIL e2
+SKIP; riparati test governance che congelavano il vecchio root e parser di risorse
+Win7POS non riconosciute. Aggiunti test negativi di registrazione risorse e dominio
+coverage. Le57 prove i18n passano. Sette migrazioni storiche congelate avevano
+checkout CRLF: ripristinate solo ai byte LF canonici Git, hash attesi invariati,
+nessun cambiamento SQL. Le nuove migrazioni rimangono additive.
+
+Residui in Execution: device/mobile-history/sync staff, domini C0–C5 e relativi
+gate. La candidata non completa questi residui né qualifica l'esperienza live.

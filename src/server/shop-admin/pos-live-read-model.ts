@@ -1,4 +1,5 @@
 import "server-only";
+import { readStaffOperations } from "./staff-operations-read";
 
 import {
   createSupabaseAdminClient,
@@ -355,7 +356,7 @@ async function resolvePosLiveAccess(
   | {
       access: Extract<
         Awaited<ReturnType<typeof resolveShopAdminDataAccess>>,
-        { principalKind: "personal_account"; status: "ready" }
+        { status: "ready" }
       >;
       selectedShop: ShopAdminShellShop;
     }
@@ -379,16 +380,6 @@ async function resolvePosLiveAccess(
     };
   }
 
-  if (access.principalKind !== "personal_account") {
-    return {
-      status: "unauthorized",
-      ...emptyRows,
-      readOnly: true,
-      source: "supabase_admin_server",
-      reason:
-        "POS live reads require a lease-bound staff read operation that is not available for this surface.",
-    };
-  }
 
   return {
     access,
@@ -405,6 +396,14 @@ export async function getShopPosLiveReadModel(
     return access;
   }
 
+  if (access.access.principalKind === "pos_staff_manager") {
+    const result = await readStaffOperations(access.access,"pos_live");
+    if (!result.rows) return {status:result.status,...emptyRows,selectedShop:access.selectedShop,readOnly:true,source:"supabase_admin_server",reason:result.reason};
+    const rows = result.rows;
+    const auditRows = rows.events as unknown as PosAuditRow[];
+    const devices = mapPosLiveRows({deviceRows:rows.devices as unknown as PosDeviceRow[],credentialRows:rows.credentials as unknown as PosCredentialRow[],sessionRows:rows.sessions as unknown as PosSessionRow[],staffRows:rows.staff as unknown as StaffSafeRow[],auditRows});
+    return {status:"ready",selectedShop:access.selectedShop,devices,summary:summarize(devices,auditRows),readOnly:true,source:"supabase_admin_server",reason:result.reason};
+  }
   const adminConfig = resolveSupabaseAdminConfig();
 
   if (adminConfig.status !== "configured") {

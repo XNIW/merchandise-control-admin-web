@@ -54,6 +54,19 @@ export function callStaffWebShopProfileRead(context: StaffWebLeaseBoundContext, 
   });
 }
 
+export function callStaffWebOperationsRead(context: StaffWebLeaseBoundContext,
+  operation: "audit_list" | "audit_detail" | "pos_live" | "pos_revenue", payload: JsonRecord) {
+  const supabase = staffLeaseBoundAdminClient();
+  if (!supabase) return unavailableRpcResult();
+  return supabase.rpc("staff_web_operations_read_v1", {
+    p_shop_id: context.selectedShop.shopId, p_staff_id: context.actorStaffId,
+    p_staff_web_session_id: context.staffWebSession.sessionId,
+    p_session_token_hash: context.staffWebSession.sessionTokenHash,
+    p_expected_credential_version: context.staffWebSession.credentialVersion,
+    p_operation: operation, p_payload: payload,
+  });
+}
+
 export function callStaffWebStaffRead(context: StaffWebLeaseBoundContext) {
   const supabase = staffLeaseBoundAdminClient();
   if (!supabase) return unavailableRpcResult();

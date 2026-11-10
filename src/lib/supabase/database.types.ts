@@ -7067,6 +7067,18 @@ export type Database = {
         }
         Returns: Json
       }
+      staff_web_operations_read_v1: {
+        Args: {
+          p_expected_credential_version: number
+          p_session_token_hash: string
+          p_shop_id: string
+          p_staff_id: string
+          p_staff_web_session_id: string
+          p_payload?: Json
+          p_operation: string
+        }
+        Returns: Json
+      }
       staff_web_session_resolve_v1: {
         Args: {
           p_session_token_hash: string

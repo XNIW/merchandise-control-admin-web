@@ -3971,7 +3971,7 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
 - Task TASK-157: `TASK-157 - Client Commerce Staging E2E and Closeout`
 - Stato TASK-157: `DONE`
 - Fase TASK-157: `REVIEW`
-- Stato globale attuale: `EXECUTION / ASUS019_ADMIN_FOLLOWUP`
+- Stato globale attuale: `EXECUTION`
 - Task attivo: `ASUS-W7POS-019 — continuazione coordinata, B/C Execution`
 - Task precedente:
   `TASK-152 - Mobile Storefront Authoring Boundary` (`DONE / REVIEW`)
@@ -3987,7 +3987,7 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
   `docs/TASKS/TASK-149-admin-trusted-pos-product-image-v1.md`
 - Evidence task corrente: `docs/TASKS/EVIDENCE/TASK-139/asus-019-admin-execution-20261109.md`
 - Ultima evidence task: `docs/TASKS/EVIDENCE/TASK-149/README.md`
-- Stato task: `ACTIVE / IMPLEMENTATION`
+- Stato task: `ACTIVE`
 - Stato task precedente: `DONE`
 - Fase: `EXECUTION`
 - Milestone interna:
