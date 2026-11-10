@@ -75,7 +75,7 @@ set local role service_role;
 select is(pg_temp.profile()->>'code','permission_denied','expired session rejected');
 set local role postgres;
 update public.staff_web_sessions set expires_at=clock_timestamp()+interval '1 hour' where staff_web_session_id='30000000-0000-4000-8000-000000001019';
-update public.shops set shop_status='suspended' where shop_id='10000000-0000-4000-8000-000000001019';
+update public.shops set shop_status='pending_setup' where shop_id='10000000-0000-4000-8000-000000001019';
 set local role service_role;
 select is(pg_temp.profile()->>'code','permission_denied','inactive shop rejected');
 set local role postgres;
