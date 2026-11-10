@@ -37,4 +37,3 @@ declare records jsonb;item json;v jsonb;f jsonb;keys text[];n integer:=0;begin
  return n;
 end;$$;
 revoke all on function app_private.payment_history_local_page_v2(text) from public,anon,authenticated,service_role;
-
