@@ -199,3 +199,11 @@ fixture cross-realm corretta normalizzando l'array, valori attesi invariati.
 Typecheck PASS.46 pgTAP aggiunti al replay byte-esatto; SQL non ancora qualificato.
 Worker/UI/migrazione/replica/cutover rimangono in implementazione nella stessa
 Execution; tutte le verifiche desktop rimandate alla presenza dell'utente.
+
+C1 CI42752287697: Verify PASS, SQL migration applicata ma pgTAP FAIL; prima
+receipt conservata. Il controllo RLS considerava anche gli indici, che non sono
+tabelle: corretto filtrando relkind=r, senza cambiare policy. Diagnostica estesa
+alle sole assertion number del reporter compatto pg_prove. Nuovo upload in due
+fasi: browser uploaded non significa verified; checksum in worker con lease/fence.
+Operatore import può attestare mapping/CLP/primo uso; grant ruolo e verifica
+provider documentata rimangono protetti owner-only. Nessuna promozione automatica.

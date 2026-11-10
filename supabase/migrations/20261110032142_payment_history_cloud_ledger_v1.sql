@@ -22,7 +22,8 @@ create table public.payment_history_uploads (
  file_name text not null check(length(file_name) between 1 and 256),
  file_sha256 text not null check(file_sha256 ~ '^[0-9a-f]{64}$'),
  byte_length bigint not null check(byte_length between 1 and 20971520),
- state text not null default 'pending' check(state in ('pending','verified','rejected','expired')),
+ state text not null default 'pending' check(state in ('pending','uploaded','verifying','verified','rejected','expired')),
+ verification_token uuid,verification_fence bigint not null default 0,verification_expires_at timestamptz,verification_attempts integer not null default 0 check(verification_attempts between 0 and 3),
  created_at timestamptz not null default clock_timestamp(), verified_at timestamptz,
  unique(shop_id,upload_id),check(split_part(object_key,'/',2)=shop_id::text and split_part(object_key,'/',3)=upload_id::text),
  check(state<>'verified' or verified_at is not null)
@@ -248,7 +249,7 @@ begin
  elsif tg_table_name='payment_history_evidence' then
   if (to_jsonb(new)-array['status','verified_at','revoked_at'])=(to_jsonb(old)-array['status','verified_at','revoked_at']) then return new;end if;
  elsif tg_table_name='payment_history_uploads' then
-  if (to_jsonb(new)-array['state','verified_at'])=(to_jsonb(old)-array['state','verified_at']) then return new;end if;
+  if (to_jsonb(new)-array['state','verified_at','verification_token','verification_fence','verification_expires_at','verification_attempts'])=(to_jsonb(old)-array['state','verified_at','verification_token','verification_fence','verification_expires_at','verification_attempts']) then return new;end if;
  end if;
  raise exception using errcode='55000',message='payment_history_immutable_record';
 end;$$;
@@ -355,11 +356,22 @@ declare j public.payment_history_jobs;u public.payment_history_uploads;r jsonb;t
 begin
  if coalesce(auth.role(),'')<>'service_role' then raise exception using errcode='42501',message='payment_history_worker_denied';end if;
  if p_payload is null or jsonb_typeof(p_payload)<>'object' or octet_length(p_payload::text)>8388608 then raise exception using errcode='22023',message='payment_history_payload_invalid';end if;
- if p_operation='verify_upload' then
+ if p_operation='claim_upload' then
+  update public.payment_history_uploads set state='rejected',verification_token=null,verification_expires_at=null where state='verifying' and verification_expires_at<clock_timestamp() and verification_attempts>=3;
+  select * into u from public.payment_history_uploads where (state='uploaded' or (state='verifying' and verification_expires_at<clock_timestamp())) and verification_attempts<3 order by created_at,upload_id limit 1 for update skip locked;
+  if not found then return jsonb_build_object('ok',true,'upload',null);end if;
+  update public.payment_history_uploads set state='verifying',verification_token=gen_random_uuid(),verification_fence=verification_fence+1,verification_attempts=verification_attempts+1,verification_expires_at=clock_timestamp()+interval '120 seconds' where upload_id=u.upload_id returning * into u;
+  return jsonb_build_object('ok',true,'upload',jsonb_build_object('upload_id',u.upload_id,'shop_id',u.shop_id,'object_key',u.object_key,'file_name',u.file_name,'file_sha256',u.file_sha256,'byte_length',u.byte_length::text,'verification_token',u.verification_token,'verification_fence',u.verification_fence::text));
+ elsif p_operation in ('verify_upload','reject_upload') then
   select * into u from public.payment_history_uploads where upload_id=(p_payload->>'upload_id')::uuid for update;
-  if not found or u.state<>'pending' or u.file_sha256 is distinct from p_payload->>'sha256' or u.byte_length is distinct from (p_payload->>'byte_length')::bigint
-   or u.object_key is distinct from p_payload->>'object_key' then raise exception using errcode='22023',message='payment_history_upload_mismatch';end if;
-  update public.payment_history_uploads set state='verified',verified_at=clock_timestamp() where upload_id=u.upload_id;
+  if not found or u.state<>'verifying' or u.verification_token is distinct from (p_payload->>'verification_token')::uuid or u.verification_fence is distinct from (p_payload->>'verification_fence')::bigint
+   or u.verification_expires_at<=clock_timestamp() then raise exception using errcode='40001',message='payment_history_upload_fence_stale';end if;
+  if p_operation='reject_upload' then
+   update public.payment_history_uploads set state=case when p_payload->>'retry'='true' and verification_attempts<3 then 'uploaded' else 'rejected' end,verification_token=null,verification_expires_at=null where upload_id=u.upload_id;
+  else
+   if u.file_sha256 is distinct from p_payload->>'sha256' or u.byte_length is distinct from (p_payload->>'byte_length')::bigint or u.object_key is distinct from p_payload->>'object_key' then raise exception using errcode='22023',message='payment_history_upload_mismatch';end if;
+   update public.payment_history_uploads set state='verified',verified_at=clock_timestamp(),verification_token=null,verification_expires_at=null where upload_id=u.upload_id;
+  end if;
   return jsonb_build_object('ok',true);
  elsif p_operation='claim' then
   update public.payment_history_jobs set state='failed',error_code='history_attempts_exhausted',lease_token=null,lease_expires_at=null
@@ -500,8 +512,8 @@ declare a jsonb;cap text;result jsonb;r public.payment_history_runtime;j public.
  v_request uuid;v_digest text;v_id uuid;v_batch uuid;v_operation uuid;v_review jsonb;v_ids uuid[];v_revision bigint;v_count integer;
 begin
  if p_payload is null or jsonb_typeof(p_payload)<>'object' or octet_length(p_payload::text)>65536 then raise exception using errcode='22023',message='payment_history_payload_invalid';end if;
- cap:=case when p_operation in ('capabilities','read','status','receipt') then 'read' when p_operation in ('upload_create','start','configure','review','commit','evidence','merchant') then 'import'
-  when p_operation in ('cancel_job','cancel_batch') then 'cancel' when p_operation='export' then 'export' when p_operation='permissions' then 'migrate' end;
+ cap:=case when p_operation in ('capabilities','read','status','receipt','upload_status') then 'read' when p_operation in ('upload_create','upload_ready','start','configure','review','commit','evidence','merchant') then 'import'
+  when p_operation='cancel_job' then 'import' when p_operation='cancel_batch' then 'cancel' when p_operation='export' then 'export' when p_operation='permissions' then 'migrate' end;
  a:=app_private.payment_history_demand_actor_v1(p_shop_id,cap,p_staff_id,p_staff_web_session_id,p_session_token_hash,p_credential_version);
  -- Same actor/request-key is serialized across both jobs and receipts.
  if p_operation in ('start','commit','cancel_batch') then
@@ -527,6 +539,11 @@ begin
   insert into public.payment_history_uploads(upload_id,shop_id,actor_kind,actor_id,object_key,file_name,file_sha256,byte_length)
    values(v_id,p_shop_id,a->>'kind',(a->>'id')::uuid,'history/'||p_shop_id::text||'/'||v_id::text,p_payload->>'file_name',p_payload->>'sha256',(p_payload->>'byte_length')::bigint) returning * into u;
   result:=jsonb_build_object('upload_id',u.upload_id,'object_key',u.object_key);
+ elsif p_operation in ('upload_ready','upload_status') then
+  select * into u from public.payment_history_uploads where shop_id=p_shop_id and upload_id=(p_payload->>'upload_id')::uuid and actor_kind=a->>'kind' and actor_id=(a->>'id')::uuid for update;
+  if not found then raise exception using errcode='42501',message='payment_history_upload_actor_mismatch';end if;
+  if p_operation='upload_ready' and u.state='pending' then update public.payment_history_uploads set state='uploaded' where upload_id=u.upload_id;u.state:='uploaded';end if;
+  result:=jsonb_build_object('upload_id',u.upload_id,'state',u.state);
  elsif p_operation='start' then
   select * into j from public.payment_history_jobs where shop_id=p_shop_id and actor_kind=a->>'kind' and actor_id=(a->>'id')::uuid and request_key=v_request;
   if found then
@@ -624,8 +641,10 @@ begin
   select * into receipt from public.payment_history_receipts where shop_id=p_shop_id and actor_kind=a->>'kind' and actor_id=(a->>'id')::uuid and request_key=(p_payload->>'request_key')::uuid;
   result:=jsonb_build_object('receipt',case when found then receipt.receipt else null end);
  else
-  -- Configuration changes require the legal owner, never a staff/full-access badge.
-  if a->>'kind'<>'personal_account' or not exists(select 1 from public.shop_members where shop_id=p_shop_id and profile_id=(a->>'id')::uuid and role_key='shop_owner' and membership_status='active') then raise exception using errcode='42501',message='payment_history_owner_required';end if;
+  -- Legal-owner grants and provider verification remain protected. Operational
+  -- import actors may attest currency, mapping and actual first-use evidence.
+  if (p_operation='permissions' or (p_operation='evidence' and (p_payload->>'kind'='modern_time' or p_payload->>'level'='provider_verified' or p_payload->>'action'='revoke')))
+   and (a->>'kind'<>'personal_account' or not exists(select 1 from public.shop_members where shop_id=p_shop_id and profile_id=(a->>'id')::uuid and role_key='shop_owner' and membership_status='active')) then raise exception using errcode='42501',message='payment_history_owner_required';end if;
   if p_operation='permissions' then
    if coalesce(p_payload->>'role','') not in ('shop_manager','manager','pos_admin') or coalesce(p_payload->>'capability','') not in ('read','import','cancel','export','migrate') or jsonb_typeof(p_payload->'enabled') is distinct from 'boolean' then raise exception using errcode='22023',message='payment_history_permission_invalid';end if;
    perform pg_advisory_xact_lock(hashtextextended('payment-history-role:'||p_shop_id::text||':'||(p_payload->>'role'),0));
@@ -657,6 +676,7 @@ begin
    end if;
    if e.scope->>'merchant_id' is distinct from v_id::text then raise exception using errcode='22023',message='payment_history_merchant_evidence_scope';end if;
    v_digest:=app_private.payment_history_field_hash_v1(array['getnet-merchant-alias-v1',p_payload#>>'{source_identity,local}',p_payload#>>'{source_identity,seller}',p_payload#>>'{source_identity,sellerId}',p_payload#>>'{source_identity,localNumber}',p_payload#>>'{source_identity,rut}']);
+   if e.scope->>'alias_key' is distinct from v_digest then raise exception using errcode='22023',message='payment_history_merchant_evidence_scope';end if;
    if exists(select 1 from public.payment_history_merchant_aliases where shop_id=p_shop_id and alias_key=v_digest and active and merchant_id<>v_id) then raise exception using errcode='23505',message='payment_history_alias_collision';end if;
    insert into public.payment_history_merchant_aliases(shop_id,merchant_id,alias_key,source_identity,evidence_id) values(p_shop_id,v_id,v_digest,p_payload->'source_identity',e.evidence_id)
     on conflict(shop_id,alias_version,alias_key) where active do nothing;
