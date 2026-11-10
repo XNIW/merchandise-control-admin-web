@@ -18,10 +18,11 @@ NATIVE_EMPTY = '20261108051044_asus_019_native_empty_catalog_scope.sql'
 NATIVE_EMPTY_SHA = 'af69667d6e8e9988a833c4cb2b818c4378061cbc6869c4821b29aa5e64e379ce'
 NATIVE_EMPTY_BODY_MD5 = '9622c4d3a4c793a7803d730b8a8c51d4'
 REVIEWED_EXTENSIONS = {
-    '20261110020325_asus019_staff_operations_read.sql': {'sha256':'2b4c17b47f5f27e767224204f4d3fd694afb835903bdb09baa9ad8968b909e86','additionalAssertions':31},
+    '20261110020325_asus019_staff_operations_read.sql': {'sha256':'2b4c17b47f5f27e767224204f4d3fd694afb835903bdb09baa9ad8968b909e86','additionalAssertions':31,'testFile':'supabase/tests/asus019_staff_operations_read.sql'},
     '20261110012505_asus019_staff_operational_reads.sql': {
         'sha256': '571ea7d0a7628e8f9b10e0b6fd8ec9005fb6974ce1e5538456eee954e24217ab',
         'additionalAssertions': 31,
+        'testFile': 'supabase/tests/asus019_staff_profile_read.sql',
     },
 }
 MOBILE_SALES_BODY_MD5 = '42bb90a0d49faa42e78558f9c610944c'
@@ -1048,7 +1049,9 @@ def replay(repo, workdir, bootstrap_only=False):
     root = root_path(workdir); ERROR_ROOT = root
     inputs = prefix_manifest(root)
     tests = sorted(name for name in inputs["files"] if name.startswith("supabase/tests/") and name.endswith(".sql"))
-    require(len(tests) == 67 and "supabase/tests/asus_019_native_empty_catalog_scope.sql" in tests,
+    extension_tests = {spec["testFile"] for spec in REVIEWED_EXTENSIONS.values()}
+    require(len(extension_tests) == len(REVIEWED_EXTENSIONS) and extension_tests.issubset(tests)
+            and len(tests) == 67 + len(extension_tests) and "supabase/tests/asus_019_native_empty_catalog_scope.sql" in tests,
             "reviewed HEAD database test membership changed")
     for name, action in (("fresh local gate", empty_local), ("prefix bootstrap", start_prefix),
                          ("observed local ownership", observe_owned_creation)):
