@@ -13,9 +13,11 @@ pacchetto Windows5d8e704 già qualificato. Nessun DONE.
 Checkpoint automatico10novembre: Admin B/C implementati nei draft149/150/151.
 Runtime finale PR151 f11cff7: CI42780343982 e Cloudflare42780344070 SUCCESS,
 73file/4599 assertion SQL e17 component test storico PASS. Nessun rollout/SQL live.
-Client cloud Windows futuro PR135 separato: Local1760 PASS, successore fixture e
-guard0016 in qualifica remota. Consegna5d8e704/installato a828 invariati; sessione
-manuale con operatore e prerequisiti cloud/fisici restano aperti nell'Execution.
+Client cloud Windows futuro PR135 separato: codice9d47f28, CI42785561851 e
+Security42785562194 SUCCESS,15/15 passi, functional22, smoke8/52 e load11 PASS;
+Local1760 PASS riferita al codice precedente1ccc5b2. Nessun installer futuro.
+Consegna5d8e704/installato a828 invariati; sessione manuale con operatore e
+prerequisiti cloud/fisici restano aperti nell'Execution.
 
 ## ASUS019 — Planning Admin persistente, Windows separatamente in qualifica
 

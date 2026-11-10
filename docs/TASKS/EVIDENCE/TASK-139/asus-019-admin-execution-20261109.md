@@ -402,3 +402,34 @@ prima CI42777264224 FAIL conservata, fixture/grant e guard0016 corretti nella
 successiva cc23a65. Qualifica completa del successore ancora in corso, nessun
 PASS trasferito e nessun pacchetto/installazione futura prodotto. Questa è la
 stessa Execution ASUS019 ACTIVE; non DONE, senza accettazione utente.
+
+## Ricevuta finale automatica del client futuro9d47f28
+
+Codice Windows9d47f28b647af7fc8a4715733fa8d0821339a101 congelato nel draft135.
+CI42785561851 e Security42785562194 SUCCESS. Artefatto13750491209 scaricato e
+SHA ZIPded5fc01ee27d287c28dbce38a77842ccd6adc653320c70d25697199afa802c8 verificato.
+Report sourceSha9d47f28,15/15 passi canonici PASS; functional22/22, foundation
+5case/37assertion, smoke8case/52assertion in49836ms, load11assertion PASS.
+measurementCompleted/environmentValid/thresholdsPassed tutti true. Nessun
+FAIL/TIMEOUT/NOT_RUN nei15passi della nuova ricevuta. Core/Data e selftest PASS;
+Local precedente1760/1760 resta riferita al codice1ccc5b2, senza attribuire al
+successore conteggi non pubblicati dalla ricevuta CI.
+
+Il checkpoint standalone WPF42783064279/cc23a65 aveva già22functional PASS.
+Nella fixture storica il manager con permessi espliciti conserva i test di
+revoca del singolo permesso; il percorso HTTP/geometry continua a usare pos_admin.
+Il primo42777264224 FAIL e i run superseduti/cancellati sono conservati. Nessun
+budget aumentato, assert rimosso o negativo trasformato in skip.
+
+Il ramo Windows resta sul codice esatto qualificato9d47f28. I checkpoint della
+CLOUD-CONTINUATION.md e la descrizione PR135 sono collegati a questa ricevuta
+finale nel registro canonico condiviso, evitando un nuovo commit codice dopo
+la qualifica. Nessun nuovo installer Release Pack creato o installato. I report
+CI e il precedente artefatto standalone WPF non sono la consegna prodotto5d.
+
+Stato finale di questa sessione: implementazioni B/C disponibili in bozza con
+controlli automatici sopra eseguiti; ambiente/E2E cloud autenticato, prestazioni
+sull'host scelto, inventario fisico/cutover e accettazione rimangono gate aperti.
+Consegna A5d, installato a828, profilo e ricevuta legacy conservati. Nessuna
+azione UAC/POS/login/DPI/live durante l'assenza dell'operatore. Unica ASUS019
+ACTIVE; la sessione manuale riprende dal punto1 della procedura precedente.
