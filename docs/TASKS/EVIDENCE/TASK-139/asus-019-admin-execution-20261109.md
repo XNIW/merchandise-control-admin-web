@@ -281,3 +281,56 @@ Checkpoint successivo: security con WIN7POS_REPO_PATH=C:/Dev/Win7POS PASS,
 nessun controllo esterno saltato. Build Next PASS. Bundle Node costruito con
 guard che esclude Supabase SDK, admin client e gateway privilegiato dal processo
 parser. Prove SQL59 ancora NOT_RUN; integrazione API/UI/client ancora aperta.
+
+## C3–C5 — checkpoint SQL35f3312 qualificato, integrazione successiva attiva
+
+Draft PR151, base PR150. Migrazione additiva20261110044957 congelata con SHA
+a943f661433e4b67db8924ee35277c4d75ecb2edd54442add0ad24b6ec49ffe9.
+CI42770536504 Verify/Database SUCCESS, Cloudflare42770536548 SUCCESS. Replay
+72file/4587 assertion PASS,59 nuove; operatori precedenti byte-exact e contratti
+runtime esistenti preservati. Artifact13741906708: merge284950b, treef4b9a9a
+identico al branch35f33121bfb6e1e3c403693414e72e71786cfe13. Nessun deploy.
+
+FAIL42767754085/42769038477/42769748015 conservati. Creazione del migration
+worker fermata alla condizione CASE: aggiunte parentesi esplicite, poi replay
+PASS. Diagnostica estesa solo a numeri di statement/linea, SQLSTATE e categorie
+chiuse; primo file diagnostico non incluso nell'artefatto, whitelist CI corretta.
+Nessun output SQL grezzo, valore bancario o segreto pubblicato per il debug.
+
+Ramo Windows isolato:15 prove Core/Data PASS su export/recupero/replica/report,
+build WPF net48/x86 PASS senza warning, dialog standards39/39 PASS. Cache cloud
+pubblicata atomicamente, report usa una sola origine storica, vecchio registro
+conservato, annullamento propagato, rollback non rivela di nuovo i vecchi totali.
+Grant locale fresco con scadenza monotona per ogni nuovo Apply/Undo, nessuna
+scrittura offline; originale receipt replay resta consultabile. Export congelato
+recuperabile con verifica integrale dei file e ack device. UI IT/ES/EN/ZH nel
+dialog esistente, nessun avvio nativo questa notte. Suite Core completa in corso.
+
+API device e trasferimento, wizard migrazione e pannello inventario/cutover in
+implementazione sopra35f3312: typecheck iniziale PASS, test boundary/UI ancora
+da eseguire. Follow-up SQL20261110070629 separato dal precedente congelato:
+totali del solo nuovo import nella review e reader nominato per i nomi POS.
+Questa tranche successiva non eredita i PASS SQL/CI del checkpoint35f3312.
+
+## Integrazione HTTP/UI, candidata successiva in verifica
+
+Endpoint POS dedicato usa lease attuale, token verificati, soli hash nel named
+RPC e proiezione chiusa. Endpoint migrazione/cutover deriva actor/shop dalla
+sessione e rivalida migrate prima della pubblicazione.22 nuove prove boundary
+PASS, incluse revoca, scope, DTO espanso, operazioni finanziarie negate al device
+e importi Int64 stringa. Typecheck PASS, lint senza errori (un warning corretto).
+
+Wizard trasferimento e pannello postazioni IT/ES/EN/ZH, recupero URL con soli UUID,
+conferma singola e receipt lookup dopo incertezza. Inventario non preattestato,
+nomi fisici da reader nominato, attivazione disabilitata salvo gate server vero.
+Primo component run17:16 PASS/1 TIMEOUT, selettore getByLabel exact del combo;
+nome accessibile corretto nel DOM, fixture aggiornata a getByRole combobox.
+Nessuna riduzione degli assert di cutover; nuovo run da eseguire.
+
+Follow-up SQL20261110070629 con7 nuove assertion reader; review precedente
+estesa con5 assertion sui nuovi totali. Attesi73file/4599 assertion, ancora
+NOT_RUN su questa candidata. Frontend/SQL nuovi non distribuiti.
+
+Windows futuro commit1ccc5b23b65fd1924889e5cd097ca578d18618df: suite Local
+autorizzata avviata, esito ancora aperto. Pacchetto5d, installato a828 e registro
+reale conservati. Non avviare UAC/POS/desktop finché l'utente non torna disponibile.

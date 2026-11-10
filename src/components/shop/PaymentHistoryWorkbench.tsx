@@ -3,6 +3,10 @@ import {useCallback,useEffect,useRef,useState} from "react";
 import type {PaymentHistoryCopy} from "@/i18n/payment-history";
 import type {SupportedLocale} from "@/i18n/locales";
 import {commercialDateTimeTicks} from "@/lib/payment-history/time-rules";
+import {HistoryTransferPanel} from "./HistoryTransferPanel";
+import {historyTransferCopy} from "@/i18n/history-transfer";
+import {HistoryCutoverPanel} from "./HistoryCutoverPanel";
+import {historyCutoverCopy} from "@/i18n/history-cutover";
 
 type Data=Record<string,unknown>;
 type Source={upload_id:string;sha256:string;file_name:string;byte_length:string};
@@ -133,6 +137,8 @@ export function PaymentHistoryWorkbench({shopId,copy,locale,initialCapabilities}
  const rows=list(ledger?.rows),batches=list(ledger?.batches);
  return <div className="mx-auto max-w-6xl space-y-6 p-4 sm:p-6">
   <header><h1 className="text-2xl font-semibold">{copy.title}</h1><p className="mt-2 text-sm opacity-80">{copy.description}</p></header>
+  {permissions.migrate===true?<HistoryTransferPanel key={shopId} shopId={shopId} copy={historyTransferCopy(locale)}/>:null}
+  {permissions.migrate===true?<HistoryCutoverPanel key={shopId} shopId={shopId} copy={historyCutoverCopy(locale)}/>:null}
   <div role="status" aria-live="polite" className="min-h-6 text-sm">{busy?copy.working:message}</div>
   {error?<p role="alert" className="rounded-lg border border-red-400 p-3">{error}</p>:null}
   {canImport?<section aria-busy={busy} className="space-y-5 rounded-xl border border-current/20 p-4 sm:p-6">

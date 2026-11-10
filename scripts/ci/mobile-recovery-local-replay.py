@@ -18,7 +18,8 @@ NATIVE_EMPTY = '20261108051044_asus_019_native_empty_catalog_scope.sql'
 NATIVE_EMPTY_SHA = 'af69667d6e8e9988a833c4cb2b818c4378061cbc6869c4821b29aa5e64e379ce'
 NATIVE_EMPTY_BODY_MD5 = '9622c4d3a4c793a7803d730b8a8c51d4'
 REVIEWED_EXTENSIONS = {
-    '20261110044957_payment_history_migration_and_replica_v1.sql': {'sha256':'a943f661433e4b67db8924ee35277c4d75ecb2edd54442add0ad24b6ec49ffe9','additionalAssertions':59,'testFile':'supabase/tests/asus019_payment_history_transfer.sql'},
+    '20261110070629_payment_history_transfer_review_details.sql': {'sha256':'7654ca2eaacda7f0ed410fbc08d6613ec7e15f62f7eec2897e5907983272cada','additionalAssertions':7,'testFile':'supabase/tests/asus019_payment_history_transfer_details.sql'},
+    '20261110044957_payment_history_migration_and_replica_v1.sql': {'sha256':'a943f661433e4b67db8924ee35277c4d75ecb2edd54442add0ad24b6ec49ffe9','additionalAssertions':64,'testFile':'supabase/tests/asus019_payment_history_transfer.sql'},
     '20261110032142_payment_history_cloud_ledger_v1.sql': {'sha256':'0fb57fc06dda53c404647373322291ac85a1ab55aec1046b802ce4eb63973f83','additionalAssertions':66,'testFile':'supabase/tests/asus019_payment_history_ledger.sql'},
     '20261110022056_asus019_staff_mobile_device_reads.sql': {'sha256':'336bb7611b21235ea3a6cde9e7c8283e8b94c5c2edfadfee6eca5f3e9cb8891e','additionalAssertions':25,'testFile':'supabase/tests/asus019_staff_mobile_operations_read.sql'},
     '20261110020325_asus019_staff_operations_read.sql': {'sha256':'2b4c17b47f5f27e767224204f4d3fd694afb835903bdb09baa9ad8968b909e86','additionalAssertions':31,'testFile':'supabase/tests/asus019_staff_operations_read.sql'},

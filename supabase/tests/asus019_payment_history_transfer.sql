@@ -2,7 +2,7 @@ begin;
 set local role postgres;
 create extension if not exists pgtap with schema extensions;
 set local search_path=public,extensions;
-select plan(59);
+select plan(64);
 select has_table('public','payment_history_source_objects','original local provenance has a dedicated store');
 select ok(not has_function_privilege('authenticated','public.payment_history_device_v1(uuid,uuid,uuid,uuid,text,text,integer,text,jsonb)','EXECUTE'),'browser cannot impersonate a POS replica');
 select ok(not has_function_privilege('authenticated','public.payment_history_worker_gateway_v1(uuid,text,text,jsonb)','EXECUTE'),'browser cannot claim work');
@@ -75,6 +75,9 @@ select lives_ok($$select pg_temp.device('freeze_ack',(select value from transfer
 select throws_ok($$select pg_temp.device('freeze_ack',(select value||jsonb_build_object('archive_sha256',repeat('f',64)) from transfer_context where key='freeze_payload'))$$,'23505','payment_history_idempotency_conflict','frozen source cannot be silently replaced');
 insert into transfer_context values('review',pg_temp.migration('review',jsonb_build_object('run_id',(select value->>'run_id' from transfer_context where key='run'))));
 select is((select value->>'can_apply' from transfer_context where key='review'),'true','stable POS acknowledgement permits a fresh content-bound review');
+select is((select value#>>'{summary,new_active_gross_clp}' from transfer_context where key='review'),'3380','review exposes only the literal newly added gross');
+select is((select value#>>'{summary,known_new_active_net_clp}' from transfer_context where key='review'),'3320','review preserves known net subtotal');
+select is((select value#>>'{summary,known_new_active_net_count}' from transfer_context where key='review'),'5','known net coverage remains explicit');
 insert into transfer_context values('apply_payload',jsonb_build_object('run_id',(select value->>'run_id' from transfer_context where key='run'),'review_digest',(select value->>'review_digest' from transfer_context where key='review'),'request_key','84000000-0000-4000-8000-000000003019'));
 insert into transfer_context values('receipt',pg_temp.migration('apply',(select value from transfer_context where key='apply_payload')));
 select is((select value->>'new_active' from transfer_context where key='receipt'),'5','five source movements acquire global identities');
@@ -92,6 +95,8 @@ select lives_ok($$select pg_temp.analyse()$$,'same original export can be analys
 select lives_ok($$select pg_temp.map_all((select (value->>'run_id')::uuid from transfer_context where key='run2'))$$,'a second source reconciliation is explicit');
 insert into transfer_context values('review2',pg_temp.migration('review',jsonb_build_object('run_id',(select value->>'run_id' from transfer_context where key='run2'))));
 select is((select value#>>'{summary,duplicates}' from transfer_context where key='review2'),'5','all five original identities deduplicate');
+select is((select value#>>'{summary,new_active_gross_clp}' from transfer_context where key='review2'),'0','duplicate migration review adds zero gross');
+select is((select value#>>'{summary,known_new_active_net_count}' from transfer_context where key='review2'),'0','duplicate migration review invents no new net coverage');
 insert into transfer_context values('receipt2',pg_temp.migration('apply',jsonb_build_object('run_id',(select value->>'run_id' from transfer_context where key='run2'),'review_digest',(select value->>'review_digest' from transfer_context where key='review2'),'request_key','86000000-0000-4000-8000-000000003019')));
 select is((select value->>'new_active' from transfer_context where key='receipt2'),'0','second migration adds no financial rows');
 insert into transfer_context values('snapshot',pg_temp.device('snapshot_start','{"request_key":"87000000-0000-4000-8000-000000003019","page_size":3}'));
