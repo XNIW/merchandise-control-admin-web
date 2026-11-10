@@ -4,7 +4,7 @@
 > La continuazione ASUS019 mantiene Windows in Execution separata; il nuovo
 > [follow-up Admin B/C](../ARCHITECTURE/ASUS019-ADMIN-OPERATIONS-HISTORY-PLAN.md)
 > è PLANNING / READY_FOR_REVIEW, senza modifiche runtime, SQL o deploy.
-> Windows a397 qualificato, successore solo QA5d8e704 in qualifica, installato
+> Windows a397 e successore QA5d8e704 qualificati, quattro workflow SUCCESS; installato
 > ancora a828. Ripristino200% già confermato; nuova matrice DPI aperta.
 > Quattro originali legacy corrispondono a una ricevuta Apply/un lotto attivo.
 > I checkpoint sotto conservano la loro data e non definiscono lo stato corrente.

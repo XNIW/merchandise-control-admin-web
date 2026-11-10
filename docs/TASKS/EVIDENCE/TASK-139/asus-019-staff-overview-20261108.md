@@ -25,8 +25,10 @@ offline può ancora importare localmente, cutover BLOCKED: nessun web writer
 indipendente finché aggiornamento/ritiro e riconciliazione non sono provati.
 
 Windows a397a49 ha Windows-All15/15 e quattro workflow SUCCESS. Nuovo5d8e704
-aggiunge soltanto prova MainWindow pagamento/guida (src identico), qualifica
-congelata in corso; a828 resta installato. Display200%/2880×1800 ripristinato;
+aggiunge soltanto prova MainWindow pagamento/guida (src identico): qualifica
+Windows-All15/15 e quattro workflow SUCCESS, pacchetto41/QA40 e34 comuni identici,
+smoke scaricato8/52 PASS49.397s. Primo UAC annullato prima dell'avvio: a828 resta
+installato,10/10 file profilo invariati. Kit Win7 nuovo pronto; nessuna prova fisica. Display200%/2880×1800 ripristinato;
 nuova matrice DPI, installazione e percorso reale ancora aperti. Legacy: una
 ricevuta Apply/un lotto attivo per quattro originali; nessun nuovo Apply/undo.
 Moderni C e Win7 fisico indisponibile restano limiti distinti. Le evidence di

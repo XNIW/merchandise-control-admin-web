@@ -19,8 +19,11 @@ dispatch CI Admin o comando npm di qualifica eseguito per B/C.
   functional22, smoke8/52, crash5, load11 PASS; quattro workflow exact-SHA SUCCESS.
   Il successore `5d8e704b2d0027c4ee1d5a9f4cb6b10842b85b54` aggiunge soltanto la
   prova MainWindow pagamento e aggiorna la guida. Albero `src`
-  `d540bb0963a634ee6140f720fef17456a4b87775` identico ad a397; nuova qualifica
-  congelata in corso. Non trasferire i PASS di a397 al successore.
+  `d540bb0963a634ee6140f720fef17456a4b87775` identico ad a397. Nuova qualifica
+  5d8e704 conclusa15/15 PASS e quattro workflow SUCCESS; prodotto41/QA40,34 comuni
+  identici, smoke scaricato8/52 PASS49.397s. Sono prove eseguite sul successore,
+  non PASS trasferiti da a397. Primo UAC annullato prima dell'avvio: installato
+  a828 e10/10 file del profilo invariati, consegna reale ancora aperta.
 - Installato al checkpoint: a8286c6. Installazione e percorso reale del successore
   restano aperti nella [task Windows](https://github.com/XNIW/Win7POS/tree/main/docs/plans/ASUS-W7POS-019_GETNET_HISTORY).
 - Getnet V1 reale: quattro originali legacy hanno prodotto **una ricevuta Apply e

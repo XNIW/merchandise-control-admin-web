@@ -17,8 +17,10 @@ storico tre passaggi e ledger cloud/cutover a unico writer C; nessuna funzione
 futura dichiarata PASS. Comandi npm/SQL/E2E soltanto riportati per Execution.
 
 Windows a397a49: Windows-All15/15 e quattro workflow SUCCESS. Successore QA
-5d8e704 (src identico) congelato per qualifica completa; installato ancora
-a8286c6, consegna/percorso reale aperti nella task Windows. Display200% già
+5d8e704 (src identico) qualificato Windows-All15/15, quattro workflow SUCCESS;
+pacchetto41/QA40 verificati,34 comuni identici, smoke scaricato8/52 PASS49.397s.
+Consenso UAC annullato prima dell'avvio: installato ancora a8286c6 e profilo10/10
+invariato; installazione/percorso reale restano aperti nella task Windows. Display200% già
 ripristinato, nuova matrice DPI ancora da concludere. Quattro originali legacy
 in una ricevuta Apply/un lotto attivo, moderni bloccati da C. Win7 fisico
 NOT_RUN/BLOCKED_TARGET. Nessun Apply/undo degli originali per provare la UI.
