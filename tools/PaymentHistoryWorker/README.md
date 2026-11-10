@@ -18,7 +18,9 @@ Required private environment names are `PAYMENT_HISTORY_WORKER_GATEWAY_URL` and
 `/api/internal/payment-history/worker`. The worker has no Supabase service key.
 The HTTP application's dedicated gateway validates timestamp/nonce/body HMAC,
 allows only bounded analysis operations, and uses a SQL replay cache so a
-transport retry cannot double-claim or append staging twice. It signs downloads
+transport retry cannot double-claim or append staging twice. Each attempt has a15s
+deadline covering headers and body, with an8MiB reply limit; cancellation stops
+without another attempt. It signs downloads
 only for source objects returned by a scoped database claim, never an arbitrary
 path supplied by the worker. Supply the shared key through the host's secret store;
 never put them into a command argument, repository, UI or logs. HTTPS is required.

@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join, resolve } from "node:path";
 import vm from "node:vm";
@@ -89,6 +89,12 @@ const backupResultKeys = [
   "published_identity_invalid", "backup_finalize_pending", "live_database_missing", "busy",
 ];
 const coverageKeys = ["PolicyRequired", "PendingOwnershipVerification", "VerifiedSubset", "VerifiedForScope", "VerifiedEmpty"];
+// Accept the two reviewed client generations; a partial or unknown enum still
+// fails the exact-domain check below. Cloud clients require both new translations.
+const coverageDomainPath = join(posRoot, "src/Win7POS.Core/Reports/SalesReportEntry.cs");
+if (existsSync(coverageDomainPath) && /enum SalesReportCoverageStatus\s*\{[^}]*\bCloudReplica(?:Required|Cached)\b/.test(maskCSharpComments(readFileSync(coverageDomainPath, "utf8")))) {
+  coverageKeys.push("CloudReplicaRequired", "CloudReplicaCached");
+}
 allowedPosDynamicKeyUsages.set("historyReport.coverage.", {
   requiredKeys: coverageKeys.map(key => `historyReport.coverage.${key}`),
   usages: [
