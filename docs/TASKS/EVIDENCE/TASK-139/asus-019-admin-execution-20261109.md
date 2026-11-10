@@ -334,3 +334,71 @@ NOT_RUN su questa candidata. Frontend/SQL nuovi non distribuiti.
 Windows futuro commit1ccc5b23b65fd1924889e5cd097ca578d18618df: suite Local
 autorizzata avviata, esito ancora aperto. Pacchetto5d, installato a828 e registro
 reale conservati. Non avviare UAC/POS/desktop finché l'utente non torna disponibile.
+
+## Candidata Admin f11cff7 — controlli automatici PASS, rollout non eseguito
+
+Codicef11cff71ade1f0ca3a6edcfc5398ab42e01ff829, draft PR151 sopra PR150.
+CI42780343982 Verify/Database SUCCESS, Cloudflare42780344070 SUCCESS;
+TASK094 live e deploy staging/produzione SKIPPED. Artefatto SQL13745323726:
+73file/4599 assertion PASS, operatorSQLByteExactReplay=true. Merge testata
+027ffcebc2742c1974b00020cdad15aa0c9faff6, tree
+ae37831a45bb5af068a4106d24959a1948f29029 identico al branchf11cff7.
+Il pacchetto Worker HTTP13746121265 è conservato in CI, non distribuito.
+
+CI foundation1410:1396 PASS/0 FAIL/14 SKIP per prerequisiti esterni;
+UI smoke48, pairing2, storico17 PASS. La verifica locale contro il client Windows
+futuro esegue anche i test esterni:1460test,1458 PASS/0 FAIL/2 SKIP, typecheck/lint
+PASS. Security con WIN7POS_REPO_PATH esplicito PASS senza salti esterni. Ultima
+rifinitura copy cutover:9 browser component PASS, typecheck PASS, poi CI completa
+f11cff7 verde. Sono component test sintetici/intercettati, non sessioni live.
+
+Failure6581445 conservata: SQL73/4599 PASS, Verify/Cloudflare fermati dal guard
+statico che non elencava il nuovo endpoint POS. Registrato soltanto il percorso
+esatto, nessun wildcard; boundary test negativi invariati. Successore18d1639
+Verify/Database/Cloudflare PASS. Primo run locale sul nuovo Win7POS:2 FAIL del
+verificatore i18n, che ammetteva soltanto i cinque stati report precedenti;
+ora accetta esattamente le due generazioni approvate, richiede entrambe le
+traduzioni cloud e continua a negare domini parziali o sconosciuti.57 i18n PASS,
+compresi compatibilità col client qualificato e rifiuto di traduzione cloud mancante.
+
+Worker: ogni tentativo HTTP è limitato a15s, corpo risposta8MiB, due tentativi
+massimi con lo stesso request UUID; cancellazione o risposta sovradimensionata
+non ripetono il claim.22 prove worker/gateway PASS, incluse attesa indefinita di
+header/body e perdita della risposta. Bundle Node finale costruito senza SDK o
+client DB privilegiato, SHAd573775bd1f6e695339f287268a39abab6f1112767300d16eaa9c58e84f4b1c5.
+Host Node/limite container/chiave HMAC non provisionati: nessun worker cloud attivo.
+
+## Ripresa con operatore e gate ancora aperti
+
+1. Consegna A resta sul codice qualificato5d8e704, distinta dai rami cloud futuri.
+   Installato a8286c6 ancora verificato per hash, POS installato non in esecuzione,
+   main Windows0378e17 pulita. Al rientro: nuovo preimage/backup verificato e nuovo
+   tentativo installer02; consenso UAC dell'utente, avvio quotidiano dal collegamento,
+   PIN mascherato, shell/riepilogo, storico volontario e ritorno con sessione viva.
+   Conservare l'unica ricevuta/batch legacy; nessun retry Apply/Undo per testare UI.
+   Concludere DPI100/125/200 sul candidato effettivamente installato; Win7 fisico e
+   periferiche restano NOT_RUN/BLOCKED_TARGET.
+2. B/C sono implementati nei rami in bozza, non serviti. Prima di prove autenticate:
+   review dell'unità staging, migrazioni additive/versioni/ACL/preimage/rollback
+   espliciti e dataset sintetico distinto dal negozio reale. Nessun recupero1001 o
+   modifica dei grant per far passare una pagina. Reader/capability/menu/revoca
+   reali restano NOT_RUN fino alla sessione sulla versione effettivamente servita.
+3. C end-to-end richiede l'host Node24 separato, limite1GiB/concorrenza1, gateway
+   HTTPS e segreto HMAC tramite secret store. La build del worker non prova il suo
+   provisioning. Misurare job+DB+replica10k/100k, duplicati100%, p50/p95/memoria/egress
+   sull'ambiente scelto; i benchmark parser precedenti non qualificano quel gate.
+   Nessuna promessa di tempi/costi cloud è dedotta dai test locali.
+4. Prima di qualsiasi cutover reale: inventario fisico completo con fonti, client
+   aggiornati o ritiro verificato, freeze/drain, export/backup autenticati di ogni
+   POS, mapping e riconciliazione, stessa replica/revisione/checksum su tutti i
+   device e annullamento propagato su fixture. Un vecchio POS non disponibile
+   resta irrisolto; nessuna autoattestazione o doppio writer. Rollback congela,
+   riconcilia e conserva i dati; non riapre automaticamente l'import locale.
+5. Prova provider C dei moderni ancora MISSING; CSV BLOCKED_INPUT. Nessuna richiesta
+   ripetuta all'utente e nessuna promozione di una colonna Z a prova provider.
+
+Windows futuro PR135: Core/Data1760 PASS e build net48/x86 PASS sul codice1ccc5b2;
+prima CI42777264224 FAIL conservata, fixture/grant e guard0016 corretti nella
+successiva cc23a65. Qualifica completa del successore ancora in corso, nessun
+PASS trasferito e nessun pacchetto/installazione futura prodotto. Questa è la
+stessa Execution ASUS019 ACTIVE; non DONE, senza accettazione utente.

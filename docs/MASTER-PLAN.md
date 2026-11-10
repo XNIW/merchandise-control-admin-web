@@ -10,6 +10,13 @@ UAC/login/DPI e verifiche sul profilo reale insieme all'utente domani.
 Il piano sotto resta la baseline decisionale; nessun requisito B/C aggiunto al
 pacchetto Windows5d8e704 già qualificato. Nessun DONE.
 
+Checkpoint automatico10novembre: Admin B/C implementati nei draft149/150/151.
+Runtime finale PR151 f11cff7: CI42780343982 e Cloudflare42780344070 SUCCESS,
+73file/4599 assertion SQL e17 component test storico PASS. Nessun rollout/SQL live.
+Client cloud Windows futuro PR135 separato: Local1760 PASS, successore fixture e
+guard0016 in qualifica remota. Consegna5d8e704/installato a828 invariati; sessione
+manuale con operatore e prerequisiti cloud/fisici restano aperti nell'Execution.
+
 ## ASUS019 — Planning Admin persistente, Windows separatamente in qualifica
 
 Unica continuazione coordinata ASUS-W7POS-019. B/C sono soltanto PLANNING,
