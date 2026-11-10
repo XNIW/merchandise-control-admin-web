@@ -84,7 +84,7 @@ select is(pg_temp.movement()->>'configured','true','denied export does not disab
 set local role postgres;
 select is((select count(*) from public.pos_sales where shop_id='10000000-0000-4000-8000-000000083019'),0::bigint,'all reader operations leave native sales untouched');
 select is((select count(*) from public.payment_history_receipts where shop_id='10000000-0000-4000-8000-000000083019'),0::bigint,'all reader operations create no financial receipt');
-update public.staff_web_sessions set status='revoked' where staff_web_session_id='30000000-0000-4000-8000-000000083019';
+update public.staff_web_sessions set status='revoked',revoked_at=clock_timestamp() where staff_web_session_id='30000000-0000-4000-8000-000000083019';
 set local role service_role;
 select throws_ok($$select pg_temp.movement()$$,'42501','payment_history_permission_denied','revoked web lease prevents movement read');
 select is(pg_temp.marker()->>'code','permission_denied','revoked web lease also stops marker discovery');
