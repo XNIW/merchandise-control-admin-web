@@ -207,3 +207,41 @@ alle sole assertion number del reporter compatto pg_prove. Nuovo upload in due
 fasi: browser uploaded non significa verified; checksum in worker con lease/fence.
 Operatore import può attestare mapping/CLP/primo uso; grant ruolo e verifica
 provider documentata rimangono protetti owner-only. Nessuna promozione automatica.
+
+
+## C2 — UI e worker dedicato, nuova candidata
+
+C1 head63671a6: CI42753236951 Database/Verify PASS, Cloudflare42753236956
+SUCCESS.47 nuove assertion SQL oltre ai test precedenti, nessuna azione live.
+La nuova candidata amplia a66 le prove SQL: doppio export nuovi=0, ownership
+invariata, undo duplicate-only=0, sessione personale/RLS/scadenza/profilo
+disabilitato, ripresa sotto login fresco con invalidazione review precedente.
+Digest review ora include actor/session/version; replay da rieseguire su questo head.
+
+Workbench tre passaggi /shop/payment-history, menu derivato dalla capability
+finanziaria effettiva, IT/ES/EN/ZH, tastiera e focus. Upload firmato privato,
+checksum in worker Node separato, job fenced, status, preview prove persistite,
+commit singolo e lookup receipt dopo incertezza. Moderni irrisolti conservano
+entrambi gli intervalli e merchant metadata, zero candidati finanziari staged.
+Nomi simili non fondono canonical merchant; grant e verifica provider protetti.
+Reader paginato e download della sola pagina; undo solo esplicito del batch.
+
+21 test boundary/API e10 worker PASS;95 mirati complessivi PASS includono parser,
+planner e contratti security/i18n.8 Playwright component PASS con React DOM/HTTP
+intercettato e dati sintetici: non una sessione Admin autenticata E2E. Primo test
+reload fallito perché la fixture sovrascriveva lo stato ad ogni apertura: fix della
+fixture, receipt originale riusata senza secondo Apply. Successivo recupero URL
+PASS, nessun uso di persistenza browser. Copie e label IT/ES/ZH e axe critical PASS.
+
+Security prima FAIL per import client da percorso server: regole temporali pure
+spostate nel modulo lib condiviso, server reexport e corpus immutati. Security
+PASS successivo. Foundation completa iniziale1401:1391 PASS/3 FAIL/7 SKIP: guard
+server-boundary già corretto, storage browser eliminato senza eccezioni al guard,
+metadata localizzata aggiunta.95 mirati PASS successivi; completa da rieseguire
+sul tree congelato. Typecheck e lint PASS; build precedente PASS, nuova build
+dopo recupero URL ancora da eseguire. Worker bundle costruito con toolchain
+locked993223byte; nessuna nuova dipendenza/provisioning/deploy/SQL live.
+
+C3–C5 restano in implementazione. Creato worktree Windows isolato dal commit
+0378e17; nessuna modifica al candidato5d8e704, all'installato a8286c6 o al profilo.
+Nessuna installazione/UAC/accesso operatore questa notte.

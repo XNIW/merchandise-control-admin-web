@@ -7067,6 +7067,15 @@ export type Database = {
         }
         Returns: Json
       }
+      payment_history_request_v1: {
+        Args: { p_shop_id: string; p_operation: string; p_payload?: Json; p_staff_id?: string;
+          p_staff_web_session_id?: string; p_session_token_hash?: string; p_credential_version?: number }
+        Returns: Json
+      }
+      payment_history_worker_v1: {
+        Args: { p_operation: string; p_payload: Json }
+        Returns: Json
+      }
       staff_web_operations_read_v1: {
         Args: {
           p_expected_credential_version: number

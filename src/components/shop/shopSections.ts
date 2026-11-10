@@ -13,6 +13,7 @@ export type ShopSectionKey =
   | "importExport"
   | "sync"
   | "history"
+  | "paymentHistory"
   | "members"
   | "roles"
   | "staff"
@@ -177,6 +178,10 @@ export const sharedShopGuardrails = [
 ];
 
 export const shopSections: Record<ShopSectionKey, ShopSection> = {
+  paymentHistory: {
+    key: "paymentHistory", label: "Card payment history", href: "/shop/payment-history", title: "Card payment history",
+    eyebrow: "POS", description: "", status: "", metrics: [], plannedWork: [], guardrails: [],
+  },
   overview: {
     key: "overview",
     label: "Overview",

@@ -70,9 +70,9 @@ create table public.payment_history_jobs (
  configuration jsonb not null check(jsonb_typeof(configuration)='object' and octet_length(configuration::text)<=32768),
  source_upload_ids uuid[] not null check(cardinality(source_upload_ids) between 1 and 10),
  lease_token uuid,lease_fence bigint not null default 0 check(lease_fence>=0),lease_expires_at timestamptz,
- attempts integer not null default 0 check(attempts between 0 and 3),
+ attempts integer not null default 0 check(attempts between 0 and 3),attempt_started_at timestamptz,
  processed_rows integer not null default 0 check(processed_rows between 0 and 100000),
- analysis_digest text check(analysis_digest ~ '^[0-9a-f]{64}$'),analysis_summary jsonb,diagnostics jsonb not null default '[]',
+ analysis_digest text check(analysis_digest ~ '^[0-9a-f]{64}$'),analysis_summary jsonb,analysis_merchants jsonb not null default '[]',diagnostics jsonb not null default '[]',
  reviewed_revision bigint,reviewed_writer_epoch bigint,review_digest text check(review_digest ~ '^[0-9a-f]{64}$'),
  reviewed_at timestamptz,error_code text,created_at timestamptz not null default clock_timestamp(),updated_at timestamptz not null default clock_timestamp(),
  unique(shop_id,job_id),unique(shop_id,actor_kind,actor_id,request_key),
@@ -161,7 +161,7 @@ returns boolean language sql stable security definer set search_path='' as $$
  and coalesce(auth.jwt()->>'is_anonymous','false')<>'true'
  and exists(select 1 from auth.sessions ses where ses.id::text=auth.jwt()->>'session_id' and ses.user_id=auth.uid()
    and (ses.not_after is null or ses.not_after>clock_timestamp()))
- and exists(select 1 from public.shops s join public.shop_members m on m.shop_id=s.shop_id
+ and exists(select 1 from public.shops s join public.shop_members m on m.shop_id=s.shop_id join public.profiles pr on pr.profile_id=m.profile_id and pr.profile_status='active' and pr.disabled_at is null
   where s.shop_id=p_shop_id and s.shop_status='active' and m.profile_id=auth.uid() and m.membership_status='active'
   and (m.role_key='shop_owner' or (m.role_key='shop_manager' and exists(select 1 from public.payment_history_role_permissions g
     where g.shop_id=p_shop_id and g.role_key='shop_manager' and g.capability=p_capability and g.enabled))));
@@ -210,6 +210,8 @@ begin
   or coalesce(auth.role(),'')<>'authenticated' or not app_private.payment_history_profile_can_v1(p_shop_id,p_capability)
   or coalesce(auth.jwt()->>'exp','') !~ '^[0-9]{1,12}$' then raise exception using errcode='42501',message='payment_history_permission_denied';end if;
  select m.role_key into v_role from public.shop_members m where m.shop_id=p_shop_id and m.profile_id=auth.uid() and m.membership_status='active' for share;
+ if not found then raise exception using errcode='42501',message='payment_history_permission_denied';end if;
+ perform 1 from public.profiles where profile_id=auth.uid() and profile_status='active' and disabled_at is null for share;
  if not found then raise exception using errcode='42501',message='payment_history_permission_denied';end if;
  if v_role='shop_manager' then perform 1 from public.payment_history_role_permissions where shop_id=p_shop_id and role_key='shop_manager' and capability=p_capability and enabled for share;
   if not found then raise exception using errcode='42501',message='payment_history_permission_denied';end if;end if;
@@ -338,6 +340,7 @@ language sql volatile security definer set search_path='' as $$
  select 1 from public.staff_web_sessions s join public.staff_accounts a on a.shop_id=s.shop_id and a.staff_id=s.staff_id
  join public.shops sh on sh.shop_id=s.shop_id where sh.shop_status='active' and s.shop_id=j.shop_id and s.staff_id=j.actor_id
  and s.staff_web_session_id=j.actor_session_id and s.status='active' and s.revoked_at is null and s.expires_at>clock_timestamp()
+ and app_private.staff_web_runtime_lease_is_valid_v1(j.shop_id,j.actor_id,j.actor_session_id,s.session_token_hash,j.actor_credential_version,null)
  and s.staff_credential_version=j.actor_credential_version and a.credential_version=j.actor_credential_version
  and a.status='active' and a.credential_status='active' and not a.must_change_credential and a.credential_expires_at>clock_timestamp()
  and app_private.payment_history_staff_can_v1(j.shop_id,j.actor_id,'import')) else exists(
@@ -384,7 +387,7 @@ begin
    return jsonb_build_object('ok',true,'job',null);
   end if;
   delete from public.payment_history_staged_movements where job_id=j.job_id;
-  update public.payment_history_jobs set state='analysing',attempts=attempts+1,lease_token=gen_random_uuid(),lease_fence=lease_fence+1,
+  update public.payment_history_jobs set state='analysing',attempts=attempts+1,attempt_started_at=clock_timestamp(),lease_token=gen_random_uuid(),lease_fence=lease_fence+1,
    lease_expires_at=clock_timestamp()+interval '120 seconds',processed_rows=0,analysis_digest=null,analysis_summary=null,diagnostics='[]',updated_at=clock_timestamp()
    where job_id=j.job_id returning * into j;
   return jsonb_build_object('ok',true,'job',jsonb_build_object('job_id',j.job_id,'shop_id',j.shop_id,'lease_token',j.lease_token,'lease_fence',j.lease_fence::text,
@@ -394,7 +397,7 @@ begin
  select * into j from public.payment_history_jobs where job_id=(p_payload->>'job_id')::uuid for update;
  if not found or j.state<>'analysing' or j.lease_token is distinct from (p_payload->>'lease_token')::uuid
   or j.lease_fence is distinct from (p_payload->>'lease_fence')::bigint or j.lease_expires_at<=clock_timestamp()
-  or j.created_at<clock_timestamp()-interval '30 minutes' then raise exception using errcode='40001',message='payment_history_worker_fence_stale';end if;
+  or j.attempt_started_at<clock_timestamp()-interval '30 minutes' then raise exception using errcode='40001',message='payment_history_worker_fence_stale';end if;
  if not app_private.payment_history_job_actor_current_v1(j) then raise exception using errcode='42501',message='payment_history_actor_revoked';end if;
  if p_operation='stage' then
   if jsonb_typeof(p_payload->'rows') is distinct from 'array' or jsonb_array_length(p_payload->'rows') not between 1 and 200 then raise exception using errcode='22023',message='payment_history_chunk_limit';end if;
@@ -417,8 +420,11 @@ begin
   if coalesce(p_payload->>'analysis_digest','') !~ '^[0-9a-f]{64}$' or jsonb_typeof(p_payload->'summary') is distinct from 'object'
    or octet_length((p_payload->'summary')::text)>32768 or jsonb_typeof(p_payload->'diagnostics') is distinct from 'array'
    or octet_length((p_payload->'diagnostics')::text)>262144 or (p_payload#>>'{summary,accepted}')::integer is distinct from j.processed_rows
+   or (p_payload ? 'merchants' and (jsonb_typeof(p_payload->'merchants')<>'array' or jsonb_array_length(p_payload->'merchants')>200 or octet_length((p_payload->'merchants')::text)>262144))
    then raise exception using errcode='22023',message='payment_history_analysis_invalid';end if;
-  update public.payment_history_jobs set state='review_ready',analysis_digest=p_payload->>'analysis_digest',analysis_summary=p_payload->'summary',diagnostics=p_payload->'diagnostics',lease_token=null,lease_expires_at=null,updated_at=clock_timestamp() where job_id=j.job_id;
+  update public.payment_history_jobs set state='review_ready',analysis_digest=p_payload->>'analysis_digest',analysis_summary=p_payload->'summary',
+   analysis_merchants=coalesce(p_payload->'merchants',(select coalesce(jsonb_agg(x),'[]') from(select distinct alias_key,transaction->'merchant' source_identity from public.payment_history_staged_movements where job_id=j.job_id)x)),
+   diagnostics=p_payload->'diagnostics',lease_token=null,lease_expires_at=null,updated_at=clock_timestamp() where job_id=j.job_id;
  elsif p_operation='fail' then
   if coalesce(p_payload->>'code','') !~ '^getnet_[a-z_]{1,90}$|^history_[a-z_]{1,90}$' then raise exception using errcode='22023',message='payment_history_error_code_invalid';end if;
   update public.payment_history_jobs set state='failed',error_code=p_payload->>'code',lease_token=null,lease_expires_at=null,updated_at=clock_timestamp() where job_id=j.job_id;
@@ -487,6 +493,7 @@ language sql volatile security definer set search_path='' as $$
  'can_commit',s.total>0 and s.blocked=0 and s.conflicts=0 and r.writer_authority='web' and r.inventory_verified,
  'reasons',coalesce((select jsonb_agg(x.code) from(select distinct code from rows where decision in ('blocked','conflict') order by code limit 20)x),'[]'),
  'review_digest',encode(extensions.digest(convert_to(jsonb_build_object('job',j.job_id,'analysis',j.analysis_digest,'configuration',j.configuration,
+ 'actor',jsonb_build_object('kind',j.actor_kind,'id',j.actor_id,'session_id',j.actor_session_id,'credential_version',j.actor_credential_version),
  'revision',r.revision::text,'epoch',r.writer_epoch::text,'authority',r.writer_authority,'inventory',r.inventory_verified,'summary',to_jsonb(s),
  'decisions',(select encode(extensions.digest(convert_to(coalesce(string_agg(ordinal::text||':'||coalesce(merchant_id::text,'')||':'||coalesce(identity_key,'')||':'||coalesce(previous_version_id::text,'')||':'||code,'|' order by ordinal),''),'UTF8'),'sha256'),'hex') from rows),
  'proofs',(select coalesce(jsonb_agg(jsonb_build_object('id',e.evidence_id,'status',e.status,'level',e.verification_level,'scope',e.scope) order by e.evidence_id),'[]') from public.payment_history_evidence e where e.shop_id=j.shop_id))::text,'UTF8'),'sha256'),'hex'))
@@ -512,8 +519,8 @@ declare a jsonb;cap text;result jsonb;r public.payment_history_runtime;j public.
  v_request uuid;v_digest text;v_id uuid;v_batch uuid;v_operation uuid;v_review jsonb;v_ids uuid[];v_revision bigint;v_count integer;
 begin
  if p_payload is null or jsonb_typeof(p_payload)<>'object' or octet_length(p_payload::text)>65536 then raise exception using errcode='22023',message='payment_history_payload_invalid';end if;
- cap:=case when p_operation in ('capabilities','read','status','receipt','upload_status') then 'read' when p_operation in ('upload_create','upload_ready','start','configure','review','commit','evidence','merchant') then 'import'
-  when p_operation='cancel_job' then 'import' when p_operation='cancel_batch' then 'cancel' when p_operation='export' then 'export' when p_operation='permissions' then 'migrate' end;
+ cap:=case when p_operation in ('capabilities','read','status','receipt','upload_status','metadata') then 'read' when p_operation in ('upload_create','upload_ready','start','configure','review','commit','evidence','merchant') then 'import'
+  when p_operation in ('cancel_job','resume_job') then 'import' when p_operation='cancel_batch' then 'cancel' when p_operation='export' then 'export' when p_operation='permissions' then 'migrate' end;
  a:=app_private.payment_history_demand_actor_v1(p_shop_id,cap,p_staff_id,p_staff_web_session_id,p_session_token_hash,p_credential_version);
  -- Same actor/request-key is serialized across both jobs and receipts.
  if p_operation in ('start','commit','cancel_batch') then
@@ -531,6 +538,10 @@ begin
  if p_operation='capabilities' then
   result:=jsonb_build_object('capabilities',(select jsonb_object_agg(c,case when a->>'kind'='pos_staff_manager' then app_private.payment_history_staff_can_v1(p_shop_id,(a->>'id')::uuid,c) else app_private.payment_history_profile_can_v1(p_shop_id,c) end) from unnest(array['read','import','cancel','export','migrate']) c),
    'runtime',(select jsonb_build_object('dataset_id',dataset_id,'revision',revision::text,'writer_epoch',writer_epoch::text,'writer_authority',writer_authority,'inventory_verified',inventory_verified) from public.payment_history_runtime where shop_id=p_shop_id));
+ elsif p_operation='metadata' then
+  result:=jsonb_build_object('merchants',(select coalesce(jsonb_agg(x),'[]') from(select merchant_id,label,evidence_id from public.payment_history_merchants where shop_id=p_shop_id order by merchant_id limit 201)x),
+   'aliases',(select coalesce(jsonb_agg(x),'[]') from(select alias_key,merchant_id,evidence_id from public.payment_history_merchant_aliases where shop_id=p_shop_id and active order by alias_key limit 201)x),
+   'evidence',(select coalesce(jsonb_agg(x),'[]') from(select evidence_id,kind,verification_level,policy_version,reference,scope from public.payment_history_evidence where shop_id=p_shop_id and status='verified' and kind in ('merchant_mapping','legacy_currency','native_start','modern_time','economic_correction') order by evidence_id limit 201)x));
  elsif p_operation='upload_create' then
   if coalesce(p_payload->>'sha256','') !~ '^[0-9a-f]{64}$' or length(coalesce(p_payload->>'file_name','')) not between 1 and 256 or (p_payload->>'byte_length')::bigint not between 1 and 20971520
    or coalesce(p_payload->>'file_name','') !~* '\.(xlsx|pdf|png|jpg|jpeg)$' then raise exception using errcode='22023',message='payment_history_upload_invalid';end if;
@@ -543,7 +554,7 @@ begin
   select * into u from public.payment_history_uploads where shop_id=p_shop_id and upload_id=(p_payload->>'upload_id')::uuid and actor_kind=a->>'kind' and actor_id=(a->>'id')::uuid for update;
   if not found then raise exception using errcode='42501',message='payment_history_upload_actor_mismatch';end if;
   if p_operation='upload_ready' and u.state='pending' then update public.payment_history_uploads set state='uploaded' where upload_id=u.upload_id;u.state:='uploaded';end if;
-  result:=jsonb_build_object('upload_id',u.upload_id,'state',u.state);
+  result:=jsonb_build_object('upload_id',u.upload_id,'state',u.state,'file_name',u.file_name,'sha256',u.file_sha256,'byte_length',u.byte_length::text);
  elsif p_operation='start' then
   select * into j from public.payment_history_jobs where shop_id=p_shop_id and actor_kind=a->>'kind' and actor_id=(a->>'id')::uuid and request_key=v_request;
   if found then
@@ -562,13 +573,18 @@ begin
     values(p_shop_id,a->>'kind',(a->>'id')::uuid,(a->>'session_id')::uuid,(a->>'credential_version')::integer,v_request,v_digest,'getnet-ooxml-web-v1',p_payload->'configuration',v_ids) returning * into j;
    result:=jsonb_build_object('job_id',j.job_id,'state',j.state);
   end if;
- elsif p_operation in ('status','configure','review','commit','cancel_job') then
+ elsif p_operation in ('status','configure','review','commit','cancel_job','resume_job') then
   select * into j from public.payment_history_jobs where shop_id=p_shop_id and job_id=(p_payload->>'job_id')::uuid for update;
-  if not found or j.actor_kind<>a->>'kind' or j.actor_id<>(a->>'id')::uuid or j.actor_session_id<>(a->>'session_id')::uuid
-   or j.actor_credential_version is distinct from (a->>'credential_version')::integer then raise exception using errcode='42501',message='payment_history_job_actor_mismatch';end if;
+  if not found or j.actor_kind<>a->>'kind' or j.actor_id<>(a->>'id')::uuid or (p_operation<>'resume_job' and (j.actor_session_id<>(a->>'session_id')::uuid
+   or j.actor_credential_version is distinct from (a->>'credential_version')::integer)) then raise exception using errcode='42501',message='payment_history_job_actor_mismatch';end if;
   if p_operation='status' then
    result:=jsonb_build_object('job_id',j.job_id,'state',j.state,'processed_rows',j.processed_rows,'summary',j.analysis_summary,'diagnostics',j.diagnostics,'error_code',j.error_code,
-    'merchants',(select coalesce(jsonb_agg(x),'[]') from (select distinct s.alias_key,s.transaction->'merchant' as source_identity from public.payment_history_staged_movements s where s.job_id=j.job_id order by s.alias_key limit 201)x));
+    'merchants',j.analysis_merchants);
+  elsif p_operation='resume_job' then
+   if j.state not in ('queued','analysing','review_ready') then raise exception using errcode='55000',message='payment_history_job_not_resumable';end if;
+   update public.payment_history_jobs set actor_session_id=(a->>'session_id')::uuid,actor_credential_version=(a->>'credential_version')::integer,
+    state=case when state='analysing' then 'queued' else state end,lease_token=null,lease_expires_at=null,lease_fence=lease_fence+1,review_digest=null,reviewed_at=null where job_id=j.job_id;
+   result:=jsonb_build_object('job_id',j.job_id,'state',case when j.state='analysing' then 'queued' else j.state end);
   elsif p_operation='cancel_job' then
    if j.state in ('committing','committed') then raise exception using errcode='55000',message='payment_history_commit_already_started';end if;
    update public.payment_history_jobs set state='cancelled',lease_token=null,lease_expires_at=null,review_digest=null,updated_at=clock_timestamp() where job_id=j.job_id;
@@ -586,7 +602,9 @@ begin
    -- Freeze evidence and aliases while the content-bound decision is published.
    perform 1 from public.payment_history_evidence where shop_id=p_shop_id order by evidence_id for share;
    perform 1 from public.payment_history_merchant_aliases where shop_id=p_shop_id and active order by alias_id for share;
-   lock table public.pos_sales in share mode;
+   -- demand_actor holds this shop FOR SHARE. Native pos_sales_sync_apply_v1
+   -- takes the same shop FOR UPDATE before inserting sales: overlap checking
+   -- is serialized per shop, without a global lock on the POS sales table.
    v_review:=app_private.payment_history_review_v1(j.job_id);
    if p_operation='review' then
     update public.payment_history_jobs set reviewed_revision=r.revision,reviewed_writer_epoch=r.writer_epoch,review_digest=v_review->>'review_digest',reviewed_at=clock_timestamp() where job_id=j.job_id;
@@ -633,6 +651,7 @@ begin
   v_count:=coalesce((p_payload->>'limit')::integer,50);
   if v_count not between 1 and 200 then raise exception using errcode='22023',message='payment_history_page_limit';end if;
   select * into r from public.payment_history_runtime where shop_id=p_shop_id;
+  if p_payload ? 'revision' and (p_payload->>'revision')::bigint is distinct from r.revision then raise exception using errcode='40001',message='payment_history_revision_changed';end if;
   result:=jsonb_build_object('configured',found,'coverage','observed_records_only','dataset_id',r.dataset_id,'revision',r.revision::text,'writer_epoch',r.writer_epoch::text,'writer_authority',r.writer_authority,
    'rows',(select coalesce(jsonb_agg(x order by x.movement_version_id),'[]') from(select movement_version_id,merchant_id,owner_batch_id,active,business_ticks::text,gross_clp::text,commission_clp::text,commission_vat_clp::text,net_clp::text,movement_kind,transaction_state,created_revision::text from public.payment_history_movement_versions
     where shop_id=p_shop_id and movement_version_id>coalesce((p_payload->>'after')::uuid,'00000000-0000-0000-0000-000000000000') order by movement_version_id limit v_count)x),
@@ -655,7 +674,10 @@ begin
     update public.payment_history_evidence set status='revoked',revoked_at=clock_timestamp() where shop_id=p_shop_id and evidence_id=(p_payload->>'evidence_id')::uuid and status<>'revoked' returning * into e;
     if not found then raise exception using errcode='22023',message='payment_history_evidence_not_found';end if;
    else
-    if jsonb_typeof(p_payload->'scope') is distinct from 'object' or jsonb_typeof(p_payload#>'{scope,file_sha256}') is distinct from 'array'
+    if coalesce(p_payload->>'kind','') not in ('merchant_mapping','legacy_currency','native_start','modern_time','economic_correction')
+     or jsonb_typeof(p_payload->'scope') is distinct from 'object' or exists(select 1 from jsonb_object_keys(p_payload->'scope') k where k not in ('merchant_id','alias_key','file_sha256','from_ticks','to_ticks','native_start_ticks','interpretation'))
+     or jsonb_typeof(p_payload#>'{scope,file_sha256}') is distinct from 'array' or jsonb_array_length(p_payload#>'{scope,file_sha256}') not between 1 and 10
+     or exists(select 1 from jsonb_array_elements_text(p_payload#>'{scope,file_sha256}') h where h !~ '^[0-9a-f]{64}$')
      or coalesce(p_payload#>>'{scope,from_ticks}','') !~ '^[0-9]{1,19}$' or coalesce(p_payload#>>'{scope,to_ticks}','') !~ '^[0-9]{1,19}$'
      or (p_payload#>>'{scope,from_ticks}')::bigint>=(p_payload#>>'{scope,to_ticks}')::bigint then raise exception using errcode='22023',message='payment_history_evidence_scope_invalid';end if;
     if p_payload->>'level'='provider_verified' then
@@ -683,7 +705,7 @@ begin
    result:=jsonb_build_object('merchant_id',v_id,'alias_key',v_digest);
   else raise exception using errcode='22023',message='payment_history_operation_invalid';end if;
  end if;
- if p_operation not in ('read','export','capabilities','status','receipt') then
+ if p_operation not in ('read','export','capabilities','status','receipt','metadata','upload_status') then
   insert into public.payment_history_events(shop_id,actor_kind,actor_id,operation,subject_id) values(p_shop_id,a->>'kind',(a->>'id')::uuid,p_operation,coalesce(v_id,j.job_id,b.batch_id));
  end if;
  if not app_private.payment_history_publishable_v1() then raise exception using errcode='42501',message='payment_history_lease_expired';end if;

@@ -189,6 +189,7 @@ const emptyExact: Record<string, string> = {};
 
 const itExact: Record<string, string> = {
   "Shop administrator": "Amministratore negozio",
+  "Card payment history": "Storico pagamenti con carta",
   "Permissions apply to everyone with the selected role. Use the existing templates below; Roles shows the permission matrix.": "I permessi si applicano a tutti gli utenti del ruolo selezionato. Usa i template esistenti qui sotto; Ruoli mostra la matrice dei permessi.",
   "Personal account sign-in": "Accesso con account personale",
   "Shop-code sign-in": "Accesso con codice negozio",
@@ -1588,6 +1589,7 @@ const itExact: Record<string, string> = {
 
 const esExact: Record<string, string> = {
   "Shop administrator": "Administrador de la tienda",
+  "Card payment history": "Historial de pagos con tarjeta",
   "Permissions apply to everyone with the selected role. Use the existing templates below; Roles shows the permission matrix.": "Los permisos se aplican a todas las personas con el rol seleccionado. Usa las plantillas existentes de abajo; Roles muestra la matriz de permisos.",
   "Personal account sign-in": "Acceso con cuenta personal",
   "Shop-code sign-in": "Acceso con código de tienda",
@@ -2947,6 +2949,7 @@ const esExact: Record<string, string> = {
 
 const zhExact: Record<string, string> = {
   "Shop administrator": "门店管理员",
+  "Card payment history": "银行卡付款历史",
   "Permissions apply to everyone with the selected role. Use the existing templates below; Roles shows the permission matrix.": "权限适用于所有使用所选角色的人员。请使用下方现有模板；“角色”页显示权限矩阵。",
   "Personal account sign-in": "个人账号登录",
   "Shop-code sign-in": "门店代码登录",
