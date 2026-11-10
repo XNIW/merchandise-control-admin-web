@@ -41,6 +41,19 @@ function staffLeaseBoundAdminClient() {
 }
 
 // Preserves the TASK140F operation already served by the staging Worker.
+export function callStaffWebShopProfileRead(context: StaffWebLeaseBoundContext, operation: "overview" | "members" | "settings") {
+  const supabase = staffLeaseBoundAdminClient();
+  if (!supabase) return unavailableRpcResult();
+  return supabase.rpc("staff_web_shop_profile_read_v1", {
+    p_expected_credential_version: context.staffWebSession.credentialVersion,
+    p_session_token_hash: context.staffWebSession.sessionTokenHash,
+    p_shop_id: context.selectedShop.shopId,
+    p_staff_id: context.actorStaffId,
+    p_staff_web_session_id: context.staffWebSession.sessionId,
+    p_operation: operation,
+  });
+}
+
 export function callStaffWebStaffRead(context: StaffWebLeaseBoundContext) {
   const supabase = staffLeaseBoundAdminClient();
   if (!supabase) return unavailableRpcResult();

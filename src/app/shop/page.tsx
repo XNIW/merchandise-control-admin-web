@@ -3,6 +3,7 @@ import { getShopSectionForRequest } from "@/server/shop-admin/shop-section-data"
 import { createLocalizedPageMetadata } from "@/i18n/metadata";
 import { redirect } from "next/navigation";
 import { resolveShopAdminDataAccess } from "@/server/shop-admin/data-access";
+import { staffShopLanding } from "@/server/shop-admin/shell-capabilities";
 
 export function generateMetadata() {
   return createLocalizedPageMetadata("Admin Console");
@@ -30,13 +31,8 @@ export default async function ShopAdminPage({
     requestedShopId: getRequestedShopId(params),
     strictRequestedShop: true,
   });
-  if (
-    access.status === "ready" &&
-    access.principalKind === "pos_staff_manager" &&
-    access.principal.roleKey === "courier"
-  ) {
-    redirect("/shop/courier");
-  }
+  const landing = access.status === "ready" ? staffShopLanding(access) : null;
+  if (landing) redirect(landing);
   const section = await getShopSectionForRequest(
     "overview",
     getRequestedShopId(params),

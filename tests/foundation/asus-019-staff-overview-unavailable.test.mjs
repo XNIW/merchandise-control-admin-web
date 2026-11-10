@@ -75,10 +75,16 @@ function harness({ principalKind = "pos_staff_manager", shopResult, memberRows =
       status: "ready",
       principalKind,
       selectedShop: { shopId: SHOP, role: "shop_owner" },
+      principal: {staff:{staffId:OTHER_SHOP},staffWebSession:{sessionId:OTHER_SHOP,credentialVersion:1,sessionTokenHash:"synthetic"}},
       supabase: client,
     },
   };
   const readModel = loadModule("src/server/shop-admin/read-model.ts", {
+    "./staff-profile-read-model": loadModule("src/server/shop-admin/staff-profile-read-model.ts", {
+      "./data-access": {async revalidateShopAdminDataAccessForPublish(){return true;}},
+      "./staff-web-lease-bound-rpc": {async callStaffWebShopProfileRead(){return {data:null,error:{code:"PGRST202"}};}},
+      "@/lib/account-identity": {createAccountIdentitySummary(){throw Error("Unexpected identity read");}},
+    }),
     "./data-access": {
       async resolveShopAdminDataAccess(options) {
         accessRequests.push(options);

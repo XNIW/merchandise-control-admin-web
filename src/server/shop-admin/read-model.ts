@@ -11,6 +11,7 @@ import {
   type PlatformAuthIdentitySummary,
 } from "@/server/platform-admin/auth-identities";
 import { resolveShopAdminDataAccess } from "./data-access";
+import { readStaffShopProfile } from "./staff-profile-read-model";
 
 type ShopRow = Tables<"shops">;
 type ShopMemberRow = Tables<"shop_members">;
@@ -257,14 +258,7 @@ export async function getShopAdminReadModel(
   }
 
   if (access.principalKind !== "personal_account") {
-    return {
-      status: "staff_surface_unavailable",
-      ...emptyRows,
-      readOnly: true,
-      source: "supabase_server",
-      reason:
-        "Shop and member reads require a lease-bound staff read operation that is not available for this surface.",
-    };
+    return readStaffShopProfile(access, options.view);
   }
 
   const { selectedShop, supabase } = access;
