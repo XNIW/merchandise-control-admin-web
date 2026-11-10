@@ -1,0 +1,92 @@
+begin;
+set local role postgres;
+create extension if not exists pgtap with schema extensions;
+set local search_path=public,extensions;
+select plan(46);
+select has_table('public','payment_history_runtime','dedicated runtime');
+select has_table('public','payment_history_movement_versions','dedicated versioned ledger');
+select has_table('public','payment_history_receipts','immutable receipts');
+select ok((select bool_and(relrowsecurity) from pg_class where relnamespace='public'::regnamespace and relname like 'payment_history_%'),'RLS enabled on every ledger table');
+select ok(not has_table_privilege('service_role','public.payment_history_jobs','SELECT'),'service role has no direct job table surface');
+select ok(not has_table_privilege('authenticated','public.payment_history_jobs','SELECT'),'browser cannot see worker leases');
+select ok(not has_table_privilege('authenticated','public.payment_history_movement_versions','INSERT'),'browser cannot create money');
+select ok(not has_function_privilege('anon','public.payment_history_request_v1(uuid,text,jsonb,uuid,uuid,text,integer)','EXECUTE'),'anonymous denied');
+select ok(not has_function_privilege('authenticated','public.payment_history_worker_v1(text,jsonb)','EXECUTE'),'browser cannot stage rows');
+select is(app_private.payment_history_ticks_v1('0001-01-01T00:00:00.0000001'),'1'::bigint,'100ns preserved independently of PG timestamp precision');
+select is(app_private.payment_history_ticks_v1('2024-01-31T16:12:13.4567000'),'638423143334567000'::bigint,'ticks equal independent CLR');
+select is(app_private.payment_history_field_hash_v1(array['getnet-merchant-alias-v1','Synthetic Merchant','','','','']),'07aad10f6d3df03e3870a76b0e6dc0f22f37e703c89162113e8ac6fc21c70ab3','alias hash equals independent qualified CLR');
+insert into public.shops(shop_id,shop_code,shop_name,shop_status) values('10000000-0000-4000-8000-000000003019','HISTORY019','Synthetic history','active');
+insert into public.staff_accounts(staff_id,shop_id,staff_code,display_name,role_key,status,credential_kind,credential_hash,credential_updated_at,credential_expires_at,must_change_credential,credential_version,credential_status)
+ values('20000000-0000-4000-8000-000000003019','10000000-0000-4000-8000-000000003019','1001','Synthetic history admin','pos_admin','active','password','argon2id:synthetic-not-a-login',clock_timestamp(),clock_timestamp()+interval '1 hour',false,7,'active');
+insert into public.staff_role_permissions(shop_id,role_key,permission_key,enabled) values('10000000-0000-4000-8000-000000003019','pos_admin','shop_admin.full_access',true) on conflict(shop_id,role_key,permission_key) do update set enabled=true;
+insert into public.staff_web_sessions(staff_web_session_id,shop_id,staff_id,session_token_hash,staff_credential_version,status,issued_at,expires_at)
+ values('30000000-0000-4000-8000-000000003019','10000000-0000-4000-8000-000000003019','20000000-0000-4000-8000-000000003019','sha256:'||repeat('a',64),7,'active',now()-interval '1 minute',now()+interval '1 hour');
+create function pg_temp.history(op text,payload jsonb default '{}') returns jsonb language sql as $$
+ select public.payment_history_request_v1('10000000-0000-4000-8000-000000003019',op,payload,'20000000-0000-4000-8000-000000003019','30000000-0000-4000-8000-000000003019','sha256:'||repeat('a',64),7)->'result';$$;
+create temp table history_context(key text primary key,value jsonb);
+grant all on history_context to service_role;
+set local role service_role;
+set local request.jwt.claims='{"role":"service_role"}';
+select is(pg_temp.history('capabilities')#>>'{capabilities,import}','true','existing full access has explicit historical import capability');
+select throws_ok($$select pg_temp.history('invented')$$,'42501','payment_history_permission_denied','unknown operation closed');
+select throws_ok($$select pg_temp.history('permissions','{"role":"manager","capability":"import","enabled":true}')$$,'42501','payment_history_owner_required','staff cannot escalate a shared role');
+select throws_ok($$select pg_temp.history('evidence','{}')$$,'42501','payment_history_owner_required','staff cannot self-mint provider proof');
+select is(pg_temp.history('read')->>'configured','false','unconfigured history is not authoritative empty');
+insert into history_context values('upload',pg_temp.history('upload_create',jsonb_build_object('file_name','synthetic.xlsx','sha256',repeat('a',64),'byte_length','100')));
+select throws_ok($$select pg_temp.history('start',jsonb_build_object('request_key','40000000-0000-4000-8000-000000003019','upload_ids',jsonb_build_array((select value->>'upload_id' from history_context where key='upload')),'configuration','{}'::jsonb))$$,'22023','payment_history_sources_unverified','unverified upload cannot enter a job');
+select lives_ok($$select public.payment_history_worker_v1('verify_upload',jsonb_build_object('upload_id',(select value->>'upload_id' from history_context where key='upload'),'object_key',(select value->>'object_key' from history_context where key='upload'),'sha256',repeat('a',64),'byte_length','100'))$$,'worker verifies immutable source hash/length');
+insert into history_context values('job',pg_temp.history('start',jsonb_build_object('request_key','40000000-0000-4000-8000-000000003019','upload_ids',jsonb_build_array((select value->>'upload_id' from history_context where key='upload')),'configuration','{}'::jsonb)));
+select is(pg_temp.history('start',jsonb_build_object('request_key','40000000-0000-4000-8000-000000003019','upload_ids',jsonb_build_array((select value->>'upload_id' from history_context where key='upload')),'configuration','{}'::jsonb))->>'job_id',(select value->>'job_id' from history_context where key='job'),'same job request returns same identity');
+select throws_ok($$select pg_temp.history('start',jsonb_build_object('request_key','40000000-0000-4000-8000-000000003019','upload_ids',jsonb_build_array((select value->>'upload_id' from history_context where key='upload')),'configuration','{"changed":true}'::jsonb))$$,'23505','payment_history_idempotency_conflict','same key different content rejected');
+insert into history_context values('lease',public.payment_history_worker_v1('claim','{}')->'job');
+select is((select value->>'job_id' from history_context where key='lease'),(select value->>'job_id' from history_context where key='job'),'bounded worker claims the expected job');
+select throws_ok($$select public.payment_history_worker_v1('heartbeat',(select value||'{"lease_fence":"0"}'::jsonb from history_context where key='lease'))$$,'40001','payment_history_worker_fence_stale','old fence cannot heartbeat');
+set local role postgres;
+-- This row is synthetic; all financial assertions below are literal and independently known.
+insert into history_context values('transaction','{"provider":"getnet","currency":"CLP","parserVersion":"getnet-ooxml-web-v1","profile":"GetnetLegacy","profileVersion":"getnet-legacy-v1","externalNamespace":"getnet.legacy.transaction","externalId":"SYN-LEDGER-1","grossClp":"1200","commissionClp":"20","commissionVatClp":null,"netClp":"1180","movementKind":"Sale","transactionStatus":"ABONADO","merchant":{"local":"SYNTHETIC SHOP","seller":"","sellerId":"","localNumber":"","rut":""},"source":{"fileId":"file-1","fileSha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","sheetName":"Ventas","rowNumber":2},"timestamp":{"businessDateTime":"2024-02-01T11:12:13.0000000","rawTimestamp":"01/02/2024 11:12:13","interpretation":"Unresolved","policyVersion":"synthetic-v1"}}');
+select is(app_private.payment_history_economic_digest_v1(app_private.payment_history_economics_v1((select value from history_context where key='transaction'))),'24208343d107ee0d94b1dfb3bf6794ebc07ddb3bfb29af8124eb3602de31989a','SQL economics equal actual net48 fingerprint');
+set local role service_role;
+select lives_ok($$select public.payment_history_worker_v1('stage',(select value from history_context where key='lease')||jsonb_build_object('rows',jsonb_build_array(jsonb_build_object('ordinal',1,'upload_id',(select value->>'upload_id' from history_context where key='upload'),'transaction',(select value from history_context where key='transaction')))))$$,'worker stages validated source/content');
+select throws_ok($$select public.payment_history_worker_v1('stage',(select value from history_context where key='lease')||jsonb_build_object('rows',jsonb_build_array(jsonb_build_object('ordinal',1,'upload_id',(select value->>'upload_id' from history_context where key='upload'),'transaction',(select value from history_context where key='transaction')))))$$,'22023','payment_history_stage_sequence','repeated stage cannot append twice');
+select lives_ok($$select public.payment_history_worker_v1('finish',(select value from history_context where key='lease')||jsonb_build_object('analysis_digest',repeat('b',64),'summary','{"accepted":1}'::jsonb,'diagnostics','[]'::jsonb))$$,'analysis becomes reviewable');
+select is(pg_temp.history('review',jsonb_build_object('job_id',(select value->>'job_id' from history_context where key='job')))->>'can_commit','false','unmapped or local writer cannot commit');
+set local role postgres;
+insert into public.payment_history_evidence(evidence_id,shop_id,kind,verification_level,status,policy_version,reference,scope,actor_kind,actor_id,verified_at)
+ select ('50000000-0000-4000-8000-'||lpad(n::text,12,'0'))::uuid,'10000000-0000-4000-8000-000000003019',kind,'operator_attested','verified','synthetic-v1','synthetic proof only',
+ jsonb_build_object('merchant_id','60000000-0000-4000-8000-000000003019','file_sha256',jsonb_build_array(repeat('a',64)),'from_ticks','0','to_ticks','3155378975999999999','native_start_ticks','640000000000000000'),
+ 'pos_staff_manager','20000000-0000-4000-8000-000000003019',clock_timestamp() from(values(1,'merchant_mapping'),(2,'legacy_currency'),(3,'native_start')) x(n,kind);
+insert into public.payment_history_merchants(merchant_id,shop_id,label,evidence_id) values('60000000-0000-4000-8000-000000003019','10000000-0000-4000-8000-000000003019','Synthetic merchant','50000000-0000-4000-8000-000000000001');
+insert into public.payment_history_merchant_aliases(shop_id,merchant_id,alias_key,source_identity,evidence_id) select '10000000-0000-4000-8000-000000003019','60000000-0000-4000-8000-000000003019',s.alias_key,s.transaction->'merchant','50000000-0000-4000-8000-000000000001' from public.payment_history_staged_movements s where s.job_id=(select (value->>'job_id')::uuid from history_context where key='job');
+select is((select writer_authority from public.payment_history_runtime where shop_id='10000000-0000-4000-8000-000000003019'),'local','new shop retains local authority by default');
+-- Only this owned synthetic fixture bypasses the future cutover ceremony.
+update public.payment_history_runtime set writer_authority='web',inventory_verified=true where shop_id='10000000-0000-4000-8000-000000003019';
+set local role service_role;
+select lives_ok($$select pg_temp.history('configure',jsonb_build_object('job_id',(select value->>'job_id' from history_context where key='job'),'evidence_ids','["50000000-0000-4000-8000-000000000001","50000000-0000-4000-8000-000000000002","50000000-0000-4000-8000-000000000003"]'::jsonb))$$,'review uses persisted scoped evidence');
+insert into history_context values('review',pg_temp.history('review',jsonb_build_object('job_id',(select value->>'job_id' from history_context where key='job'))));
+select is((select value->>'can_commit' from history_context where key='review'),'true','verified legacy plan is committable on synthetic web authority');
+select is((select value#>>'{summary,new_count}' from history_context where key='review'),'1','exactly one new movement');
+select is((select value#>>'{summary,new_gross_clp}' from history_context where key='review'),'1200','literal CLP gross');
+select throws_ok($$select pg_temp.history('commit',jsonb_build_object('request_key','70000000-0000-4000-8000-000000003019','job_id',(select value->>'job_id' from history_context where key='job'),'review_digest',repeat('f',64)))$$,'40001','payment_history_review_stale_or_blocked','mutated review digest rejected');
+insert into history_context values('apply_payload',jsonb_build_object('request_key','70000000-0000-4000-8000-000000003019','job_id',(select value->>'job_id' from history_context where key='job'),'review_digest',(select value->>'review_digest' from history_context where key='review')));
+insert into history_context values('receipt',pg_temp.history('commit',(select value from history_context where key='apply_payload')));
+select is((select value->>'kind' from history_context where key='receipt'),'apply','apply returns durable receipt');
+select is(pg_temp.history('commit',(select value from history_context where key='apply_payload'))->>'operation_id',(select value->>'operation_id' from history_context where key='receipt'),'retry after commit returns original receipt');
+select is(pg_temp.history('receipt','{"request_key":"70000000-0000-4000-8000-000000003019"}')#>>'{receipt,operation_id}',(select value->>'operation_id' from history_context where key='receipt'),'receipt lookup recovers uncertain network outcome');
+set local role postgres;
+select is((select count(*) from public.payment_history_movement_versions where shop_id='10000000-0000-4000-8000-000000003019' and active),1::bigint,'one owned movement');
+select is((select sum(gross_clp) from public.payment_history_movement_versions where shop_id='10000000-0000-4000-8000-000000003019' and active),1200::numeric,'totals did not double on retry');
+select throws_ok($$update public.payment_history_receipts set receipt='{}' where shop_id='10000000-0000-4000-8000-000000003019'$$,'55000','payment_history_immutable_record','receipt cannot be rewritten');
+select throws_ok($$update public.payment_history_movement_versions set gross_clp=1 where shop_id='10000000-0000-4000-8000-000000003019'$$,'55000','payment_history_immutable_record','economic facts cannot be edited');
+set local role service_role;
+insert into history_context values('cancel',pg_temp.history('cancel_batch',jsonb_build_object('request_key','80000000-0000-4000-8000-000000003019','batch_id',(select value->>'batch_id' from history_context where key='receipt'),'revision','1','writer_epoch','1')));
+select is((select value->>'deactivated' from history_context where key='cancel'),'1','undo only deactivates owned movements');
+set local role postgres;
+select is((select count(*) from public.payment_history_movement_versions where shop_id='10000000-0000-4000-8000-000000003019' and active),0::bigint,'undo converges active set');
+select is((select count(*) from public.payment_history_revisions where shop_id='10000000-0000-4000-8000-000000003019' and change_kind='tombstone'),1::bigint,'undo emits tombstone in dedicated revision log');
+select is((select count(*) from public.pos_sales where shop_id='10000000-0000-4000-8000-000000003019'),0::bigint,'native POS sales remain untouched');
+update public.payment_history_role_permissions set enabled=false where false;
+insert into public.payment_history_role_permissions(shop_id,role_key,capability,enabled) values('10000000-0000-4000-8000-000000003019','pos_admin','read',false);
+set local role service_role;
+select throws_ok($$select pg_temp.history('read')$$,'42501','payment_history_permission_denied','fresh revocation denies publish despite full access');
+select * from finish();
+rollback;

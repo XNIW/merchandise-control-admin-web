@@ -50,6 +50,9 @@ function isoTicks(raw: string, requireZ = true) {
         number
     ], m[7]);
 }
+export function commercialDateTimeTicks(raw:string) {
+    return (isoTicks(raw,false)+BigInt("621355968000000000")).toString();
+}
 export function parseOffsetMinutes(raw: string) {
     const m = /^([+-]?)([0-9]{1,2})(?::([0-9]{2}))?$/.exec(raw.trim());
     if (!m)

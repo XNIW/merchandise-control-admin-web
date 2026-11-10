@@ -15,11 +15,18 @@ class Program {
   }return d;
  }
  static int Main(string[] args) {
-  if(args.Length!=2||!File.Exists(Path.Combine(args[0],"windows-manifest.json")))return 4;
+  if((args.Length!=2&&args.Length!=3)||!File.Exists(Path.Combine(args[0],"windows-manifest.json")))return 4;
   var files=new[]{"synthetic-legacy.xlsx","synthetic-modern.xlsx"}.Select(name=>Path.Combine(args[0],name)).ToArray();
   HistoricalSalesModernTimeInterpretation mode;if(!Enum.TryParse(args[1],out mode))return 5;
   var options=new HistoricalSalesImportOptions{ModernTimeInterpretation=mode,LegacyClpConfirmed=true,TemporalPolicyVersion="synthetic-fixed-offset-v1",TemporalEvidenceReference=mode==HistoricalSalesModernTimeInterpretation.Unresolved?"":"synthetic ISO UTC evidence"};
   var analysis=new HistoricalSalesImportAnalyzer().Analyze(files,options);
+  if(args.Length==3) {
+   if(args[2]!="contracts"||mode==HistoricalSalesModernTimeInterpretation.Unresolved)return 6;
+   var contracts=analysis.AcceptedTransactions.Select(r=>new {externalId=r.ExternalId,aliasKey=HistoricalMerchantAssignment.MerchantKey(r.Merchant),
+    businessTicks=r.BusinessDateTime.Value.Ticks.ToString(CultureInfo.InvariantCulture),
+    economicDigest=new HistoricalSalesEconomicValue(r.BusinessDateTime.Value.Ticks,r.GrossClp,r.CommissionClp,r.CommissionVatClp,r.NetClp,r.MovementKind.ToString(),r.TransactionStatus).Fingerprint}).ToArray();
+   Console.Write(new JavaScriptSerializer().Serialize(contracts));return 0;
+  }
   var normalized=new {transactions=Normalize(analysis.AcceptedTransactions),rejected=Normalize(analysis.RejectedRows),summary=Normalize(analysis.Summary),needsEvidence=analysis.NeedsEvidence,hasErrors=analysis.HasErrors};
   Console.Write(new JavaScriptSerializer{MaxJsonLength=1000000}.Serialize(normalized));return 0;
  }

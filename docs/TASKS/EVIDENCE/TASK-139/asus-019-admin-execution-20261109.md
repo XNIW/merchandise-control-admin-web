@@ -168,3 +168,34 @@ Le prime failure dei run42741667088/42742080558/42743059586/42744052484/
 Questo PASS riguarda B; non viene trasferito al futuro codice C o alla prova live.
 
 Artifact13732536171 complete.json: 70 file pgTAP, 4462 assertion PASS; replay byte esatto true.
+
+## C1–C5 in ramo successivo
+
+B/C0 congelati per review in PR149, head4a8d77a. La continuazione C1–C5 usa il
+ramo codex/asus019-cloud-payment-history dallo stesso checkout isolato, senza
+aggiungere modifiche al pacchetto Windows5d8e704. Base della futura PR:
+codex/asus019-admin-operations-history-physical. Unico task ASUS019 in Execution.
+Il nuovo ramo non dichiara gate propri prima dei comandi effettivi.
+
+
+## C1 — ledger e transazioni, candidata da verificare
+
+C0 head4a8d77a: CI42748533266 e Cloudflare42748533370 SUCCESS, nessun deploy.
+Nuovo ledger additivo separato da vendite native/stock/outbox: upload immutabili,
+prove versionate, alias/canonical merchant, staging fenced, batch/versioni,
+osservazioni duplicate senza trasferimento ownership, ricevute e revisioni.
+Runtime nasce con writer local; nessuna attivazione web automatica. RPC chiuse
+con sessione personale corrente oppure lease staff ricontrollata nella transazione
+e deadline prima del publish. Configurazione grant/prove riservata al legal owner;
+full_access staff non promuove prove provider né cambia i grant del ruolo.
+Commit idempotente vincolato a shop/actor/key/digest e review revision/epoch;
+undo produce solo tombstone dei movimenti posseduti dal batch. Nessuna Apply reale.
+
+22 prove planner PASS. Nuovo oracolo CLR eseguito dagli assembly qualificati5d:
+identità alias, tick100ns e fingerprint economici dei cinque movimenti sintetici
+uguali al web. Prima failure ha evidenziato digest non legato alla posizione
+sorgente: corretto includendo payload completo, binding e correzioni. Failure
+fixture cross-realm corretta normalizzando l'array, valori attesi invariati.
+Typecheck PASS.46 pgTAP aggiunti al replay byte-esatto; SQL non ancora qualificato.
+Worker/UI/migrazione/replica/cutover rimangono in implementazione nella stessa
+Execution; tutte le verifiche desktop rimandate alla presenza dell'utente.
