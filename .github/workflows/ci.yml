@@ -136,7 +136,7 @@ jobs:
   task-094-staging-e2e:
     name: TASK-094 staging E2E
     needs: [verify, database]
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.database_replay_only != true }}
+    if: github.event_name == 'workflow_dispatch' && inputs.database_replay_only != true
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: cloudflare-staging
