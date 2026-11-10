@@ -94,8 +94,24 @@ def run(argv):
         if REPLAY_STAGE == "pgTAP" and EVIDENCE_ROOT is not None and ERROR_ROOT is not None:
             known = {p.name for p in (ERROR_ROOT / "supabase/tests").glob("*.sql")}
             dump(EVIDENCE_ROOT / "pgtap-diagnostics.json", closed_pgtap_diagnostics(r.stdout, r.stderr, known))
+        if REPLAY_STAGE.startswith('reviewed extension ') and EVIDENCE_ROOT is not None:
+            name = REPLAY_STAGE.removeprefix('reviewed extension ')
+            if name in REVIEWED_EXTENSIONS:
+                dump(EVIDENCE_ROOT / 'extension-diagnostics.json', closed_extension_diagnostics(r.stdout, r.stderr, name))
         raise ValueError("command failed; private evidence retained; no retry")
     return r.stdout
+
+
+def closed_extension_diagnostics(stdout, stderr, name):
+    # Never export the SQL body, exception message, CLI arguments or paths.
+    require(name in REVIEWED_EXTENSIONS, 'unknown diagnostic migration')
+    source = (stdout + b'\n' + stderr).decode('utf-8', errors='replace')
+    states = sorted(set(re.findall(r'SQLSTATE\s+([0-9A-Z]{5})\b', source)))
+    allowed_states = {'42601','42703','42883','42P01','42702','42P13','42804','23502','23503','23505','23514','42501','22023','40001','55000','54000'}
+    statements = sorted({int(m[1]) for m in re.finditer(r'At statement:\s*(\d+)\b', source) if int(m[1]) <= 10000})
+    lines = sorted({int(m[1]) for m in re.finditer(r'(?m)^LINE\s+(\d+):', source) if int(m[1]) <= 100000})
+    return {'status':'FAIL','migration':name,'sqlStates':[s for s in states if s in allowed_states],
+            'statementNumbers':statements,'relativeSQLLineNumbers':lines}
 
 
 def closed_pgtap_diagnostics(stdout, stderr, known):
