@@ -245,3 +245,39 @@ locked993223byte; nessuna nuova dipendenza/provisioning/deploy/SQL live.
 C3–C5 restano in implementazione. Creato worktree Windows isolato dal commit
 0378e17; nessuna modifica al candidato5d8e704, all'installato a8286c6 o al profilo.
 Nessuna installazione/UAC/accesso operatore questa notte.
+
+## C3–C5 — trasferimento e replica, checkpoint non distribuito
+
+C2 head1bc98c7: Verify/Database CI42756837014 SUCCESS. Suite completa1401:
+1394 PASS,0 FAIL,7 SKIP; security/typecheck/lint/build PASS. Gli8 component test
+non sostituiscono E2E autenticato. Candidate Windows5d e profilo reale invariati.
+
+Continuazione isolata codex/asus019-history-replica-cutover. Export Windows
+prodotto da backup SQLite verificato,7 NDJSON e manifest, soli valori string/null,
+ricevute originali intatte, shop/device/dataset/revision/restore epoch e checksum.
+5 prove Data/Core sintetiche PASS; build WPF net48/x86 PASS. Non è il pacchetto5d.
+Il reader web ha15 prove PASS sul vero export del prodotto e fingerprint CLR.
+Worker migrazione e gateway firmato17 PASS; nessuna chiave service-role nel
+processo di parsing, solo operazioni analitiche/replay sicuro e download dei claim.
+
+Migrazione SQL additiva20261110044957: trasferimento solo dopo freeze e ack POS
+che lega manifest/archive/backup SHA; mapping esplicito per scope; dati e ricevute
+locali conservati come legacy_attested, nessuna promozione a prova provider.
+Identità globali distinte dagli ID locali, ownership e tombstone conservati,
+stesso export nuovi=0.59 pgTAP sintetici preparati: SQL ancora NOT_RUN finché il
+replay CI non termina. Replica dedicata con snapshot/cursori/checksum/revisioni,
+gate inventario completo e convergenza; default locale, rollback congelato senza
+ritorno automatico al writer locale. HTTP/UI migrazione e client replica ancora
+in implementazione: nessuna dichiarazione di parità/consegna C3–C5.
+
+Typecheck/lint PASS. Foundation1433:1426 PASS,0 FAIL,7 SKIP. Security scan PASS,
+controllo esterno Win7 saltato per il vecchio percorso Mac: da rieseguire col
+percorso Windows esplicito. Build candidata successiva ancora da eseguire.
+Il controllo provider ora usa la capability finanziaria migrate; cambiare grant
+condivisi resta owner-only. Mancanza documento verificato non aggirabile da1001,
+badge o colonna Z. Nessun SQL/deploy/import/UAC live questa notte.
+
+Checkpoint successivo: security con WIN7POS_REPO_PATH=C:/Dev/Win7POS PASS,
+nessun controllo esterno saltato. Build Next PASS. Bundle Node costruito con
+guard che esclude Supabase SDK, admin client e gateway privilegiato dal processo
+parser. Prove SQL59 ancora NOT_RUN; integrazione API/UI/client ancora aperta.

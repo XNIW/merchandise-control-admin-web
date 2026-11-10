@@ -1,0 +1,18 @@
+{
+  "syntheticOnly": true,
+  "schemaVersion": "history-local-export-v1",
+  "generator": "Win7POS.Data.HistoricalCloudExporter",
+  "archiveSha256": "f1b0980cc4dafe43120e5fc41346aa5b9baa580e780f2f6483f59deb1cf055f5",
+  "dataAssemblySha256": "b440c112eb72377c68184546c42a32411c160706647555e27747d06d26720599",
+  "sourceBase": "0378e17836b4c90960c80073ede9bdafd167022b",
+  "sourcePatchQualification": "client-cloud-export-tests01: 5 PASS; uncommitted C3 exporter source, not the qualified 5d package",
+  "expected": {
+    "movements": 5,
+    "activeMovements": 5,
+    "signedGrossClp": "3380",
+    "knownNetClp": "3320",
+    "operations": 1,
+    "batches": 1,
+    "originalInsertedCount": 5
+  }
+}

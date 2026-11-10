@@ -13,9 +13,14 @@ node scripts/build-payment-history-worker.mjs <absolute-output-outside-checkout.
 node --max-old-space-size=640 <absolute-output-outside-checkout.cjs> --once
 ```
 
-Required private environment names are `PAYMENT_HISTORY_SUPABASE_URL` and
-`PAYMENT_HISTORY_SERVICE_ROLE_KEY`. These names deliberately do not reuse the
-HTTP app's credentials. Supply values through the selected host's secret store;
+Required private environment names are `PAYMENT_HISTORY_WORKER_GATEWAY_URL` and
+`PAYMENT_HISTORY_WORKER_GATEWAY_SECRET` (at least32bytes). The endpoint path is
+`/api/internal/payment-history/worker`. The worker has no Supabase service key.
+The HTTP application's dedicated gateway validates timestamp/nonce/body HMAC,
+allows only bounded analysis operations, and uses a SQL replay cache so a
+transport retry cannot double-claim or append staging twice. It signs downloads
+only for source objects returned by a scoped database claim, never an arbitrary
+path supplied by the worker. Supply the shared key through the host's secret store;
 never put them into a command argument, repository, UI or logs. HTTPS is required.
 An owned local QA endpoint may use `PAYMENT_HISTORY_ALLOW_LOOPBACK=yes`, which
 permits only localhost/127.0.0.1 over HTTP. Do not run against a linked project
@@ -40,8 +45,10 @@ content-bound review; a network uncertainty is recovered by receipt lookup.
 Unresolved modern times produce both candidate ranges and merchant metadata,
 with zero staged financial candidates. Reanalysis requires a new job under a
 verified provider policy. A free-text reference and the `Z` suffix are insufficient.
-Provider verification and shared permission changes remain legal-owner actions;
-operators with import permission may attest merchant/CLP/actual-first-use sources.
+Provider verification and transfer use the separate financial migrate capability;
+shared permission changes remain legal-owner actions. Import operators may attest
+merchant/CLP/actual-first-use sources. Verification still requires an immutable
+verified PDF/image document, scoped merchant/files/period and an explicit policy.
 Evidence scopes include canonical merchant, source hashes and half-open100ns range.
 
 Browser recovery keeps only opaque job/upload/request IDs in the current URL.
@@ -58,3 +65,10 @@ old/offline POS devices block activation; no remote control can disable them.
 No original Getnet imports, local receipts, database profiles or qualified Windows
 packages are inputs to development tests. Automated browser component tests use
 intercepted HTTP and synthetic data; they do not attest authenticated live E2E.
+
+When the import queue is idle, the same sequential process claims local-export
+migration analysis. It retains original NDJSON lines and receipts, stages at most
+200rows/6MiB per request, then normalized movements. SQL independently recomputes
+all seven entry SHA256/byte/row counts. Applying also requires the manifest SHA
+and archive/backup SHA authenticated by the frozen POS. Local proofs remain
+legacy_attested; this transfer cannot resolve missing Getnet provider evidence.

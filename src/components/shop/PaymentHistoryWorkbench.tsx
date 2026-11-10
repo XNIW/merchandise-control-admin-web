@@ -108,7 +108,7 @@ export function PaymentHistoryWorkbench({shopId,copy,locale,initialCapabilities}
   for(const candidate of candidates){
    const choice=getChoice(candidate),existing=metadata.aliases.find(a=>a.alias_key===candidate.alias_key);
    const merchantId=choice.merchantId||crypto.randomUUID();groups.add(merchantId);
-   if(!existing||existing.merchant_id!==merchantId){
+   if(!existing||existing.merchant_id!==merchantId||choice.reference.trim()){
     if(!choice.reference.trim()||!choice.label.trim())throw Error("history_mapping_required");
     const proof=await call("evidence",{kind:"merchant_mapping",level:"operator_attested",version:"operator-mapping-v1",reference:choice.reference,scope:{merchant_id:merchantId,alias_key:candidate.alias_key,file_sha256:sources.map(s=>s.sha256),from_ticks:"0",to_ticks:"3155378975999999999"}});
     await call("merchant",{merchant_id:merchantId,label:choice.label,evidence_id:proof.evidence_id,source_identity:candidate.source_identity});ids.add(String(proof.evidence_id));editChoice(candidate,{merchantId});
