@@ -23,7 +23,10 @@ export async function readStaffMobileOperations(access:StaffOperationsAccess,ope
     if(error) { const code=record(error)?error.code:undefined; return blocked(code==="42501"?"unauthorized":code==="55000"?"unmapped":code==="PGRST202"||code==="42883"?"staff_surface_unavailable":"error","The shop device or mobile history data could not be loaded."); }
     if(!record(data)) throw Error("invalid_mobile_dto");
     if(data.ok!==true||data.code!=="success") return blocked(data.code==="scope_unresolved"?"unmapped":data.code==="permission_denied"?"unauthorized":"error",data.code==="data_limit_exceeded"?"This page exceeds the data limit. Select fewer rows.":"The shop device or mobile history read is blocked.");
-    if(Object.keys(data).sort().join(",")!==rootKeys||data.shop_id!==access.selectedShop.shopId||data.actor_staff_id!==access.principal.staff.staffId||data.staff_web_session_id!==session.sessionId||data.credential_version!==session.credentialVersion||data.operation!==operation||JSON.stringify(data).length>4_194_304) throw Error("invalid_mobile_dto");
+    const expectedKeys=operation==="marker"?[...rootKeys.split(","),"marker_domains"].sort().join(","):rootKeys;
+    if(Object.keys(data).sort().join(",")!==expectedKeys||data.shop_id!==access.selectedShop.shopId||data.actor_staff_id!==access.principal.staff.staffId||data.staff_web_session_id!==session.sessionId||data.credential_version!==session.credentialVersion||data.operation!==operation||JSON.stringify(data).length>4_194_304) throw Error("invalid_mobile_dto");
+    const markerDomains=operation==="marker"?data.marker_domains:null;
+    if(operation==="marker"&&(!Array.isArray(markerDomains)||!["catalog,prices","history","catalog,prices,history"].includes(markerDomains.join(","))))throw Error("invalid_mobile_dto");
     let mapping:{shop_inventory_source_id:string;owner_user_id:string;mapping_state:string;source_kind:string}|null=null;
     if(data.mapping!==null) {
       const m=data.mapping;
@@ -31,7 +34,7 @@ export async function readStaffMobileOperations(access:StaffOperationsAccess,ope
       mapping={shop_inventory_source_id:m.shop_inventory_source_id,owner_user_id:m.owner_user_id,mapping_state:"mapped",source_kind:"mobile_owner"};
     }
     const eventId=operation==="history_detail"&&payload.kind==="sync_event"?String(payload.id):null;
-    const sync=parseShopSyncEventRead(data.sync,access.selectedShop.shopId,operation==="history_list"?160:eventId||operation==="marker"?1:operation==="sync"?25:100,eventId,operation==="history_list"?["history"]:null);
+    const sync=parseShopSyncEventRead(data.sync,access.selectedShop.shopId,operation==="history_list"?160:eventId||operation==="marker"?1:operation==="sync"?25:100,eventId,operation==="marker"?markerDomains as ("catalog"|"prices"|"history")[]:operation==="history_list"?["history"]:null);
     if(!sync||sync.scope.mappedLegacyOwnerUserId!==(mapping?.owner_user_id??null)) throw Error("invalid_mobile_dto");
     // Legacy rows retain their owner binding; normalize only for the common column validator.
     if(!Array.isArray(data.sessions)) throw Error("invalid_mobile_dto");
@@ -47,7 +50,11 @@ export async function readStaffMobileOperations(access:StaffOperationsAccess,ope
     if(!Number.isSafeInteger(data.total_count)||Number(data.total_count)<rows.sessions.length||!Number.isSafeInteger(data.page)||!Number.isSafeInteger(data.page_size)) throw Error("invalid_mobile_dto");
     if(operation==="history_list"&&(data.page!==Number(payload.page)||data.page_size!==Number(payload.pageSize)||rows.sessions.length>Number(payload.pageSize))) throw Error("invalid_mobile_dto");
     if(operation==="history_detail"&&(rows.sessions.length>1||data.total_count!==rows.sessions.length)) throw Error("invalid_mobile_dto");
-    if(!await revalidateShopAdminDataAccessForPublish(access,operation==="devices"?"devices.read":"history.read")) return blocked("unauthorized","Shop access changed before publication.");
+    const permitted=operation==="marker"?await Promise.all([
+      !(markerDomains as string[]).includes("catalog")||revalidateShopAdminDataAccessForPublish(access,"catalog.view"),
+      !(markerDomains as string[]).includes("history")||revalidateShopAdminDataAccessForPublish(access,"history.read"),
+    ]):[await revalidateShopAdminDataAccessForPublish(access,operation==="devices"?"devices.read":"history.read")];
+    if(permitted.some(value=>!value)) return blocked("unauthorized","Shop access changed before publication.");
     const publishedRows:Record<string,Record<string,unknown>[]>={...rows,sessions};
     return {status:"ready" as const,reason:"Shop device and mobile history data loaded under the current staff session.",data:{mapping,sync,rows:publishedRows,totalCount:Number(data.total_count)}};
   } catch {return blocked("error","The shop device or mobile history data could not be loaded.");}

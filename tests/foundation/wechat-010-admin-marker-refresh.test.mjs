@@ -125,6 +125,10 @@ test("confirmed authorization denial clears the financial view once while the po
   const h=harness();h.status(403);await h.advance(0);assert.equal(h.emitted.length,1);assert.equal(h.emitted[0].detail.paymentHistoryStatus,"denied");
   await h.advance(6000);assert.equal(h.emitted.length,1);h.stop();
 });
+test("a scoped financial revocation is delivered even when the generic domain returns503",async()=>{
+  const h=harness();h.status(503);h.financial({paymentHistoryStatus:"denied",paymentHistoryMarker:null});await h.advance(0);
+  assert.equal(h.emitted.length,1);assert.equal(h.emitted[0].detail.paymentHistoryStatus,"denied");assert.equal(h.refreshes.length,0);h.stop();
+});
 test("legacy marker responses and malformed financial hashes cannot authorize a financial refresh",async()=>{
   const h=harness();await h.advance(3000);assert.equal(h.emitted.length,0);h.financial({paymentHistoryStatus:"ready",paymentHistoryMarker:"not-a-hash"});await h.advance(3000);assert.equal(h.emitted.length,0);h.stop();
 });

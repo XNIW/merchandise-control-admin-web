@@ -18,7 +18,7 @@ const columns={
  binding:["alias_key","local_scope_id","local_binding_id","evidence_reference"],
  movement:["source_file_id","source_sheet","source_row","external_namespace","external_id","business_ticks","profile","alias_key","merchant_local","merchant_seller","merchant_seller_id","merchant_local_number","merchant_rut","movement_kind","transaction_state","settlement_state","gross_clp","fee_clp","fee_vat_clp","net_clp","timestamp_raw","offset_raw","offset_minutes","occurred_at_utc_ms","time_interpretation","time_policy_version","time_evidence_reference","card_subtype","payment_id","authorization_code","original_card_type","original_prepaid","terminal","settlement_date_raw"],
  rejected:["source_file_id","source_sheet","source_row","transaction_state","requested_clp"],
- correction:["source_file_id","source_sheet","source_row","previous_transaction_id","previous_economic_digest","proposed_economic_digest","context_fingerprint","evidence_reference","approval_fingerprint"],
+ correction:["source_file_id","source_sheet","source_row","previous_transaction_id","previous_local_batch_id","previous_apply_operation_id","previous_economic_digest","proposed_economic_digest","context_fingerprint","evidence_reference","approval_fingerprint"],
  undo:["batch_id","batch_revision","apply_operation_id"]
 } as const;
 const fail=():never=>{throw Error("history_local_commit_invalid");};
@@ -47,6 +47,8 @@ export function validateLocalCommitPage(raw:unknown,sha:unknown):LocalCommitReco
   }
   if(record.kind==="correction"){
    integer(fields.previous_transaction_id,BigInt("1"));integer(fields.source_row,BigInt("1"));
+   bounded(fields.previous_local_batch_id,256);demandUuid(String(fields.previous_apply_operation_id));
+   if(!String(fields.previous_local_batch_id).trim()||/\p{Cc}/u.test(String(fields.previous_local_batch_id))||fields.previous_apply_operation_id==="00000000-0000-0000-0000-000000000000")return fail();
    for(const key of ["previous_economic_digest","proposed_economic_digest","context_fingerprint","approval_fingerprint"])demandDigest(String(fields[key]));
    bounded(fields.evidence_reference,2048);
    if(windowsFieldHash([fields.previous_transaction_id,fields.previous_economic_digest,fields.proposed_economic_digest,

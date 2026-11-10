@@ -65,10 +65,15 @@ test("first late content without admission needs explicit reconciliation; a rece
  assert.throws(()=>c.validateLocalCommitResult("local_receipt",{...result,receipt},scope));
 });
 test("correction authorization binds both economic versions, exact local ID, source, context and evidence",()=>{
- const fields={source_file_id:"f1",source_sheet:"synthetic",source_row:"2",previous_transaction_id:"9007199254740993",previous_economic_digest:"a".repeat(64),proposed_economic_digest:"b".repeat(64),context_fingerprint:"c".repeat(64),evidence_reference:"synthetic-reviewed-correction",approval_fingerprint:""};
+ const fields={source_file_id:"f1",source_sheet:"synthetic",source_row:"2",previous_transaction_id:"9007199254740993",previous_local_batch_id:"synthetic-local-batch",previous_apply_operation_id:device,previous_economic_digest:"a".repeat(64),proposed_economic_digest:"b".repeat(64),context_fingerprint:"c".repeat(64),evidence_reference:"synthetic-reviewed-correction",approval_fingerprint:""};
  fields.approval_fingerprint=windowsFieldHash([fields.previous_transaction_id,fields.previous_economic_digest,fields.proposed_economic_digest,fields.source_file_id,fields.source_sheet,fields.source_row,fields.context_fingerprint,fields.evidence_reference]);
  const page=JSON.stringify([{kind:"correction",fields}]);
  assert.equal(c.validateLocalCommitPage(page,sha(page))[0].fields.previous_transaction_id,"9007199254740993");
+ assert.equal(c.validateLocalCommitPage(page,sha(page))[0].fields.previous_apply_operation_id,device);
+ const changedOwner=JSON.stringify([{kind:"correction",fields:{...fields,previous_apply_operation_id:operation}}]);
+ assert.notEqual(c.localCommitContentDigest([sha(page)]),c.localCommitContentDigest([sha(changedOwner)]));
+ for(const value of ["",null,"not-a-uuid","00000000-0000-0000-0000-000000000000"]){const invalid=JSON.stringify([{kind:"correction",fields:{...fields,previous_apply_operation_id:value}}]);assert.throws(()=>c.validateLocalCommitPage(invalid,sha(invalid)));}
+ const missing={...fields};delete missing.previous_local_batch_id;const unbound=JSON.stringify([{kind:"correction",fields:missing}]);assert.throws(()=>c.validateLocalCommitPage(unbound,sha(unbound)));
  for(const key of ["previous_transaction_id","previous_economic_digest","proposed_economic_digest","context_fingerprint","evidence_reference"]){
   const changed=JSON.stringify([{kind:"correction",fields:{...fields,[key]:key.endsWith("digest")||key.endsWith("fingerprint")?"d".repeat(64):key==="previous_transaction_id"?"9007199254740994":"changed"}}]);
   assert.throws(()=>c.validateLocalCommitPage(changed,sha(changed)));
