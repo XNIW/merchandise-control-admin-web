@@ -1,5 +1,34 @@
 # MerchandiseControl Admin Web - Master Plan
 
+<!-- ASUS019_CURRENT_START -->
+## Stato corrente — B/C implementati e qualificati nel draft, nessun rollout
+
+Checkpoint 10 novembre: codice Admin PR151 su 6c2bd41407ebc48ec3b0d240934e10235575ea31,
+CI42822197960 e Build42822197996 SUCCESS. Replay SQL isolato Linux: 74 file,
+4638 assertion, comprese 39 nuove su revoca profilo personale e GC temporanea.
+Foundation locale: 1460 PASS / 7 SKIP preesistenti; boundary 29, browser mirati 11
+(totale storico 19), typecheck/lint/security/build PASS con attribuzione propria.
+Migrazione additiva 20261110124034: SHA256
+866867a3d444fc137731c616d3f5af5cd4d11a29070c0d33e8dc5dcf808fec64.
+Le frasi Planning/NOT_IMPLEMENTED/PENDING sottostanti sono checkpoint storici.
+Nessun deploy, SQL live, cutover, installazione cloud o Apply/Undo originale.
+
+Client futuro PR135 ora 9cfe193: incorpora con patch controllata i fix comuni
+carrello/scanner/sync di cc6128f e conserva payment-history. Qualifica propria
+richiesta; due FAIL b0307d4 nel budget storico di 60 secondi restano conservati.
+Consegna Windows corrente PR136 distinta: nuovo ingresso nella vera postazione
+senza attendere catalogo; candidato cc6128f in qualifica, installato 2ad42ca.
+WPF remota verde; Release Pack cc6128f FAIL per un falso positivo nel worklog,
+correzione documentale ancora pendente. Nessun PASS trasferito all'installato.
+
+Il percorso quotidiano separa disponibilità locale qualificata, postazione,
+ultima copia pubblicata e singole operazioni. L'analogo principio mobile è in
+handoff al coordinatore TASK146 dopo lettura del suo task/codice; nessun test
+mobile attribuito ai gate Windows. Scala Windows 200% mantenuta; 100/125 differiti,
+Win7 fisico indisponibile, prova provider C moderna mancante. Execution ACTIVE,
+nessun DONE. Questo aggiornamento è solo documentale: runtime/Admin invariato.
+<!-- ASUS019_CURRENT_END -->
+
 ## ASUS019 — Execution B/C attivata dall'utente, senza operatore
 
 Aggiornamento10novembre: revisione dei quattro difetti in corso negli stessi
