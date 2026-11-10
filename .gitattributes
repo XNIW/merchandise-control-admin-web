@@ -1,1 +1,4 @@
 tests/fixtures/payment-history/getnet-v1/* -text
+# Canonical Windows JSON bytes include CRLF; preserve their pinned hashes.
+tests/fixtures/payment-history/getnet-v1/corpus-v1.json whitespace=cr-at-eol
+tests/fixtures/payment-history/getnet-v1/windows-manifest.json whitespace=cr-at-eol
