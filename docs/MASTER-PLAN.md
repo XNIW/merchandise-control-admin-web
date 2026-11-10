@@ -2,6 +2,16 @@
 
 ## ASUS019 — Execution B/C attivata dall'utente, senza operatore
 
+Aggiornamento10novembre: revisione dei quattro difetti in corso negli stessi
+draft135/151: retention replica Windows, esito Apply rifiutato, revoca profilo
+personale worker e GC temporanea server. Windows247d6f4:10 test mirati PASS,
+nuova CI in corso. Admin:29 boundary e11 browser test PASS, foundation1460 PASS
+/7SKIP; lint/typecheck/security PASS. Replay SQL additivo ancora da acquisire.
+Su nuova richiesta esplicita UAC dell'utente, installazione5d8e704 completata:
+41/41 file byte-identici allo ZIP qualificato,10/10 file profilo invariati,
+POS rimasto chiuso. Le frasi precedenti su installato a828 sono checkpoint storici.
+Nessun deploy/SQL live/cutover o Apply/Undo degli originali. Execution ACTIVE.
+
 Il nuovo mandato del9novembre attiva l'implementazione del piano B/C in worktree
 isolato; non attiva deploy o modifiche live. Unica continuazione ASUS019,
 TASK139/140 chiuse invariate. Stato EXECUTION / ACTIVE; test automatici ora,

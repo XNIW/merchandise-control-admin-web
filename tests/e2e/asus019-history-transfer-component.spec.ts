@@ -7,7 +7,7 @@ import {historyCutoverCopy} from "../../src/i18n/history-cutover";
 import type {SupportedLocale} from "../../src/i18n/locales";
 const id=(n:number)=>`10000000-0000-4000-8000-${String(n).padStart(12,"0")}`,shop="10000000-0000-4000-8000-000000003019";let bundle="";
 test.beforeAll(async()=>{const result=await build({stdin:{contents:`import React from 'react';import {createRoot} from 'react-dom/client';import {HistoryTransferPanel} from './src/components/shop/HistoryTransferPanel';import {HistoryCutoverPanel} from './src/components/shop/HistoryCutoverPanel';import {historyTransferCopy} from './src/i18n/history-transfer';import {historyCutoverCopy} from './src/i18n/history-cutover';const locale=new URL(location.href).searchParams.get('locale')||'en';createRoot(document.getElementById('root')).render(<><HistoryTransferPanel shopId="${shop}" copy={historyTransferCopy(locale)}/><HistoryCutoverPanel shopId="${shop}" copy={historyCutoverCopy(locale)}/></>);`,loader:"tsx",resolveDir:process.cwd()},bundle:true,write:false,platform:"browser",jsx:"automatic",define:{"process.env.NODE_ENV":'"production"'}});bundle=result.outputFiles[0].text;expect(bundle).not.toContain("SUPABASE_SERVICE_ROLE_KEY");expect(bundle).not.toContain("readLocalHistoryExport");});
-async function setup(page:Page,{resume=true,ready=false,timeout=false,denied=false,locale="en" as SupportedLocale,verified=true}={}){
+async function setup(page:Page,{resume=true,ready=false,timeout=false,denied=false,locale="en" as SupportedLocale,verified=true,rejectApply=false,ambiguous=false}={}){
  const calls:{lane:string;operation:string;payload:Record<string,unknown>}[]=[];let committed=false,writer=ready?"frozen":"local",inventory:Record<string,unknown>[]=[];
  const gates={inventory_resolved:ready,inventory_unchanged:ready,grants_drained:ready,sources_reconciled:ready,replicas_current:ready,native_overlap_clear:true,can_activate:ready};
  const source={movements:1,active:1,batches:1,originalOperations:1,activeGrossClp:"1200",knownActiveNetClp:"1180",knownActiveNetCount:1};
@@ -16,6 +16,8 @@ async function setup(page:Page,{resume=true,ready=false,timeout=false,denied=fal
  await page.route("**/api/shop/payment-history/transfer",async route=>{
   const body=route.request().postDataJSON();calls.push(body);expect(body.shop_id).toBe(shop);
   if(denied&&body.operation==="review"){await route.fulfill({status:403,json:{ok:false,code:"history_access_denied"}});return;}
+  if(body.operation==="apply"&&rejectApply){rejectApply=false;await route.fulfill({status:409,json:{ok:false,code:"history_review_changed",outcome:"rejected"}});return;}
+  if(body.operation==="apply"&&ambiguous){await route.fulfill({status:403,json:{ok:false,code:"history_access_denied"}});return;}
   if(body.operation==="apply"){committed=true;if(timeout){await route.abort("failed");return;}}
   if(body.operation==="activate_web")writer="web";
   if(body.operation==="inventory")inventory=[{id:id(40),device_id:body.payload.device_id,hardware_reference_sha256:body.payload.hardware_reference_sha256,disposition:body.payload.disposition,protocol_version:body.payload.protocol_version,client_build_sha:body.payload.client_build_sha,reference:body.payload.reference}];
@@ -61,4 +63,16 @@ test("revoked transfer review displays a safe error and cannot apply",async({pag
 for(const locale of ["it","es","zh-CN"] as SupportedLocale[])test(`transfer and cutover controls support ${locale} keyboard labels`,async({page})=>{
  const x=await setup(page,{resume:false,locale});await page.keyboard.press("Tab");await expect(page.getByText(x.copy.title,{exact:true})).toBeFocused();await page.keyboard.press("Enter");await expect(page.getByLabel(x.copy.file)).toBeVisible();await page.getByText(x.cutover.title,{exact:true}).click();await expect(page.getByLabel(x.cutover.complete,{exact:true})).not.toBeChecked();await page.addScriptTag({path:"node_modules/axe-core/axe.min.js"});
  const failures=await page.evaluate(async()=>{const axe=(window as unknown as {axe:{run:()=>Promise<{violations:{id:string;impact:string}[]}>}}).axe;return(await axe.run()).violations.filter(v=>v.impact==="critical").map(v=>v.id);});expect(failures).toEqual([]);
+});
+
+test("definitive stale review retires the rejected attempt and permits review after reload",async({page})=>{
+ const x=await setup(page,{ready:true,rejectApply:true});await page.getByText(x.copy.title,{exact:true}).click();await page.getByRole("button",{name:x.copy.review,exact:true}).click();await page.getByRole("button",{name:x.copy.confirm,exact:true}).click();
+ await expect(page.getByRole("button",{name:x.copy.review,exact:true})).toBeEnabled();expect(page.url()).not.toContain("history_transfer_apply=");
+ await page.reload();await page.getByText(x.copy.title,{exact:true}).click();await expect(page.getByRole("button",{name:x.copy.resume,exact:true})).toBeEnabled();await expect(page.getByRole("button",{name:x.copy.cancel,exact:true})).toBeEnabled();
+ await page.getByRole("button",{name:x.copy.review,exact:true}).click();await page.getByRole("button",{name:x.copy.confirm,exact:true}).click();await expect(page.getByRole("heading",{name:x.copy.done})).toBeVisible();
+ const attempts=x.calls.filter(c=>c.operation==="apply");expect(attempts).toHaveLength(2);expect(attempts[0].payload.request_key).not.toBe(attempts[1].payload.request_key);
+});
+test("an ambiguous error and missing receipt keep the same attempt locked across reload",async({page})=>{
+ const x=await setup(page,{ready:true,ambiguous:true});await page.getByText(x.copy.title,{exact:true}).click();await page.getByRole("button",{name:x.copy.review,exact:true}).click();await page.getByRole("button",{name:x.copy.confirm,exact:true}).click();await expect(page.getByText(x.copy.pending,{exact:true})).toBeVisible();
+ const key=new URL(page.url()).searchParams.get("history_transfer_apply");expect(key).toBeTruthy();await page.reload();await page.getByText(x.copy.title,{exact:true}).click();await expect(page.getByRole("button",{name:x.copy.review,exact:true})).toBeDisabled();expect(new URL(page.url()).searchParams.get("history_transfer_apply")).toBe(key);expect(x.calls.filter(c=>c.operation==="apply")).toHaveLength(1);
 });

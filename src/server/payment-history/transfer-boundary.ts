@@ -54,6 +54,11 @@ export function validateTransferResult(lane:TransferLane,op:string,v:unknown,sho
  }
  return r;
 }
+// Only a PostgreSQL serialization/review rejection returned by the Apply RPC
+// proves transaction rollback. Later capability/DTO failures may follow commit.
+export class TransferApplyRejectedError extends HistoryRequestError {
+ constructor(){super("history_review_changed",409);}
+}
 export async function transferRequest(access:Access,lane:TransferLane,operation:string,payload:Json){
  if(!Object.hasOwn(TRANSFER_OPERATIONS,lane)||!(TRANSFER_OPERATIONS[lane] as readonly string[]).includes(operation))throw new HistoryRequestError("history_operation_invalid",400);
  const fresh=await historyRequest(access,"capabilities");if(!record(fresh.capabilities)||fresh.capabilities.migrate!==true)throw new HistoryRequestError("history_access_denied",403);
@@ -61,6 +66,7 @@ export async function transferRequest(access:Access,lane:TransferLane,operation:
  if(staff&&!session)throw new HistoryRequestError("history_session_expired",403);
  const db=access.principalKind==="personal_account"?access.supabase:createSupabaseAdminClient();if(!db)throw new HistoryRequestError("history_unavailable",503);
  const {data,error}=await db.rpc(lane==="migration"?"payment_history_migration_request_v1":operation==="devices"?"payment_history_transfer_details_v1":"payment_history_cutover_v1",{p_shop_id:access.selectedShop.shopId,p_operation:operation,p_payload:payload,...(staff&&session?{p_staff_id:staff.staff.staffId,p_staff_web_session_id:session.sessionId,p_session_token_hash:session.sessionTokenHash,p_credential_version:session.credentialVersion}:{})});
+ if(error&&lane==="migration"&&operation==="apply"&&error.code==="40001")throw new TransferApplyRejectedError();
  if(error)throw new HistoryRequestError(error.code==="42501"?"history_access_denied":error.code==="23505"?"history_idempotency_conflict":error.code==="40001"?"history_review_changed":error.code==="55000"||error.code.startsWith("22")?"history_input_invalid":"history_unavailable",error.code==="42501"?403:409);
  const id=access.principalKind==="personal_account"?access.principal.userId:access.principal.staff.staffId;
  if(!record(data)||Object.keys(data).length!==4||data.ok!==true||data.shop_id!==access.selectedShop.shopId||!record(data.actor)||Object.keys(data.actor).some(k=>!["kind","id","session_id","credential_version"].includes(k))||data.actor.kind!==access.principalKind||data.actor.id!==id||typeof data.actor.session_id!=="string"||session&&(data.actor.session_id!==session.sessionId||data.actor.credential_version!==session.credentialVersion)||Buffer.byteLength(JSON.stringify(data))>4194304)throw new HistoryRequestError("history_response_invalid",503);

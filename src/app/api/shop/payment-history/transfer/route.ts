@@ -1,5 +1,5 @@
 import {demandHistoryAccess,historyUploadUrl,HistoryRequestError} from "@/server/payment-history/request-boundary";
-import {TRANSFER_OPERATIONS,transferRequest,type TransferLane} from "@/server/payment-history/transfer-boundary";
+import {TRANSFER_OPERATIONS,TransferApplyRejectedError,transferRequest,type TransferLane} from "@/server/payment-history/transfer-boundary";
 import type {Json} from "@/lib/supabase/database.types";
 export const dynamic="force-dynamic";
 const response=(body:unknown,status=200)=>Response.json(body,{status,headers:{"Cache-Control":"no-store","X-Content-Type-Options":"nosniff"}});
@@ -14,5 +14,5 @@ export async function POST(request:Request){
   if(Object.keys(input).length!==4||Object.keys(input).some(k=>!["shop_id","lane","operation","payload"].includes(k))||typeof input.shop_id!=="string"||typeof input.lane!=="string"||!Object.hasOwn(TRANSFER_OPERATIONS,input.lane)||typeof input.operation!=="string")throw new HistoryRequestError("history_input_invalid",400);
   const access=await demandHistoryAccess(input.shop_id),lane=input.lane as TransferLane,result=await transferRequest(access,lane,input.operation,input.payload as Json);
   return response({ok:true,result:input.operation==="upload_create"?await historyUploadUrl(access,result):result});
- }catch(error){return response({ok:false,code:error instanceof HistoryRequestError?error.code:"history_input_invalid"},error instanceof HistoryRequestError?error.status:400);}
+ }catch(error){return response({ok:false,code:error instanceof HistoryRequestError?error.code:"history_input_invalid",...(error instanceof TransferApplyRejectedError?{outcome:"rejected"}:{})},error instanceof HistoryRequestError?error.status:400);}
 }

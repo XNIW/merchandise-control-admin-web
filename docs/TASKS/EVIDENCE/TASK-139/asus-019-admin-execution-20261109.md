@@ -433,3 +433,63 @@ sull'host scelto, inventario fisico/cutover e accettazione rimangono gate aperti
 Consegna A5d, installato a828, profilo e ricevuta legacy conservati. Nessuna
 azione UAC/POS/login/DPI/live durante l'assenza dell'operatore. Unica ASUS019
 ACTIVE; la sessione manuale riprende dal punto1 della procedura precedente.
+
+## Review10novembre — quattro correzioni, stessa Execution
+
+Draft135 Windows: commit247d6f4, retention pubblicato + massimo3 trasferimenti
+recuperabili per55minuti, pulizia atomica di copie scadute/incompatibili. Delta
+vuoto senza clone, delta modificato materializzato alla prima pagina non vuota;
+checksum/count e CAS conservati, con barriera alla regressione di revisione.
+HistoricalReplicaTests10/10 PASS. Nuova CI42819603512 in corso; Security42819603578
+SUCCESS. Nessun installer del client cloud futuro.
+
+Draft151 Admin corregge il rifiuto definitivo dell'Apply: solo40001 restituito
+dalla RPC Apply porta il marker chiuso outcome=rejected. Il browser ritira quella
+chiave URL, invalida il review e consente nuova revisione; errori di trasporto,
+receipt nulla e revoca/errore DTO dopo la RPC restano incerti e conservano la
+stessa chiave. Test29 boundary/HTTP PASS,11 browser PASS inclusi reload, risposta
+persa, rifiuto e403 ambiguo. Nessun import reale per verificare questa correzione.
+
+Migrazione additiva20261110124034: il worker personale richiede profilo active e
+disabled_at nullo, bloccando in SHARE sessione/membership/shop/profilo durante
+claim/stage/finish. Il commit finanziario aveva già il controllo indipendente
+del profilo: questo difetto riguardava l'analisi worker, non un bypass dimostrato
+del commit. La revoca membership reale passa da revokePlatformShopMember alla
+RPC platform_revoke_shop_member (membership_status=suspended); la sessione può
+scadere tramite not_after. Non è stato trovato nel repository un percorso che
+elimini automaticamente auth.sessions quando cambia profiles. Il vincolo schema
+impone disabled+disabled_at insieme; la fixture prova review/null e
+disabled/timestamp con sessione/membership valide, più revoche indipendenti.
+
+GC server interna: solo snapshot, righe snapshot e cursori temporanei scaduti;
+budget massimo5000 cursori/righe per chiamata, discovery64 candidati/8device,
+massimo8 metadata per device, SKIP LOCKED e fence advisory condiviso col
+percorso device. Un cursore non scaduto protegge anche righe con metadata scaduta.
+Tre snapshot e32 radici pendenti per device danno backpressure, senza espellere
+trasferimenti attivi; delta_start identico riusa la radice viva. Claim worker
+autenticati eseguono la manutenzione anche quando non arriva nuovo lavoro.
+Nessuna pulizia di ledger/eventi/provenienza/ricevute/ack permanenti.
+
+Nuova fixture SQL sintetica rollback-only39 assertion, registro CI/checksum
+aggiornato senza modificare migrazioni già qualificate. Replay Linux CI ancora
+PENDING (Docker/WSL assenti localmente). Foundation locale1460PASS/7SKIP; nuovo
+controllo typecheck/lint/security tutti exit0. I PASS SQL73/4599 precedenti restano
+riferiti al vecchio head; nessuna attribuzione automatica alla correzione.
+
+## Consegna A — installazione effettiva10novembre
+
+La richiesta utente «Riaprimi la finestra UAC» ha riattivato solo l'installer
+già qualificato5d8e704. Setup SHA54e087cc3cf7e04b6ef7e26921a148290ec7431c0d0f3a164c4e58b3509fe044
+ricontrollato prima dell'avvio; log Installation process succeeded, nessun reboot.
+Confronto diretto con lo ZIP prodotto8912fbfb...:41/41 file installati identici,
+EXE02cdff8d0c11e223f3541df87e5e5b40cfdfc7e8e0fef7fc6221be65189ed95d.
+Dieci file del profilo invariati prima/dopo, nessun processo POS avviato.
+Ricevuta privata installer-5d8e704-20261110T095735.final.private.json.
+I confronti diagnostici iniziali con manifest QA e manifest normalizzato sono
+conservati: sei file solo-QA e VERSION normalizzato non descrivevano il payload
+installato; la verifica finale usa tutti i byte dello ZIP prodotto qualificato.
+
+Accesso ordinario, shell/riepilogo/storico/ritorno con operatore restano NOT_RUN
+sull'installato5d; targetWin7/periferiche indisponibili, provaC moderna MISSING,
+CSV BLOCKED_INPUT, E2E cloud autenticato e host reale ancora aperti.
+Nessun DONE, merge, deploy, SQL live o Apply/Undo degli originali.
