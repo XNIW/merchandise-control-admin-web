@@ -24,9 +24,9 @@ insert into auth.users(instance_id,id,aud,role,email,raw_app_meta_data,raw_user_
 insert into public.shop_inventory_sources(shop_inventory_source_id,shop_id,owner_user_id,mapping_state,verified_at) values
  ('40000000-0000-4000-8000-000000001019','10000000-0000-4000-8000-000000001019','00000000-0000-4000-8000-000000001019','mapped',now());
 insert into public.shared_sheet_sessions(remote_id,payload_version,"timestamp",supplier,category,is_manual_entry,data,owner_user_id,shop_id,display_name) values
- ('asus019-own',2,'2026-11-09T12:00:00.000Z','Synthetic own','Fixture',false,'[]','00000000-0000-4000-8000-000000001019','10000000-0000-4000-8000-000000001019','Own history'),
- ('asus019-legacy',2,'2026-10-09T12:00:00.000Z','Synthetic legacy','Fixture',false,'[]','00000000-0000-4000-8000-000000001019',null,'Legacy history'),
- ('asus019-other',2,'2026-11-09T12:00:00.000Z','PRIVATE_OTHER_HISTORY','Fixture',false,'[]','00000000-0000-4000-8000-000000002019','10000000-0000-4000-8000-000000002019','PRIVATE_OTHER_HISTORY');
+ ('51000000-0000-4000-8000-000000001019',2,'2026-11-09T12:00:00.000Z','Synthetic own','Fixture',false,'[]','00000000-0000-4000-8000-000000001019','10000000-0000-4000-8000-000000001019','Own history'),
+ ('51000000-0000-4000-8000-000000002019',2,'2026-10-09T12:00:00.000Z','Synthetic legacy','Fixture',false,'[]','00000000-0000-4000-8000-000000001019',null,'Legacy history'),
+ ('51000000-0000-4000-8000-000000003019',2,'2026-11-09T12:00:00.000Z','PRIVATE_OTHER_HISTORY','Fixture',false,'[]','00000000-0000-4000-8000-000000002019','10000000-0000-4000-8000-000000002019','PRIVATE_OTHER_HISTORY');
 create function pg_temp.mobile(p_op text default 'history_list',p_payload jsonb default '{"page":"1","pageSize":"10","month":"","query":"","status":"all"}',p_hash text default 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa') returns jsonb language sql as $$
  select public.staff_web_mobile_operations_read_v1('10000000-0000-4000-8000-000000001019','20000000-0000-4000-8000-000000001019','30000000-0000-4000-8000-000000001019',p_hash,7,p_op,p_payload);
 $$;
@@ -44,8 +44,8 @@ select is(pg_temp.mobile('history_list','{"page":"1","pageSize":"10","month":"20
 select is(pg_temp.mobile('history_list','{"page":"1","pageSize":"10","month":"","query":"Legacy history","status":"all"}')->>'total_count','1','text filter works without SQL wildcard interpolation');
 select is(pg_temp.mobile('history_list','{"page":"2","pageSize":"10","month":"","query":"","status":"all"}')->>'total_count','2','later empty page preserves exact total');
 select is(jsonb_array_length(pg_temp.mobile('history_list','{"page":"2","pageSize":"10","month":"","query":"","status":"all"}')->'sessions'),0,'later page is empty');
-select is(pg_temp.mobile('history_detail','{"kind":"shared_sheet_session","id":"asus019-legacy"}')->'sessions'->0->>'sourceScope','legacy_owner_bridge','legacy detail retains provenance');
-select is(jsonb_array_length(pg_temp.mobile('history_detail','{"kind":"shared_sheet_session","id":"asus019-other"}')->'sessions'),0,'detail cannot access other shop');
+select is(pg_temp.mobile('history_detail','{"kind":"shared_sheet_session","id":"51000000-0000-4000-8000-000000002019"}')->'sessions'->0->>'sourceScope','legacy_owner_bridge','legacy detail retains provenance');
+select is(jsonb_array_length(pg_temp.mobile('history_detail','{"kind":"shared_sheet_session","id":"51000000-0000-4000-8000-000000003019"}')->'sessions'),0,'detail cannot access other shop');
 select is(pg_temp.mobile('sync','{}')->>'code','success','sync uses existing sanitized SQL boundary');
 select is(pg_temp.mobile('sync','{}')->'sync'->'scope'->>'shopId','10000000-0000-4000-8000-000000001019','sync nested envelope has exact shop');
 select is(pg_temp.mobile('devices','{}')->>'code','success','device registry is supported');
