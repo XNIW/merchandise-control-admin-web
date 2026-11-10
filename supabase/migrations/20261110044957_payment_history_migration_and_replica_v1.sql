@@ -215,7 +215,7 @@ begin
     encode(extensions.digest(convert_to(coalesce(string_agg(original_line||chr(10),'' order by source_ordinal),''),'UTF8'),'sha256'),'hex') hash into fact
     from public.payment_history_migration_objects where run_id=j.run_id and table_name=v_table;
    if fact.row_count::text is distinct from part->>'rows' or fact.row_count<>fact.last_ordinal or fact.bytes::text is distinct from part->>'byteLength' or fact.hash is distinct from part->>'sha256'
-    or fact.row_count>case when v_table='movements' then 100000 when v_table='observations' then 200000 else 10000 end then raise exception using errcode='22023',message='payment_history_local_entry_checksum_mismatch';end if;
+    or fact.row_count>(case when v_table='movements' then 100000 when v_table='observations' then 200000 else 10000 end) then raise exception using errcode='22023',message='payment_history_local_entry_checksum_mismatch';end if;
   end loop;
   if exists(select 1 from public.payment_history_migration_objects where run_id=j.run_id and (object ? 'dataset_id') and object->>'dataset_id' is distinct from m->>'localDatasetId') then raise exception using errcode='22023',message='payment_history_local_scope_mismatch';end if;
   select jsonb_build_object('movements',count(*),'active',count(*) filter(where active),'batches',(select count(*) from public.payment_history_migration_objects where run_id=j.run_id and table_name='batches'),

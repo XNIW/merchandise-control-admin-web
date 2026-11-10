@@ -18,7 +18,7 @@ NATIVE_EMPTY = '20261108051044_asus_019_native_empty_catalog_scope.sql'
 NATIVE_EMPTY_SHA = 'af69667d6e8e9988a833c4cb2b818c4378061cbc6869c4821b29aa5e64e379ce'
 NATIVE_EMPTY_BODY_MD5 = '9622c4d3a4c793a7803d730b8a8c51d4'
 REVIEWED_EXTENSIONS = {
-    '20261110044957_payment_history_migration_and_replica_v1.sql': {'sha256':'5e8e9bbbea0913d56a9b6673b0c833006780656be1276a10fbb2719b23e42cf7','additionalAssertions':59,'testFile':'supabase/tests/asus019_payment_history_transfer.sql'},
+    '20261110044957_payment_history_migration_and_replica_v1.sql': {'sha256':'a943f661433e4b67db8924ee35277c4d75ecb2edd54442add0ad24b6ec49ffe9','additionalAssertions':59,'testFile':'supabase/tests/asus019_payment_history_transfer.sql'},
     '20261110032142_payment_history_cloud_ledger_v1.sql': {'sha256':'0fb57fc06dda53c404647373322291ac85a1ab55aec1046b802ce4eb63973f83','additionalAssertions':66,'testFile':'supabase/tests/asus019_payment_history_ledger.sql'},
     '20261110022056_asus019_staff_mobile_device_reads.sql': {'sha256':'336bb7611b21235ea3a6cde9e7c8283e8b94c5c2edfadfee6eca5f3e9cb8891e','additionalAssertions':25,'testFile':'supabase/tests/asus019_staff_mobile_operations_read.sql'},
     '20261110020325_asus019_staff_operations_read.sql': {'sha256':'2b4c17b47f5f27e767224204f4d3fd694afb835903bdb09baa9ad8968b909e86','additionalAssertions':31,'testFile':'supabase/tests/asus019_staff_operations_read.sql'},
@@ -106,12 +106,14 @@ def closed_extension_diagnostics(stdout, stderr, name):
     # Never export the SQL body, exception message, CLI arguments or paths.
     require(name in REVIEWED_EXTENSIONS, 'unknown diagnostic migration')
     source = (stdout + b'\n' + stderr).decode('utf-8', errors='replace')
-    states = sorted(set(re.findall(r'SQLSTATE\s+([0-9A-Z]{5})\b', source)))
+    states = sorted(set(re.findall(r'SQLSTATE\s*[:=]?\s*([0-9A-Z]{5})\b', source, re.I)))
     allowed_states = {'42601','42703','42883','42P01','42702','42P13','42804','23502','23503','23505','23514','42501','22023','40001','55000','54000'}
     statements = sorted({int(m[1]) for m in re.finditer(r'At statement:\s*(\d+)\b', source) if int(m[1]) <= 10000})
     lines = sorted({int(m[1]) for m in re.finditer(r'(?m)^LINE\s+(\d+):', source) if int(m[1]) <= 100000})
-    return {'status':'FAIL','migration':name,'sqlStates':[s for s in states if s in allowed_states],
-            'statementNumbers':statements,'relativeSQLLineNumbers':lines}
+    categories = [label for pattern,label in ((r'syntax error','SYNTAX_ERROR'),(r'not null|not-null','NOT_NULL'),(r'column.+does not exist','MISSING_COLUMN'),(r'function.+does not exist','MISSING_FUNCTION'),(r'ambiguous','AMBIGUOUS_IDENTIFIER'),(r'cannot change','INCOMPATIBLE_REPLACEMENT'),(r'permission denied','PERMISSION_DENIED'),(r'check constraint','CHECK_CONSTRAINT')) if re.search(pattern,source,re.I)]
+    tokens = sorted({m[1].lower() for m in re.finditer(r'(?:at or near|near)\s+[\"\']([A-Za-z ]{1,16})[\"\']',source,re.I) if m[1].lower() in {'end','then','case','row','transaction','offset','values','select','begin','if','loop','null','from','where','declare'}})
+    return {'status':'FAIL','migration':name,'sqlStates':[s.upper() for s in states if s.upper() in allowed_states],
+            'statementNumbers':statements,'relativeSQLLineNumbers':lines,'categories':categories,'syntaxTokens':tokens}
 
 
 def closed_pgtap_diagnostics(stdout, stderr, known):
