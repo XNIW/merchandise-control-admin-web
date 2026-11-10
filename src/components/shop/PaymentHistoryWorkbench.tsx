@@ -7,6 +7,7 @@ import {HistoryTransferPanel} from "./HistoryTransferPanel";
 import {historyTransferCopy} from "@/i18n/history-transfer";
 import {HistoryCutoverPanel} from "./HistoryCutoverPanel";
 import {historyCutoverCopy} from "@/i18n/history-cutover";
+import {HistoryMovementReader} from "./HistoryMovementReader";
 
 type Data=Record<string,unknown>;
 type Source={upload_id:string;sha256:string;file_name:string;byte_length:string};
@@ -24,7 +25,10 @@ export function PaymentHistoryWorkbench({shopId,copy,locale,initialCapabilities}
  const [metadata,setMetadata]=useState<Metadata>({merchants:[],aliases:[],evidence:[]}),[choices,setChoices]=useState<Record<string,Choice>>({});
  const [nativeTime,setNativeTime]=useState(""),[nativeRef,setNativeRef]=useState(""),[currencyRef,setCurrencyRef]=useState(""),[policyId,setPolicyId]=useState("");
  const [step,setStep]=useState(0),[busy,setBusy]=useState(false),[message,setMessage]=useState(""),[error,setError]=useState("");
- const [review,setReview]=useState<Data|null>(null),[receipt,setReceipt]=useState<Data|null>(null),[ledger,setLedger]=useState<Data|null>(null),[caps,setCaps]=useState(initialCapabilities),[canRecover,setCanRecover]=useState(false),[pageAfter,setPageAfter]=useState<string|null>(null);
+ const [review,setReview]=useState<Data|null>(null),[receipt,setReceipt]=useState<Data|null>(null),[ledger,setLedger]=useState<Data|null>(null),[canRecover,setCanRecover]=useState(false);
+ const [capsOverride,setCapsOverride]=useState<{source:Data;value:Data}|null>(null),[discovery,setDiscovery]=useState("");
+ const caps=capsOverride?.source===initialCapabilities?capsOverride.value:initialCapabilities;
+ const setCaps=useCallback((value:Data)=>setCapsOverride({source:initialCapabilities,value}),[initialCapabilities]);
  const operationKey=useRef<string|null>(null),analysisKey=useRef<string|null>(null),requestLock=useRef(false),mounted=useRef(true),heading=useRef<HTMLHeadingElement>(null),requests=useRef<AbortController|null>(null);
  const permissions=record(caps.capabilities),canImport=permissions.import===true;
  const money=(value:unknown)=>typeof value==="string"?new Intl.NumberFormat(locale,{maximumFractionDigits:0}).format(BigInt(value)):copy.unknown;
@@ -37,8 +41,8 @@ export function PaymentHistoryWorkbench({shopId,copy,locale,initialCapabilities}
   }
   window.history.replaceState(window.history.state,"",url);
  },[]);
- const call=useCallback(async(operation:string,payload:Data={})=>{
-  const response=await fetch("/api/shop/payment-history",{method:"POST",signal:requests.current?.signal,credentials:"same-origin",cache:"no-store",headers:{"Content-Type":"application/json","X-History-Request":"1"},body:JSON.stringify({shop_id:shopId,operation,payload})});
+ const call=useCallback(async(operation:string,payload:Data={},signal?:AbortSignal)=>{
+  const response=await fetch("/api/shop/payment-history",{method:"POST",signal:signal??requests.current?.signal,credentials:"same-origin",cache:"no-store",headers:{"Content-Type":"application/json","X-History-Request":"1"},body:JSON.stringify({shop_id:shopId,operation,payload})});
   const body=await response.json();if(!response.ok||body.ok!==true)throw Error(typeof body.code==="string"?body.code:"history_unavailable");return record(body.result);
  },[shopId]);
  const run=async(action:()=>Promise<void>)=>{
@@ -46,7 +50,28 @@ export function PaymentHistoryWorkbench({shopId,copy,locale,initialCapabilities}
   try{await action();}catch(e){if(mounted.current){const code=e instanceof Error?e.message:"";setError(code==="history_access_denied"?copy.denied:code==="history_capacity"?copy.capacity:code==="history_review_changed"?copy.changed:copy.error);}}
   finally{requestLock.current=false;if(mounted.current)setBusy(false);}
  };
- const loadLedger=useCallback(async(after?:string)=>{const result=await call("read",after?{after}:{});if(mounted.current){setLedger(result);setPageAfter(after??null);}},[call]);
+ const loadLedger=useCallback(async()=>{const result=await call("read");if(mounted.current)setLedger(result);},[call]);
+ useEffect(()=>{
+  let stopped=false,lastMarker="";let controller:AbortController|null=null;
+  const deny=()=>{setCaps({capabilities:{read:false,import:false,cancel:false,export:false,migrate:false},runtime:null});setLedger(null);setReview(null);setReceipt(null);};
+  const update=(event:Event)=>{
+   const detail=record((event as CustomEvent).detail);
+   if(detail.shopId!==shopId||detail.paymentHistoryStatus==="unavailable")return;
+   const marker=String(detail.paymentHistoryMarker??"");
+   if(detail.paymentHistoryStatus==="ready"&&!/^[0-9a-f]{64}$/.test(marker)||marker===lastMarker&&detail.paymentHistoryStatus!=="denied")return;
+   controller?.abort();controller=new AbortController();const owned=controller;lastMarker=marker;
+   if(detail.paymentHistoryStatus==="denied"){deny();setDiscovery("denied");return;}
+   if(detail.paymentHistoryStatus!=="ready")return;
+   void call("capabilities",{},owned.signal).then(async fresh=>{
+    if(stopped||owned.signal.aborted)return;setCaps(fresh);setDiscovery(marker);
+    if(record(fresh.capabilities).read!==true){deny();return;}
+    const batches=await call("read",{},owned.signal);
+    if(!stopped&&!owned.signal.aborted)setLedger(batches);
+   }).catch(error=>{if(!stopped&&!owned.signal.aborted&&error instanceof Error&&error.message==="history_access_denied")deny();});
+  };
+  window.addEventListener("shop:sync-event-marker",update);
+  return()=>{stopped=true;controller?.abort();window.removeEventListener("shop:sync-event-marker",update);};
+ },[call,setCaps,shopId]);
  const loadJob=useCallback(async(id:string)=>{
   const result=await call("status",{job_id:id});if(!mounted.current)return;
   setJob(result);
@@ -134,7 +159,7 @@ export function PaymentHistoryWorkbench({shopId,copy,locale,initialCapabilities}
   catch(error){const recovered=await call("receipt",{request_key:operationKey.current});if(recovered.receipt){setReceipt(record(recovered.receipt));setMessage(copy.done);await loadLedger();}else throw error;}
  }
  const reasonText=(reason:unknown)=>({history_merchant_unverified:copy.merchantMissing,history_provider_time_unverified:copy.providerUnverified,history_native_start_unverified:copy.firstUseHelp,history_native_overlap:copy.nativeOverlap,history_currency_unverified:copy.currencyMissing,history_active_economics_conflict:copy.conflict,history_inactive_correction_unapproved:copy.manualCorrection}[String(reason)]??copy.blocked);
- const rows=list(ledger?.rows),batches=list(ledger?.batches);
+ const batches=list(ledger?.batches);
  return <div className="mx-auto max-w-6xl space-y-6 p-4 sm:p-6">
   <header><h1 className="text-2xl font-semibold">{copy.title}</h1><p className="mt-2 text-sm opacity-80">{copy.description}</p></header>
   {permissions.migrate===true?<HistoryTransferPanel key={shopId} shopId={shopId} copy={historyTransferCopy(locale)}/>:null}
@@ -170,8 +195,7 @@ export function PaymentHistoryWorkbench({shopId,copy,locale,initialCapabilities}
    {receipt?<section className="rounded-lg border border-emerald-500 p-4" aria-label={copy.receipt}><h3 className="font-semibold">{copy.done}</h3><p className="break-all text-sm">{copy.operationId}: {String(receipt.operation_id)}</p><button className={button} onClick={()=>{setStep(0);setJobId(null);setJob(null);setSources([]);setFiles([]);setReceipt(null);setReview(null);operationKey.current=null;analysisKey.current=null;setCanRecover(false);save(null,[],null);}}>{copy.back}</button></section>:null}
   </section>:null}
   <section className="space-y-4 rounded-xl border border-current/20 p-4"><div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-xl font-medium">{copy.recorded}</h2><button className={button} disabled={busy} onClick={()=>void run(async()=>{setCaps(await call("capabilities"));await loadLedger();})}>{copy.refresh}</button></div><p className="text-sm opacity-80">{copy.coverage}</p>
-   {rows.length===0?<p>{copy.empty}</p>:<div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr>{[copy.batch,copy.amount,copy.net,copy.state].map(label=><th key={label} className="p-2">{label}</th>)}</tr></thead><tbody>{rows.map(row=><tr key={String(row.movement_version_id)} className="border-t border-current/20"><td className="max-w-48 break-all p-2 font-mono text-xs">{String(row.owner_batch_id)}</td><td className="p-2 tabular-nums">{money(row.gross_clp)}</td><td className="p-2 tabular-nums">{money(row.net_clp)}</td><td className="p-2">{row.active?copy.active:copy.inactive}</td></tr>)}</tbody></table></div>}
-   <div className="flex flex-wrap gap-3">{rows.length===50?<button className={button} disabled={busy} onClick={()=>void run(()=>loadLedger(String(rows.at(-1)?.movement_version_id)))}>{copy.more}</button>:null}{permissions.export===true?<button className={button} disabled={busy} onClick={()=>void run(async()=>{const data=await call("export",{after:pageAfter??"00000000-0000-0000-0000-000000000000",...(ledger?.revision?{revision:ledger.revision}:{})}),url=URL.createObjectURL(new Blob([JSON.stringify(data)],{type:"application/json"})),a=document.createElement("a");a.href=url;a.download="payment-history-page.json";a.click();URL.revokeObjectURL(url);})}>{copy.export}</button>:null}</div>
+   <HistoryMovementReader key={shopId} shopId={shopId} locale={locale} canRead={permissions.read===true} canExport={permissions.export===true} refreshSignature={JSON.stringify([caps.runtime,permissions,discovery,ledger?.revision])}/>
    {permissions.cancel===true&&record(caps.runtime).writer_authority==="web"?batches.filter(b=>b.state==="active").map(batch=><div key={String(batch.batch_id)} className="flex flex-wrap items-center justify-between gap-3 border-t border-current/20 pt-3"><span className="break-all font-mono text-xs">{String(batch.batch_id)}</span><button className={button} disabled={busy} onClick={()=>{if(window.confirm(copy.undoQuestion))void run(async()=>{const fresh=await call("capabilities"),runtime=record(fresh.runtime);await call("cancel_batch",{request_key:crypto.randomUUID(),batch_id:batch.batch_id,revision:runtime.revision,writer_epoch:runtime.writer_epoch});setCaps(fresh);await loadLedger();});}}>{copy.undo}</button></div>):null}
   </section>
  </div>;

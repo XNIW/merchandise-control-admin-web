@@ -68,7 +68,7 @@ export function callStaffWebOperationsRead(context: StaffWebLeaseBoundContext,
 }
 
 export function callStaffWebMobileOperationsRead(context:StaffWebLeaseBoundContext,
-  operation:"devices"|"history_list"|"history_detail"|"sync",payload:JsonRecord) {
+  operation:"devices"|"history_list"|"history_detail"|"sync"|"marker",payload:JsonRecord) {
   const supabase=staffLeaseBoundAdminClient();
   if (!supabase) return unavailableRpcResult();
   return supabase.rpc("staff_web_mobile_operations_read_v1",{

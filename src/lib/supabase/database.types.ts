@@ -7072,6 +7072,11 @@ export type Database = {
           p_staff_web_session_id?: string; p_session_token_hash?: string; p_credential_version?: number }
         Returns: Json
       }
+      payment_history_movements_v1: {
+        Args: { p_shop_id: string; p_operation: string; p_payload: Json; p_staff_id?: string;
+          p_staff_web_session_id?: string; p_session_token_hash?: string; p_credential_version?: number }
+        Returns: Json
+      }
       payment_history_worker_gateway_v1: {
         Args: { p_request_id: string; p_lane: string; p_operation: string; p_payload: Json }
         Returns: Json

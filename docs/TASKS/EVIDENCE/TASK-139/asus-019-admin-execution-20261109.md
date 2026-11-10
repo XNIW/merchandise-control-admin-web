@@ -1,33 +1,116 @@
 # ASUS019 — Execution Admin B/C, preparazione senza operatore
 
+Addendum utente 10 novembre: sincronizzazione automatica POS→Admin→altre
+postazioni nella stessa Execution. Gap confermato e contratto condiviso nel
+[piano canonico](../../../ARCHITECTURE/ASUS019-ADMIN-OPERATIONS-HISTORY-PLAN.md).
+Baseline151/43f668df,135/fbdde199; consegna136 separata. Implementazione aperta,
+nuovi gate NOT_RUN. Nessun PASS pregresso trasferito, rollout o DONE.
+
+Chiarimento bilaterale recepito: matrice per dominio e operazione nel medesimo
+CLOUD-CONTINUATION Windows, contratto coordinato nel piano Admin. Replica storica
+in background e pubblicazione locale sono implementazioni distinte; invio vendite
+non equivale a consultazione dei registri inter-postazione. E2E autenticati nuovi
+NOT_RUN; component test e build restano classificati separatamente.
+
 <!-- ASUS019_CURRENT_START -->
-## Stato corrente — B/C implementati e qualificati nel draft, nessun rollout
+## Stato corrente — Execution bilaterale attiva, checkpoint 10 novembre 22:27 UTC
 
-Checkpoint 10 novembre: codice Admin PR151 su 6c2bd41407ebc48ec3b0d240934e10235575ea31,
-CI42822197960 e Build42822197996 SUCCESS. Replay SQL isolato Linux: 74 file,
-4638 assertion, comprese 39 nuove su revoca profilo personale e GC temporanea.
-Foundation locale: 1460 PASS / 7 SKIP preesistenti; boundary 29, browser mirati 11
-(totale storico 19), typecheck/lint/security/build PASS con attribuzione propria.
-Migrazione additiva 20261110124034: SHA256
-866867a3d444fc137731c616d3f5af5cd4d11a29070c0d33e8dc5dcf808fec64.
-Le frasi Planning/NOT_IMPLEMENTED/PENDING sottostanti sono checkpoint storici.
-Nessun deploy, SQL live, cutover, installazione cloud o Apply/Undo originale.
+Admin151/43f668df + diff: lettore movimenti nominativo, filtri per data commerciale,
+cursore vincolato a dataset/revisione/filtro, totali globali filtrati e importi
+esatti/null preservati. La pagina mostra provenienza e prova temporale; il JSON
+esporta la pagina filtrata con totali globali, senza dichiarare un export completo.
+Il polling globale ShopShell esistente (3s, backoff fino30s) pubblica un marker
+storico separato; lease staff ricontrollato, nessun timer per vista o audit ogni poll.
+Richieste cancellabili, nessuna sostituzione di file/input/focus o posizione commerciale.
 
-Client futuro PR135 ora 9cfe193: incorpora con patch controllata i fix comuni
-carrello/scanner/sync di cc6128f e conserva payment-history. Qualifica propria
-richiesta; due FAIL b0307d4 nel budget storico di 60 secondi restano conservati.
-Consegna Windows corrente PR136 distinta: nuovo ingresso nella vera postazione
-senza attendere catalogo; candidato cc6128f in qualifica, installato 2ad42ca.
-WPF remota verde; Release Pack cc6128f FAIL per un falso positivo nel worklog,
-correzione documentale ancora pendente. Nessun PASS trasferito all'installato.
+Typecheck07/lint02 PASS. Foundation05:1527PASS/7SKIP preesistenti (1534 totali,
+91.408s); browser sintetico desktop13PASS6.3s, tablet5PASS2.6s, ritocco etichetta
+netto desktop5PASS2.5s. Non sono E2E autenticati o prova di stile del CSS distribuito.
+SQL isolato e099bce8918caabcc0b766132a5bfb86bbbf4f4f /42912319575 PASS:
+78file/4755assert, artifact13806949466, digest
+30b7b9d2f1aa7c2c26491ae38a6349dd2fb2dd0083396582a1b0a507e8a82b6a.
+Include le primitive private preparazione/semantica e il lettore/marker37assert.
+Tentativi42910563273 FAIL pin CRLF/LF e42911042429 FAIL fixture revoca senza
+revoked_at conservati; corretti pin LF e fixture, nessuna protezione indebolita.
+Vecchio job live TASK094/42896389034 auth_denied FAIL resta senza retry;
+cleanup finally eseguito, conteggio zero finale NOT_ATTESTED.
 
-Il percorso quotidiano separa disponibilità locale qualificata, postazione,
-ultima copia pubblicata e singole operazioni. L'analogo principio mobile è in
-handoff al coordinatore TASK146 dopo lettura del suo task/codice; nessun test
-mobile attribuito ai gate Windows. Scala Windows 200% mantenuta; 100/125 differiti,
-Win7 fisico indisponibile, prova provider C moderna mancante. Execution ACTIVE,
-nessun DONE. Questo aggiornamento è solo documentale: runtime/Admin invariato.
+Client135/fbdde199 + diff: richiesta foreground nella stessa gate prioritaria e
+credenziali correnti; preparazione paginata riprendibile20PASS13s; revisioni
+monotone/status34PASS23s. CloudView05 PASS3.985s, conferma325ms, copia489ms,
+notifica revisione nota332ms: convergenza di componente, distinta da Input250ms.
+Windows-All U19CloudAll01 fingerprint6c170539da7fd1af2ba72d0236ef5edad140aab9c8d2f2308eff050fc4a6dd99
+FAIL: Core/Data, build, gate e CloudSync PASS; functional19/22 e Smoke50/52
+prima del deadline FAIL, Load NOT_RUN dependency_failed. Sorgente invariata nella run.
+Geometria corretta nel fixture tramite gate foreground reale loopback: PASS9.698s.
+Shell mirata successiva PASS25.519s dopo drain della lettura automatica prima
+Close:70checkpoint, stesso budget60s. Tre TIMEOUT diagnostici intermedi conservati.
+Recovery mantiene FAIL per weakref chiuse5 contro3 del controllo; nessuna deroga.
+Windows-All finale sul nuovo delta resta da completare.
+
+PR136/149c978 resta congelata: CI, Security, WPF e Release PASS;41/40file e34comuni
+identici verificati. Qualifica42897760117: Integrated12min PASS, soak60min FAIL
+su158cicli, ambiente valido, focus258.573/258.382ms nei cicli116/118 oltre250ms.
+Artifact13807390665 digestada85a03ea8e2dc64c86be5fcd8408dcb664eb8c83ffd755bd0fbde72eda4387,
+evidence U19CartSoak14901. PR136 aggiornata: nessun retry cieco o budget allargato.
+
+Residui critici aperti: ammissione v2 completa e ingest/ricevute esposte, baseline/
+backfill del lotto originale da backup attestato, collegamento WPF al grant v2,
+lettura canonica globale e registri inter-postazione; E2E autenticati bilaterali
+per dominio NOT_RUN. Il WPF usa ancora grant v1; preparatore v2 non collegato.
+Worker operativo/deploy/SQL live/cutover NOT_RUN. Installato2ad42ca e ledger
+Minimondo invariati, nessun nuovo Apply/Undo/vendita reale.200% preservato;
+100/125 USER_DEFERRED, Win7 BLOCKED_TARGET, Getnet moderno C MISSING.
+Stessa ASUS019 ACTIVE: nessun merge o DONE; risultati Windows non attestano mobile.
 <!-- ASUS019_CURRENT_END -->
+
+<details>
+<summary>Checkpoint precedente 10 novembre 21:00 UTC, conservato</summary>
+
+## Stato corrente — Execution incrementale attiva, nessun rollout
+
+Checkpoint10novembre21:00Z. PR151 resta su43f668df; baseline runtime6c2bd414
+qualificata separatamente. Il nuovo codice locale non è ancora pubblicato.
+Contratto v2:17/17 PASS; confine device36/36 PASS e typecheck03 PASS. La revoca
+runtime e i token non validi producono auth_denied; il solo permesso storico
+negato resta history_cloud_access_denied. Un errore di lettura lease è503,
+non un logout. Il42501 SQL rilegge la lease per distinguere la revoca concorrente.
+Foundation03 completa:1484PASS/7SKIP preesistenti,0FAIL (85.214s). Foundation02
+1482PASS/2FAIL è conservata: guard CI testuale, corretto senza ampliare l'accesso.
+
+Replay SQL isolato0162205 /42896389034:75file,4664assert PASS. Verify PASS;
+job staging TASK094 FAIL auth_denied, nessun retry. Il finally di cleanup è
+eseguito dal runner; la verifica finale dei conteggi non è attestata sul fallimento.
+I due replay22c9cbc falliti42892520753/42895021975 restano conservati. Fix reale:
+CASE delimitato nella validazione PLpgSQL. Migration20261110181221 SHA256
+`ebfa26747b33a683a90864d2a4c33eb1acd4d17d839b1a806fec545d3daeda21`.
+
+Nuova preparazione privata984d6e4 /42897836745:76file,4694assert PASS; Verify e
+staging esclusi esplicitamente nella modalità database_replay_only. I default
+PR/main conservano i gate esistenti. Migration20261110203449 SHA256
+`253eec9b4dc565083d6fab31aba67d8a7878bc57bd1552694362cec76d92212a`:
+contesto da snapshot verificato, identità/root immutabili, pagine256KiB/200record,
+ordine/resume/ACK perso/capacità/header/hash controllati. Nessun nuovo grant,
+nessuna applicazione economica, nessuna API v2 raggiungibile: ammissione semantica,
+ingestione/ricevute, baseline/backfill e UI movimenti/aggregati rimangono incompleti.
+I PASS SQL non attestano servizio worker, distribuzione o E2E fra due POS.
+
+Windows136/149c978: CI15/15+functional22/22, Security, WPF e Release Pack verdi;
+41file prodotto/40QA e34comuni byte-identici verificati. Qualifica integrata12min
++soak60min42897760117 in corso. Installato2ad42ca invariato, nessuna installazione.
+Client135/fbdde199 con diff: gate richieste storico condiviso33test PASS,
+ledger/replica/stato67test PASS; CloudView04 componente PASS3.045s, selezione e
+conti locali invariati, conferma mostrata in253ms e copia in386ms. Sono latenze
+di componente, non Input250ms o rete reale. Nuovo Windows-All finale NOT_RUN.
+
+Convergenza bilaterale autenticata per tutti i domini, backfill del lotto reale,
+worker effettivo e cutover restano NOT_RUN/incompleti. Handoff TASK146 esistente;
+nessun PASS mobile. Nessun deploy o SQL linked, nessun nuovo Apply/Undo/vendita
+reale o scrittura del profilo Minimondo. Win7 fisico BLOCKED_TARGET, DPI100/125
+USER_DEFERRED,200% preservato; prova provider C moderna MISSING. ASUS019 ACTIVE,
+nessuna nuova task, merge o DONE. Le sezioni successive sono checkpoint storici.
+
+</details>
 
 Stato: EXECUTION / ACTIVE. Mandato utente del 9 novembre, successivo al piano:
 «Stasera non posso essere davanti al PC, fai intanto tutte le altre implementazioni
@@ -522,3 +605,57 @@ Accesso ordinario, shell/riepilogo/storico/ritorno con operatore restano NOT_RUN
 sull'installato5d; targetWin7/periferiche indisponibili, provaC moderna MISSING,
 CSV BLOCKED_INPUT, E2E cloud autenticato e host reale ancora aperti.
 Nessun DONE, merge, deploy, SQL live o Apply/Undo degli originali.
+
+## Checkpoint incrementale —10novembre, componente in Execution
+
+Contratto locale v2:17/17 test mirati PASS (554.9378ms), include proof/receipt
+Int64 esatti e correzioni con economia precedente/proposta, contesto ed evidence.
+Foundation completa precedente:1476PASS/7SKIP preesistenti; typecheck precedente
+PASS. API device e ammissione/ingest del nuovo protocollo non ancora collegate.
+
+Qualifica SQL delle sole fondamenta isolata su22c9cbc85d1daa611d722c82ad74b5e312cd5447,
+ramo codex/asus019-local-publication-foundation, CI42892520753 in corso.
+Migration20261110181221 SHA25637c752500ed849817169760f1f6b3e3409bbc81bd8320ac387425b7dc0f19276;
+26 assertion aggiunte nel replay canonico Linux. Non è un rollout né attesta
+l'implementazione dell'ammissione finanziaria o del trasporto automatico completo.
+Nessun DB live toccato, worker provisionato o cutover; i75file/4664assert sono
+attesi nel probe, non ancora PASS. Il ramo151/WIP resta distinto da questa prova.
+
+Raccordo Windows:136/149c978 CI15/15+functional22/22 e Security verdi; payload WPF
+40file verificato, Release42889654511 in corso. Installato2ad42ca invariato.
+Client135 WIP: ricevute recuperabili/lineage/gate/UI notificata con test propri;
+backfill originale e E2E autenticato POS A/Admin/POS B ancora NOT_RUN.
+Handoff TASK146 aggiornato nel commento6722613449 con storia immutata.
+Stessa ASUS019 ACTIVE, nessuna nuova task, merge/deploy o DONE.
+
+<details>
+<summary>Checkpoint corrente precedente, conservato10novembre21:00Z</summary>
+
+## Stato corrente — B/C implementati e qualificati nel draft, nessun rollout
+
+Checkpoint 10 novembre: codice Admin PR151 su 6c2bd41407ebc48ec3b0d240934e10235575ea31,
+CI42822197960 e Build42822197996 SUCCESS. Replay SQL isolato Linux: 74 file,
+4638 assertion, comprese 39 nuove su revoca profilo personale e GC temporanea.
+Foundation locale: 1460 PASS / 7 SKIP preesistenti; boundary 29, browser mirati 11
+(totale storico 19), typecheck/lint/security/build PASS con attribuzione propria.
+Migrazione additiva 20261110124034: SHA256
+866867a3d444fc137731c616d3f5af5cd4d11a29070c0d33e8dc5dcf808fec64.
+Le frasi Planning/NOT_IMPLEMENTED/PENDING sottostanti sono checkpoint storici.
+Nessun deploy, SQL live, cutover, installazione cloud o Apply/Undo originale.
+
+Client futuro PR135 ora 9cfe193: incorpora con patch controllata i fix comuni
+carrello/scanner/sync di cc6128f e conserva payment-history. Qualifica propria
+richiesta; due FAIL b0307d4 nel budget storico di 60 secondi restano conservati.
+Consegna Windows corrente PR136 distinta: nuovo ingresso nella vera postazione
+senza attendere catalogo; candidato cc6128f in qualifica, installato 2ad42ca.
+WPF remota verde; Release Pack cc6128f FAIL per un falso positivo nel worklog,
+correzione documentale ancora pendente. Nessun PASS trasferito all'installato.
+
+Il percorso quotidiano separa disponibilità locale qualificata, postazione,
+ultima copia pubblicata e singole operazioni. L'analogo principio mobile è in
+handoff al coordinatore TASK146 dopo lettura del suo task/codice; nessun test
+mobile attribuito ai gate Windows. Scala Windows 200% mantenuta; 100/125 differiti,
+Win7 fisico indisponibile, prova provider C moderna mancante. Execution ACTIVE,
+nessun DONE. Questo aggiornamento è solo documentale: runtime/Admin invariato.
+
+</details>

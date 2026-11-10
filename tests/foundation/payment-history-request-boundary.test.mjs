@@ -4,6 +4,7 @@ import {runInNewContext} from "node:vm";
 import test from "node:test";
 import ts from "typescript";
 import {load} from "./helpers/payment-history-harness.mjs";
+import {movementRead,movementQuery} from "./helpers/history-movement-fixture.mjs";
 const id=n=>`10000000-0000-4000-8000-${String(n).padStart(12,"0")}`;
 const caps={capabilities:{read:true,import:true,cancel:true,export:true,migrate:true},runtime:null};
 function module(path,imports){const m={exports:{}};runInNewContext(ts.transpileModule(readFileSync(path,"utf8"),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{module:m,exports:m.exports,Error,Response,TextDecoder,Uint8Array,URL,require(name){if(name==="server-only")return {};if(name in imports)return imports[name];if(name==="./ledger-contract")return load("src/server/payment-history/ledger-contract.ts");if(name==="./wire-contract")return load("src/server/payment-history/wire-contract.ts");throw Error("unexpected dependency "+name);}});return m.exports;}
@@ -14,6 +15,25 @@ function setup(){
  const boundary=module("src/server/payment-history/request-boundary.ts",{"@/lib/supabase/admin":{createSupabaseAdminClient:()=>db},"@/server/shop-admin/data-access":{async resolveShopAdminDataAccess(options){calls.push({resolve:options});return access;}}});
  return {calls,access,boundary,setAnswer(fn){answer=fn;}};
 }
+
+for(const operation of ["movements","movements_export"])test(operation+" uses only its named reader with the exact current staff scope",async()=>{
+ const x=setup();x.setAnswer(op=>({data:{ok:true,shop_id:id(1),actor:{kind:"pos_staff_manager",id:id(2),session_id:id(3),credential_version:7},result:op==="capabilities"?caps:movementRead()},error:null}));
+ const result=await x.boundary.historyRequest(x.access,operation,movementQuery());
+ assert.equal(x.calls[0].name,"payment_history_movements_v1");assert.equal(x.calls[0].args.p_operation,operation==="movements"?"read":"export");
+ assert.equal(x.calls[0].args.p_staff_web_session_id,id(3));assert.equal(x.calls[1].args.p_operation,"capabilities");
+ assert.equal(result.totals.matched_count,"2");assert.equal(result.rows.length,1);
+});
+test("malformed movement scope is rejected before any privileged query",async()=>{
+ const x=setup();await assert.rejects(()=>x.boundary.historyRequest(x.access,"movements",{...movementQuery(),actor_id:id(99)}),e=>e.code==="history_view_input_invalid");assert.equal(x.calls.length,0);
+});
+test("movement export rechecks export permission independently of read permission",async()=>{
+ const x=setup();x.setAnswer(op=>({data:{ok:true,shop_id:id(1),actor:{kind:"pos_staff_manager",id:id(2),session_id:id(3),credential_version:7},result:op==="capabilities"?{...caps,capabilities:{...caps.capabilities,export:false}}:movementRead()},error:null}));
+ await assert.rejects(()=>x.boundary.historyRequest(x.access,"movements_export",movementQuery()),e=>e.code==="history_access_denied");
+});
+test("a changed movement snapshot is distinct from a rejected financial commit",async()=>{
+ const x=setup();x.setAnswer(()=>({data:null,error:{code:"40001",message:"PRIVATE_SENTINEL"}}));
+ await assert.rejects(()=>x.boundary.historyRequest(x.access,"movements",movementQuery()),e=>e.code==="history_view_changed"&&!e.message.includes("PRIVATE"));assert.equal(x.calls.length,1);
+});
 test("boundary derives exact shop/staff/lease/version and publishes a closed projection",async()=>{const x=setup();await x.boundary.historyRequest(x.access,"upload_status",{upload_id:id(4)});assert.equal(x.calls.length,2);assert.equal(x.calls[0].name,"payment_history_request_v1");assert.equal(x.calls[0].args.p_shop_id,id(1));assert.equal(x.calls[0].args.p_staff_id,id(2));assert.equal(x.calls[0].args.p_staff_web_session_id,id(3));assert.equal(x.calls[0].args.p_credential_version,7);assert.equal(x.calls[1].args.p_operation,"capabilities");});
 test("cross-shop resolver drift is rejected before any privileged query",async()=>{const x=setup();x.access.selectedShop.shopId=id(99);await assert.rejects(()=>x.boundary.demandHistoryAccess(id(1)),/history_access_denied/);assert.equal(x.calls.filter(c=>c.name).length,0);assert.equal(x.calls[0].resolve.strictRequestedShop,true);});
 test("courier never enters the financial boundary",async()=>{const x=setup();x.access.principal.roleKey="courier";await assert.rejects(()=>x.boundary.demandHistoryAccess(id(1)),/history_access_denied/);assert.equal(x.calls.filter(c=>c.name).length,0);});

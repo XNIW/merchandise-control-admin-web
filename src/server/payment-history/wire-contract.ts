@@ -1,5 +1,7 @@
 // A closed projection at the SQL/HTTP boundary. Unknown fields are rejected,
 // including fields that could accidentally expose a worker lease or credential.
+import {validateHistoryMovementRead,validateHistoryMovementQuery} from "../../lib/payment-history/movement-read-contract";
+export {validateHistoryMovementQuery};
 type RecordValue=Record<string,unknown>;
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const digest=/^[0-9a-f]{64}$/;
@@ -20,7 +22,8 @@ function receipt(value:unknown){
  if(!["apply","cancel"].includes(String(r.kind)))throw Error("history_response_invalid");for(const k of ["operation_id","batch_id","dataset_id"])id(r[k]);decimal(r.revision);decimal(r.writer_epoch);
  if(r.kind==="apply")reviewSummary(r.summary);else number(r.deactivated);return r;
 }
-export function validateHistoryResult(operation:string,value:unknown):RecordValue{
+export function validateHistoryResult(operation:string,value:unknown,request?:unknown):RecordValue{
+ if(operation==="movements"||operation==="movements_export")return validateHistoryMovementRead(value,request===undefined?undefined:validateHistoryMovementQuery(request)) as unknown as RecordValue;
  let r:RecordValue;
  if(operation==="capabilities"){
   r=object(value,["capabilities","runtime"]);const caps=object(r.capabilities,["read","import","cancel","export","migrate"]);Object.values(caps).forEach(bool);

@@ -6,6 +6,12 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      database_replay_only:
+        description: Isolated local database replay only; no staging environment or live E2E
+        type: boolean
+        default: false
+        required: false
 
 permissions:
   contents: read
@@ -65,6 +71,7 @@ jobs:
 
   verify:
     name: Verify
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.database_replay_only != true }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -129,7 +136,7 @@ jobs:
   task-094-staging-e2e:
     name: TASK-094 staging E2E
     needs: [verify, database]
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' && inputs.database_replay_only != true
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: cloudflare-staging

@@ -18,6 +18,10 @@ NATIVE_EMPTY = '20261108051044_asus_019_native_empty_catalog_scope.sql'
 NATIVE_EMPTY_SHA = 'af69667d6e8e9988a833c4cb2b818c4378061cbc6869c4821b29aa5e64e379ce'
 NATIVE_EMPTY_BODY_MD5 = '9622c4d3a4c793a7803d730b8a8c51d4'
 REVIEWED_EXTENSIONS = {
+    '20261110213924_payment_history_movement_read_and_marker.sql': {'sha256':'14eee1e594830bc9bb241795ce7c5f135feb9dad2a4bae13768d6592998ffc7e','additionalAssertions':37,'testFile':'supabase/tests/asus019_payment_history_movement_read.sql'},
+    '20261110211051_payment_history_local_semantic_review_v2.sql': {'sha256':'fe17bced0c2f331e2fd6fc74f271f22c943542cd2b3f5e6a61d635dd18324db3','additionalAssertions':24,'testFile':'supabase/tests/asus019_payment_history_local_semantic_review.sql'},
+    '20261110203449_payment_history_local_publication_admission_v2.sql': {'sha256':'253eec9b4dc565083d6fab31aba67d8a7878bc57bd1552694362cec76d92212a','additionalAssertions':30,'testFile':'supabase/tests/asus019_payment_history_local_preparation.sql'},
+    '20261110181221_payment_history_local_commit_sync_v2.sql': {'sha256':'ebfa26747b33a683a90864d2a4c33eb1acd4d17d839b1a806fec545d3daeda21','additionalAssertions':26,'testFile':'supabase/tests/asus019_payment_history_local_publication_foundation.sql'},
     '20261110124034_payment_history_review_retention_and_actor_revocation.sql': {'sha256': '866867a3d444fc137731c616d3f5af5cd4d11a29070c0d33e8dc5dcf808fec64', 'additionalAssertions': 39, 'testFile': 'supabase/tests/asus019_payment_history_review_retention.sql'},
     '20261110070629_payment_history_transfer_review_details.sql': {'sha256':'7654ca2eaacda7f0ed410fbc08d6613ec7e15f62f7eec2897e5907983272cada','additionalAssertions':7,'testFile':'supabase/tests/asus019_payment_history_transfer_details.sql'},
     '20261110044957_payment_history_migration_and_replica_v1.sql': {'sha256':'a943f661433e4b67db8924ee35277c4d75ecb2edd54442add0ad24b6ec49ffe9','additionalAssertions':64,'testFile':'supabase/tests/asus019_payment_history_transfer.sql'},

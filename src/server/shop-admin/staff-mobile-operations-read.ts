@@ -5,7 +5,7 @@ import { revalidateShopAdminDataAccessForPublish } from "./data-access";
 import { callStaffWebMobileOperationsRead } from "./staff-web-lease-bound-rpc";
 import { validateBoundedStaffRows, type StaffOperationsAccess } from "./staff-operations-read";
 
-type Operation="devices"|"history_list"|"history_detail"|"sync";
+type Operation="devices"|"history_list"|"history_detail"|"sync"|"marker";
 const schema={
   devices:"shop_device_id,shop_id,device_identifier,device_type,display_name,app_version,status,last_seen_at,last_seen_principal_kind,last_seen_profile_id,last_seen_staff_id,metadata_redacted,reactivated_at,revoked_at,created_at,updated_at",
   staff:"staff_id,staff_code,display_name",profiles:"profile_id,display_name",
@@ -31,7 +31,7 @@ export async function readStaffMobileOperations(access:StaffOperationsAccess,ope
       mapping={shop_inventory_source_id:m.shop_inventory_source_id,owner_user_id:m.owner_user_id,mapping_state:"mapped",source_kind:"mobile_owner"};
     }
     const eventId=operation==="history_detail"&&payload.kind==="sync_event"?String(payload.id):null;
-    const sync=parseShopSyncEventRead(data.sync,access.selectedShop.shopId,operation==="history_list"?160:eventId?1:operation==="sync"?25:100,eventId,operation==="history_list"?["history"]:null);
+    const sync=parseShopSyncEventRead(data.sync,access.selectedShop.shopId,operation==="history_list"?160:eventId||operation==="marker"?1:operation==="sync"?25:100,eventId,operation==="history_list"?["history"]:null);
     if(!sync||sync.scope.mappedLegacyOwnerUserId!==(mapping?.owner_user_id??null)) throw Error("invalid_mobile_dto");
     // Legacy rows retain their owner binding; normalize only for the common column validator.
     if(!Array.isArray(data.sessions)) throw Error("invalid_mobile_dto");
