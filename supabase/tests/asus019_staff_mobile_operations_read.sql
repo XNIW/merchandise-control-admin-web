@@ -55,7 +55,7 @@ select is(pg_temp.mobile('history_list','{"page":"1","pageSize":"100000","status
 select is(pg_temp.mobile('devices','{"owner_user_id":"00000000-0000-4000-8000-000000002019"}')->>'code','validation_failed','browser cannot select owner bridge');
 select is(pg_temp.mobile(p_hash=>null)->>'code','permission_denied','null token is denied');
 set local role postgres;
-update public.shop_inventory_sources set mapping_state='not_configured',verified_at=null where shop_inventory_source_id='40000000-0000-4000-8000-000000001019';
+update public.shop_inventory_sources set mapping_state='unmapped',verified_at=null where shop_inventory_source_id='40000000-0000-4000-8000-000000001019';
 set local role service_role;
 select is(pg_temp.mobile()->>'code','scope_unresolved','unverified source blocks publication');
 set local role postgres;
