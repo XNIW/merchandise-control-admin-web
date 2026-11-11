@@ -67,6 +67,7 @@ jobs:
             ${{ runner.temp }}/database-replay-evidence/pgtap-diagnostics.json
             ${{ runner.temp }}/database-replay-evidence/extension-diagnostics.json
             ${{ runner.temp }}/database-replay-evidence/complete.json
+            ${{ runner.temp }}/database-replay-evidence/history-concurrency.json
           if-no-files-found: warn
 
   verify:

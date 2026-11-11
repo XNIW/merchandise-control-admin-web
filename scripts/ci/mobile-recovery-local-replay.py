@@ -1177,6 +1177,13 @@ def replay(repo, workdir, bootstrap_only=False):
     expected_assertions = 4375 + sum(spec['additionalAssertions'] for spec in REVIEWED_EXTENSIONS.values())
     require(summary is not None and int(summary[1]) == len(tests) and int(summary[2]) == expected_assertions
             and re.search(rb"(?m)^Result: PASS\s*$", output) is not None, "database test summary mismatch")
+    REPLAY_STAGE = "ASUS019 historical concurrency"
+    print("Database replay: " + REPLAY_STAGE, flush=True)
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("asus019_history_concurrency", Path(__file__).with_name("asus019-history-concurrency.py"))
+    historical_concurrency = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(historical_concurrency)
+    history_concurrency_result = historical_concurrency.qualify(root, sys.modules[__name__], EVIDENCE_ROOT)
     prefix_manifest(root)
     complete = {"status": "LOCAL_CANONICAL_BYTE_EXACT_AND_PGTAP_PASS", "head": inputs["head"],
       "CLI": CLI_VERSION, "profile": LOCAL_PROFILE, "runnerSHA256": inputs["runnerSHA256"],
@@ -1196,7 +1203,7 @@ def replay(repo, workdir, bootstrap_only=False):
       "nativeEmptyScopeBodyMD5": NATIVE_EMPTY_BODY_MD5,
       "nativeEmptyScopeVerifiedSHA256": sha((root / ".replay/native-empty-raw-verified.json").read_bytes()),
       "pgtapStdoutSHA256": sha(output), "operatorSQLByteExactReplay": True,
-      "localACLIsTESTEquivalent": "NOT_CLAIMED"}
+      "localACLIsTESTEquivalent": "NOT_CLAIMED", "historicalConcurrency": history_concurrency_result}
     dump(root / ".replay/complete.json", complete); export_complete(complete)
     REPLAY_STAGE = "complete"; print("Database replay: complete", flush=True)
 
@@ -1223,6 +1230,7 @@ def export_complete(complete):
               "nativeEmptyScopeBodyMD5": complete["nativeEmptyScopeBodyMD5"],
               "nativeEmptyScopeVerifiedSHA256": complete["nativeEmptyScopeVerifiedSHA256"],
               "pgtapStdoutSHA256": complete["pgtapStdoutSHA256"],
+              "historicalConcurrency": complete["historicalConcurrency"],
               "operatorSQLByteExactReplay": complete["operatorSQLByteExactReplay"], "localACLIsTESTEquivalent": "NOT_CLAIMED",
               "profile": complete["profile"], "runnerSHA256": complete["runnerSHA256"]})
 
