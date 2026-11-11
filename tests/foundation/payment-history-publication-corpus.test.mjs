@@ -55,7 +55,7 @@ test('nine real CLR drafts reconcile closed content roots, local receipts, Undo 
   assert.equal(item.local_dataset_id,baseline.manifest.localDatasetId);assert.equal(item.restore_lineage_id,baseline.manifest.restoreLineageId);
   contract.validateLocalCommitRequest('local_prepare',{operation_id:item.operation_id,kind:item.kind,local_dataset_id:item.local_dataset_id,
    restore_epoch:item.restore_epoch,restore_lineage_id:item.restore_lineage_id,base_revision:item.base_revision,writer_epoch:'1',request_fingerprint:item.request_fingerprint,
-   content_digest:item.content_digest,page_count:item.page_count,protocol_version:2});
+   content_digest:item.content_digest,page_count:item.page_count,protocol_version:2,local_nonce:item.operation_id});
   const digests=[],records=[];
   for(const page of item.pages){assert.equal(page.ordinal,digests.length+1);records.push(...contract.validateLocalCommitPage(page.page_json,page.page_sha256));digests.push(page.page_sha256);}
   assert.equal(digests.length,item.page_count);assert.equal(contract.localCommitContentDigest(digests),item.content_digest);
