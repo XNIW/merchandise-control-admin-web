@@ -1,0 +1,12 @@
+{
+  "syntheticOnly": true,
+  "source": "Win7POS CLR analyzer, exporter, draft and Data ledger",
+  "producerRevision": "eab54ae052ad038e98e0675e1cb7acdeac660a95",
+  "producerTest": "tests/Win7POS.Core.Tests/Persistence/HistoricalPublicationCorpusTests.cs",
+  "producerTestSHA256": "ba86cf37777391f59ea2fd88ca8822feccdff24abd5190f0f3ae100bbc36f050",
+  "producerResult": "U19PublicationCorpusTests02 PASS",
+  "baselines": 2,
+  "cases": 9,
+  "nativeEffects": 0,
+  "distributedE2E": "NOT_RUN"
+}
