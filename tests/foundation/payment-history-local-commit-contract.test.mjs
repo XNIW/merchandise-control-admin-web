@@ -44,12 +44,34 @@ test("delivery and receipt lookup do not mint another mutation grant",()=>{
  assert.throws(()=>c.validateLocalCommitRequest("local_receipt",{operation_id:operation,content_digest:content,grant_id:id}));
 });
 const scope={shopId:id,deviceId:device,operationId:operation,contentDigest:content};
-const proof={grant_id:device,operation_id:operation,shop_id:id,device_id:device,local_dataset_id:"synthetic-dataset",restore_epoch:"9223372036854775807",writer_epoch:"3",content_digest:content,request_fingerprint:"a".repeat(64),decision:"content_authorized_v2",server_dataset_id:id,restore_lineage_id:id};
+const proof={grant_id:device,operation_id:operation,shop_id:id,device_id:device,local_dataset_id:"synthetic-dataset",restore_epoch:"9223372036854775807",writer_epoch:"3",content_digest:content,request_fingerprint:"a".repeat(64),decision:"content_authorized_v2",server_dataset_id:id,restore_lineage_id:id,
+ local_decision:{inserted:1,duplicates:0,rejected:0,corrections:0,deactivated:0,signed_gross_clp:"9223372036854775807",revision_delta:"1"},
+ canonical_decision:{batch_id:operation,revision:"9223372036854775807",inserted:0,duplicates:1,deactivated:0,signed_gross_clp:"0"}};
 const authorized={state:"authorized",operation_id:operation,content_digest:content,grant_id:device,writer_epoch:"3",remaining_milliseconds:60000,proof};
 test("authorization response is a closed content-bound decision and keeps Int64 epochs exact",()=>{
  assert.equal(c.validateLocalCommitResult("local_authorize",authorized,scope).proof.restore_epoch,"9223372036854775807");
  for(const change of [{...proof,device_id:id},{...proof,shop_id:device},{...proof,operation_id:id},{...proof,content_digest:"f".repeat(64)},{...proof,decision:"offline_allowed"},{...proof,restore_epoch:9007199254740992},{...proof,grant_id:id},{...proof,writer_epoch:"4"},{...proof,deviceToken:"synthetic-secret"}])
   assert.throws(()=>c.validateLocalCommitResult("local_authorize",{...authorized,proof:change},scope));
+});
+test("local and canonical economic decisions are independently bound without Number coercion",()=>{
+ const checked=c.validateLocalCommitResult("local_authorize",authorized,scope).proof;
+ assert.equal(checked.local_decision.inserted,1);assert.equal(checked.canonical_decision.inserted,0);
+ assert.equal(checked.canonical_decision.duplicates,1);assert.equal(checked.canonical_decision.signed_gross_clp,"0");
+ assert.equal(checked.local_decision.signed_gross_clp,"9223372036854775807");
+ for(const section of ["local_decision","canonical_decision"]){
+  const missing=structuredClone(proof);delete missing[section];assert.throws(()=>c.validateLocalCommitResult("local_authorize",{...authorized,proof:missing},scope));
+  for(const key of Object.keys(proof[section])){const changed=structuredClone(proof);delete changed[section][key];assert.throws(()=>c.validateLocalCommitResult("local_authorize",{...authorized,proof:changed},scope));}
+  const expanded=structuredClone(proof);expanded[section].unbound=true;assert.throws(()=>c.validateLocalCommitResult("local_authorize",{...authorized,proof:expanded},scope));
+ }
+});
+test("malformed decision money, counts, revision and operation effects fail closed",()=>{
+ const local=proof.local_decision,canonical=proof.canonical_decision;
+ for(const changed of [{...local,signed_gross_clp:9223372036854775807},{...local,inserted:1.5},{...local,inserted:null},{...local,duplicates:100000},
+  {...local,rejected:2147483648},{...local,corrections:2},{...local,deactivated:1,revision_delta:"2"},{...local,revision_delta:"0"}])
+  assert.throws(()=>c.validateLocalCommitResult("local_authorize",{...authorized,proof:{...proof,local_decision:changed}},scope));
+ for(const changed of [{...canonical,batch_id:"invalid"},{...canonical,batch_id:[operation]},{...canonical,revision:"0"},{...canonical,revision:9007199254740992},
+  {...canonical,deactivated:1},{...canonical,signed_gross_clp:"-9223372036854775809"},{...canonical,duplicates:100001}])
+  assert.throws(()=>c.validateLocalCommitResult("local_authorize",{...authorized,proof:{...proof,canonical_decision:changed}},scope));
 });
 const receipt={operation_id:operation,grant_id:device,shop_id:id,device_id:device,dataset_id:id,local_dataset_id:"synthetic-dataset",restore_epoch:"0",restore_lineage_id:id,writer_epoch:"3",revision:"9223372036854775807",content_digest:content,local_receipt_sha256:"a".repeat(64),batch_id:operation,kind:"Apply",inserted:1,duplicates:0,deactivated:0,signed_gross_clp:"9223372036854775807"};
 test("a recovered receipt preserves signed exact economics and tenant/device attribution",()=>{
