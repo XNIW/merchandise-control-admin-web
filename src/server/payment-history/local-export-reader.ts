@@ -8,6 +8,7 @@ import {demandDigest,demandUuid,economicDigest,economics,historyRequestDigest} f
 import {parseReceiptJson,ReceiptNumber,type ReceiptJson} from "./lossless-receipt-json";
 
 export const LOCAL_EXPORT_VERSION="history-local-export-v1";
+export const LOCAL_BASELINE_VERSION="history-local-export-v2";
 const columns={
  scopes:["id","shop_id","provider","evidence_reference","created_at"],
  bindings:["id","scope_id","shop_id","provider","alias_version","alias_key","evidence_reference","used_at","is_active"],
@@ -19,7 +20,8 @@ const columns={
 } as const;
 export type LocalHistoryTable=keyof typeof columns;
 export type LocalHistoryRow=Record<string,string|null>;
-export type LocalHistoryManifest={schemaVersion:string;shopId:string;deviceId:string;localDatasetId:string;dataRevision:string;restoreEpoch:string;createdAtUtc:string;backupSha256:string;backupByteLength:string;evidenceLevel:"legacy_attested";entries:{name:string;rows:string;byteLength:string;sha256:string}[]};
+type LocalHistoryManifestFields={shopId:string;deviceId:string;localDatasetId:string;dataRevision:string;restoreEpoch:string;createdAtUtc:string;backupSha256:string;backupByteLength:string;evidenceLevel:"legacy_attested";entries:{name:string;rows:string;byteLength:string;sha256:string}[]};
+export type LocalHistoryManifest=LocalHistoryManifestFields&({schemaVersion:typeof LOCAL_EXPORT_VERSION;restoreLineageId?:never}|{schemaVersion:typeof LOCAL_BASELINE_VERSION;restoreLineageId:string});
 const fail=(code="history_local_export_invalid"):never=>{throw Error(code);};
 const record=(v:unknown):v is Record<string,unknown>=>!!v&&typeof v==="object"&&!Array.isArray(v);
 function closed(v:unknown,keys:readonly string[]){if(!record(v)||Object.keys(v).length!==keys.length||keys.some(k=>!(k in v)))return fail();return v;}
@@ -30,7 +32,10 @@ function id(v:unknown){const value=text(v,256);if(!value||/\p{Cc}/u.test(value))
 const hash=(bytes:Buffer)=>createHash("sha256").update(bytes).digest("hex");
 function dateFromTicks(raw:string){const ticks=positive(raw,true),unix=ticks-BigInt("621355968000000000"),millis=unix>=BigInt("0")?unix/BigInt("10000"):(unix-BigInt("9999"))/BigInt("10000"),remainder=unix-millis*BigInt("10000"),d=new Date(Number(millis));if(ticks>BigInt("3155378975999999999")||!Number.isFinite(d.getTime()))return fail();const value=d.toISOString().slice(0,23)+remainder.toString().padStart(4,"0");if(commercialDateTimeTicks(value)!==raw)return fail();return value;}
 function receiptNumber(v:ReceiptJson|undefined){if(!(v instanceof ReceiptNumber)||!/^(0|-?[1-9][0-9]*)$/.test(v.raw))return fail("history_local_receipt_mismatch");return integer(v.raw)!;}
-export async function readLocalHistoryExport(bytes:Buffer,expectedShop:string,signal?:AbortSignal,onObject?:(table:LocalHistoryTable,ordinal:number,line:string,row:LocalHistoryRow)=>Promise<void>){
+export async function readLocalHistoryExport(bytes:Buffer,expectedShop:string,signal?:AbortSignal,onObject?:(table:LocalHistoryTable,ordinal:number,line:string,row:LocalHistoryRow)=>Promise<void>,expectedVersion:typeof LOCAL_EXPORT_VERSION|typeof LOCAL_BASELINE_VERSION=LOCAL_EXPORT_VERSION){
+ // The admission selected by the server chooses the contract. A raw manifest
+ // cannot switch a frozen v1 migration into a local v2 baseline.
+ if(expectedVersion!==LOCAL_EXPORT_VERSION&&expectedVersion!==LOCAL_BASELINE_VERSION)return fail();
  demandUuid(expectedShop);if(!bytes.length||bytes.length>20*1024*1024)return fail("history_local_export_limit");const archiveSha256=hash(bytes);
  const zip=await Open.buffer(bytes),names=Object.keys(columns).map(k=>k+".ndjson");names.push("manifest.json");
  if(zip.files.length!==8||new Set(zip.files.map(f=>f.path)).size!==8||zip.files.some(f=>!names.includes(f.path)||f.flags&1||![0,8].includes(f.compressionMethod))||zip.files.reduce((n,f)=>n+f.uncompressedSize,0)>256*1024*1024)return fail("history_local_export_limit");
@@ -46,16 +51,20 @@ export async function readLocalHistoryExport(bytes:Buffer,expectedShop:string,si
   pending+=decoder.decode();if(onLine&&pending)return fail();if(!onLine)all+=pending;if(length!==file.uncompressedSize)return fail();return {text:all,length,sha256:digest.digest("hex")};
  }
  const manifestPart=await readPart("manifest.json"),metadata=JSON.parse(manifestPart.text) as unknown;
- const m=closed(metadata,["schemaVersion","shopId","deviceId","localDatasetId","dataRevision","restoreEpoch","createdAtUtc","backupSha256","backupByteLength","evidenceLevel","entries"]);
- if(m.schemaVersion!==LOCAL_EXPORT_VERSION||m.shopId!==expectedShop||m.evidenceLevel!=="legacy_attested")return fail("history_local_scope_mismatch");
- demandUuid(String(m.deviceId));id(m.localDatasetId);positive(m.dataRevision,true);positive(m.restoreEpoch,true);positive(m.backupByteLength);demandDigest(String(m.backupSha256));
+ const keys=["schemaVersion","shopId","deviceId","localDatasetId","dataRevision","restoreEpoch","createdAtUtc","backupSha256","backupByteLength","evidenceLevel","entries"];
+ if(expectedVersion===LOCAL_BASELINE_VERSION)keys.push("restoreLineageId");
+ const m=closed(metadata,keys);
+ if(m.schemaVersion!==expectedVersion||m.shopId!==expectedShop||m.evidenceLevel!=="legacy_attested")return fail("history_local_scope_mismatch");
+ if(expectedVersion===LOCAL_BASELINE_VERSION){if(typeof m.restoreLineageId!=="string")return fail();demandUuid(m.restoreLineageId);}
+ if(typeof m.deviceId!=="string"||typeof m.backupSha256!=="string")return fail();
+ demandUuid(m.deviceId);id(m.localDatasetId);positive(m.dataRevision,true);positive(m.restoreEpoch,true);positive(m.backupByteLength);demandDigest(m.backupSha256);
  if(typeof m.createdAtUtc!=="string"||!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{7}Z$/.test(m.createdAtUtc)||!Number.isFinite(Date.parse(m.createdAtUtc)))return fail();
  if(!Array.isArray(m.entries)||m.entries.length!==7)return fail();
  const entries=m.entries.map(item=>closed(item,["name","rows","byteLength","sha256"]));
  if(new Set(entries.map(e=>e.name)).size!==7||entries.some(e=>typeof e.name!=="string"||!names.includes(e.name)||e.name==="manifest.json"))return fail();
  const tables={} as Record<LocalHistoryTable,LocalHistoryRow[]>;
  for(const table of Object.keys(columns) as LocalHistoryTable[]){
-  const rows:LocalHistoryRow[]=[];tables[table]=rows;const entry=entries.find(e=>e.name===table+".ndjson")!;positive(entry.rows,true);positive(entry.byteLength,true);demandDigest(String(entry.sha256));
+  const rows:LocalHistoryRow[]=[];tables[table]=rows;const entry=entries.find(e=>e.name===table+".ndjson")!;positive(entry.rows,true);positive(entry.byteLength,true);if(typeof entry.sha256!=="string")return fail();demandDigest(entry.sha256);
   const part=await readPart(table+".ndjson",async line=>{const row=closed(JSON.parse(line),columns[table]);if(Object.values(row).some(v=>v!==null&&typeof v!=="string"))return fail();rows.push(row as LocalHistoryRow);if(rows.length>(table==="movements"?100000:table==="observations"?200000:10000))return fail("history_local_export_limit");if(onObject)await onObject(table,rows.length,line,row as LocalHistoryRow);});
   if(part.length.toString()!==entry.byteLength||part.sha256!==entry.sha256||rows.length.toString()!==entry.rows)return fail("history_local_entry_checksum_mismatch");
  }

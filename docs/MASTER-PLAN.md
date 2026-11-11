@@ -6,11 +6,71 @@ nel [piano canonico](ARCHITECTURE/ASUS019-ADMIN-OPERATIONS-HISTORY-PLAN.md), ste
 task/evidence e rami cloud135/151; qualifica/consegna136 separata. Nuovo delta
 in implementazione, gate NOT_RUN, nessun rollout/cutover o DONE.
 
-Il chiarimento bilaterale include tutti i domini commerciali condivisi e la
-verifica per operazione esposta. Matrice canonica nel CLOUD-CONTINUATION Windows,
-raccordata nel piano Admin; nessuna nuova task o infrastruttura sync parallela.
+L'ultimo addendum di convergenza limita la consegna corrente a cassa quotidiana
+e storico bilaterale. La matrice degli altri domini nel CLOUD-CONTINUATION
+Windows rimane inventario storico; nessuna nuova task o infrastruttura parallela.
 
 <!-- ASUS019_CURRENT_START -->
+## Convergenza corrente — stessa Execution ASUS-W7POS-019
+
+Due consegne: cassa quotidiana e storico bilaterale, senza nuove funzioni.
+Stato ACTIVE; nessun DONE, merge, deploy, installazione o nuova mutazione reale.
+
+| Scenario | SHA / binding | Comando e ambiente | Esito | Evidence | Prossimo gate |
+|---|---|---|---|---|---|
+| Cassa PR136 | b76238d2aac2adf7ed69ee749b7d1e8157407262 | CI42933914161; Security42933914165; WPF42934216716; Release42934061207 | PASS | U19ReleaseB76201, 41file prodotto /110checksum, installer596ca74d /payload96cbde92 | qualifica indipendente del pacchetto |
+| Focus originario | prodotto149c978; qualifica42897760117 | Integrated12 +soak60, budget250ms invariato | Integrated PASS; soak FAIL conservato | artifact13807390665; cicli116/118,258.573/258.382ms | non promuovere il successore senza nuova prova |
+| Focus attribuito | prodotto149 invariato, harness6533c71 | Diagnostic60, run42924975778,162cicli | misurazione completa; non qualifica | U19Focus149Hosted01, artifact13816767268 | causa riprodotta: callback focus superfluo già focalizzato in coda dietro Send |
+| Qualifica cassa successore | b76238d, Release42934061207 verificato | workflow42937991969, Integrated12 +soak60 | Integrated12 PASS; soak60 RUNNING | download-verification.json in U19ReleaseB76201 | raccogliere evidence; hosted non qualifica ASUS o merge Final |
+| Windows-All locale | f4ea8e2125fbc0421aec2e49bf98a2700e4de94f, clean e immutabile | Windows -HistoricalSalesMode All, root corte nuove | PASS16/16 passaggi; functional22/22 | U19CloudAll03, run003136206Z.ce587d99, fingerprint fbecb1bd82fc2ea4724c06e637dd944ca4e8221b76a13b171539bfd668cb6703 | nuova suite sul candidato finale compatibile |
+| Windows remoto | stesso f4ea8e2 | CI42931948198 | FAIL Smoke, HIST08 parziale; pubblicazione evidence PASS | artifact13819185163, digest2afdf66539f22be84d31a0fc97afe48baf0c16f43a8c02d62219a9776e940676; U19WinF4Remote01 | qualifica successore fixture; nessun retry cieco |
+| Smoke successore locale | 136088b6e61e39babd8c03db9456fa8036dfe3ce, fingerprint5a682e7e | harness canonico, budget60s invariato | PASS8gruppi/52verifiche,33142.398ms | U19SmokeSchema02 | schema vuoto immutabile per Smoke; inizializzazione completa resta nelle prove migrazione |
+| Recovery | fixture9a/f4, prodotto invariato | identificazione finestre +root dump; età minima identica2100ms | mirato PASS; Windows-All03 PASS | U19RecoveryHeap03/04, U19RecoveryRetirement04, U19CloudAll03 | nessuna attestazione rilascio assoluto/Win7 fisico |
+| WPF v2 | f4ea8e2 | prepare/stage/authorize prima delle gate e outbox atomico | Smoke/CloudSync componenti PASS, fallbackv1 negato | U19WireV2Smoke02, CoreLedger68, Shell03; All03 | backend v2 completo e E2E reale |
+| Baseline v2 | client136088b /Admin fe6 +lettore/Worker v2 | export da backup verificato, lineage live/backup/finale; lettore con versione scelta dal server | export9PASS, reader18PASS, Worker+reader43PASS; typecheck03 PASS; foundation1553PASS/7SKIP locale | U19BaselineExport02, baseline-reader03, U19BaselineCorpus01 | collegare ammissione/ingest senza frozen→local o lineage inventata |
+| Admin qualificato | b0fa4144471ce096bf916d3d1f7478b20bc1c1cb; merge a090da0, tree56dc3d83 identico | CI42929473147; Cloudflare42929473104 | CI PASS; SQL81file/4807assert PASS; deploy SKIPPED | Worker13815881224, digest87ac057c40061472f62879310960944243e42898c9536157c89f746509088648; U19AdminWorkerB0fa01,58hash verificati | servizio storico operativo separato dal pacchetto web |
+| SQL baseline interno | fe6ca45ba82928762cf8b3ba04bc54b88551b26a | replay isolato42941427654 | PASS82file/4827assert | U19BaselineSqlContext03, artifact13821491017, digestaf0c6031ac6911e68b1bc7bae7d69625cffd4d4ff27c0e1d328c8c228c87e13b | nessuna API esposta; primo FAIL preparazione e secondo FAIL fixture immutabile conservati |
+| Pipeline baseline POS | 830313664120405e4942e42c116b82addfb2eee7 isolato | replay42944030772;32assert con archivio CLR/reader Node,14oggetti/5movimenti | RUNNING; parse SQL/PLpgSQL PASS | migration20261111014055 SHA5ba873dace7d9b76b75c47fb37c8783222043d12823c21f41085186c1e01973c | actor POS separato da web, source-mode immutabile; API privata fino a delivery completo |
+| CI Windows successore | 136088b6e61e39babd8c03db9456fa8036dfe3ce | CI42939260104 | PASS | artifact pubblico da verificare | non cancella f4 remoto FAIL; nuova coppia finale ancora da congelare |
+| Contratti Admin | b0fa414 | foundation CI e locale | CI1490PASS/14SKIP; locale1547PASS/7SKIP, non sommati | foundation06 e log CI | nessun PASS incrociato attribuito al nuovo WPF |
+| Cleanup TASK094 | fixture ee788ef4-591b-45a4-86f3-90d28a77e12d e codice/data esatti | sole query read-only, progetto staging autorizzato | PASS_SCOPED_READONLY: tutti gli attivi0 | task094-readonly-cleanup-20261110.private.json | non riscrive il FAIL originario42896389034 né attesta altri fixture |
+| Catena bilaterale | coppia futura non congelata | POS A→server→Admin aperto→POS B→POS A; origine Admin web | INCOMPLETE / E2E autenticato NOT_RUN | V2-REMAINING-INVARIANTS.private.md | baseline, review paginata, grant fresco, proiezione locale/canonica, consegna/ricevuta e riconciliazione |
+| Ritorno menu Cassa | MainWindow.xaml.cs, fuori dalla lista file dell'ultimo addendum | prova focus e patch privata git apply --check | causa dimostrata; modifica NON applicata | MainWindow-menu-focus.private.patch | risposta alla chiarificazione di perimetro già inviata |
+| Mobile / Win7 fisico | TASK146 / target assente | nessun build mobile; hardware non disponibile | NOT_RUN / BLOCKED_TARGET | commento6722613449 esistente | nessun PASS trasferito da Windows11 |
+
+Focus: nel successore diagnostico il massimo604.718ms parte da ciclo0/scan-Grid-10
+con barcode già focalizzato, entra in image-ui ed è sovrapposto a un callback
+Send569.235ms; il focus esegue in0.026ms. Il campione caldo237.637ms ripete
+lo stesso accodamento superfluo. b762 evita questa richiesta quando il barcode
+ha già focus, preservando testo/selezione e le protezioni dell'editor. La trace
+originaria non contiene le fasi: nessuna attribuzione retroattiva dei cicli116/118,
+nessun blocco scanner o carico ASUS presunto.
+
+Smoke remoto: i sette gruppi iniziali sono PASS, HIST08 rimane parziale al budget
+complessivo60s. Misura locale su32fixture: schema24252ms, mirror2318ms,
+login3655ms; dopo riuso del solo schema pristine schema1527ms, mirror2248ms,
+login3511ms. Tutti i database restano distinti, con propria autorità e nuovi
+dataset/lineage; credenziali/login reali e52verifiche invariati. Le suite di
+inizializzazione/migrazione non usano questa copia. Successore CI42939260104 PASS su136088b.
+
+Recovery: root privata DispatcherTimer.FireTick→TextBoxView.OnThrottleBackgroundTimeout
+→TextEditor/TextAdaptor/DataGridCellItemAutomationPeer→DataGrid→Recovery.
+Timer interno net48 da2s, raccolta precedente troppo precoce; stesso minimo2100ms
+per controllo e Recovery, invariati dieci tentativi, deadline60s e8MiB. I FAIL
+iniziali5/3, timeout intermedi, All02 e CI9a restano archiviati; non sommare rerun.
+
+Installato attestato2ad42ca e profilo/ledger Minimondo/quattro XLSX conservati.
+200% e2880×1800 preservati;100/125 USER_DEFERRED, Getnet moderni prova C MISSING.
+Baseline v2 e primitive SQL rimangono interne: nessuna esposizione incompleta,
+nessun grant o cutover reale. La coppia f4/b0 non è pronta per nuove mutazioni
+distribuite, benché le singole prove componenti siano PASS.
+
+Checkpoint UTC 2026-11-11T02:11:32.597427+00:00.
+<!-- ASUS019_CURRENT_END -->
+
+<details>
+<summary>Checkpoint precedente conservato al 20261111T012245Z</summary>
+
 ## Convergenza corrente — stessa Execution ASUS-W7POS-019
 
 Addendum di convergenza recepito: due consegne, cassa quotidiana e storico
@@ -64,7 +124,8 @@ Getnet moderno prova C MISSING. Nessun merge/deploy/cutover. Il Worker storico
 operativo resta un gate distinto dal Worker web impacchettato.
 
 Checkpoint UTC 2026-11-10T23:54:20.160630+00:00.
-<!-- ASUS019_CURRENT_END -->
+
+</details>
 
 <details>
 <summary>Checkpoint precedente 10 novembre 22:27 UTC, conservato alla convergenza</summary>

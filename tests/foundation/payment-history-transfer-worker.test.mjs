@@ -22,6 +22,25 @@ test("real CLR export streams all original lines before normalized movement stag
  assert.equal(x.calls.find(c=>c.op==="finish").payload.raw_manifest,fixture.rawManifest);
  assert.ok(x.calls.every(c=>!["apply","mapping","freeze_ack","commit"].includes(c.op)));
 });
+
+test("server-admitted v2 baseline streams the real CLR lineage without a financial command",async()=>{
+ const path="tests/fixtures/payment-history/local-export-v2/",source=readFileSync(path+"synthetic-local-baseline.w7history.zip"),proof=JSON.parse(readFileSync(path+"provenance.json","utf8"));
+ const x=setup();x.run.export_version="history-local-export-v2";x.run.upload.file_sha256=proof.archiveSha256;x.run.upload.byte_length=String(source.length);x.port.download=async()=>source;
+ const result=await runMigrationWorkerOnce(x.port);assert.equal(result.state,"analysed");assert.equal(result.objects,14);assert.equal(result.movements,5);
+ const raw=x.calls.find(c=>c.op==="finish").payload.raw_manifest;
+ assert.equal(createHash("sha256").update(raw).digest("hex"),proof.manifestSha256);assert.equal(JSON.parse(raw).restoreLineageId,proof.restoreLineageId);
+ assert.ok(x.calls.every(c=>!["apply","mapping","freeze_ack","commit"].includes(c.op)));
+});
+test("a manifest cannot upgrade a frozen migration into a v2 baseline",async()=>{
+ const source=readFileSync("tests/fixtures/payment-history/local-export-v2/synthetic-local-baseline.w7history.zip"),x=setup();
+ x.run.upload.file_sha256=createHash("sha256").update(source).digest("hex");x.run.upload.byte_length=String(source.length);x.port.download=async()=>source;
+ const result=await runMigrationWorkerOnce(x.port);assert.equal(result.state,"failed");
+ assert.equal(x.calls.some(c=>["stage_objects","stage_movements","finish"].includes(c.op)),false);
+});
+test("an unknown admitted export version is rejected before download",async()=>{
+ const x=setup();x.run.export_version="future-unknown";let downloads=0;x.port.download=async()=>{downloads++;return bytes;};
+ await assert.rejects(()=>runMigrationWorkerOnce(x.port),/response_invalid/);assert.equal(downloads,0);
+});
 test("bad local archive checksum publishes no financial or provenance candidates",async()=>{const x=setup();x.run.upload.file_sha256="f".repeat(64);const r=await runMigrationWorkerOnce(x.port);assert.equal(r.code,"history_upload_checksum_mismatch");assert.deepEqual(x.calls.map(c=>c.op),["claim","fail"]);});
 test("copied cross-shop object cannot be downloaded",async()=>{const x=setup();x.run.upload.object_key=`history/${id(99)}/${id(4)}`;let downloads=0;x.port.download=async()=>{downloads++;return bytes;};await assert.rejects(()=>runMigrationWorkerOnce(x.port),/response_invalid/);assert.equal(downloads,0);});
 test("memory cap stops migration before reading any original data",async()=>{const x=setup();x.port.memoryBytes=()=>1024*1024*1024;const r=await runMigrationWorkerOnce(x.port);assert.equal(r.code,"history_worker_memory_limit");assert.equal(x.calls.some(c=>c.op==="stage_objects"),false);});

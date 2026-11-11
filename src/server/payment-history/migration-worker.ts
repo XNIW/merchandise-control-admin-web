@@ -1,7 +1,7 @@
 import "server-only";
 import {createHash} from "node:crypto";
 import {demandDigest,demandUuid,historyRequestDigest} from "./ledger-contract";
-import {readLocalHistoryExport,type LocalHistoryTable} from "./local-export-reader";
+import {readLocalHistoryExport,LOCAL_EXPORT_VERSION,LOCAL_BASELINE_VERSION,type LocalHistoryTable} from "./local-export-reader";
 
 export type MigrationWorkerPort={
  rpc:(operation:string,payload:Record<string,unknown>)=>Promise<unknown>;
@@ -17,6 +17,8 @@ export async function runMigrationWorkerOnce(port:MigrationWorkerPort){
  if(!record(reply)||reply.ok!==true||!(reply.run===null||record(reply.run)))return fail("history_worker_response_invalid");
  if(reply.run===null)return {state:"idle" as const};
  const run=reply.run;
+ const exportVersion=run.export_version??LOCAL_EXPORT_VERSION;
+ if(exportVersion!==LOCAL_EXPORT_VERSION&&exportVersion!==LOCAL_BASELINE_VERSION)return fail("history_worker_response_invalid");
  demandUuid(String(run.run_id));demandUuid(String(run.shop_id));demandUuid(String(run.lease_token));
  if(typeof run.lease_fence!=="string"||!/^\d+$/.test(run.lease_fence)||!record(run.upload))return fail("history_worker_response_invalid");
  const upload=run.upload;
@@ -40,7 +42,7 @@ export async function runMigrationWorkerOnce(port:MigrationWorkerPort){
    const size=Buffer.byteLength(JSON.stringify(line))+256;
    if(pending.length>=200||pendingBytes+size>6*1024*1024)await flush();
    pending.push({table,sourceOrdinal,ordinal:++objectOrdinal,line});pendingBytes+=size;
-  });
+  },exportVersion);
   await flush();
   let movementOrdinal=0;
   for(let offset=0;offset<result.movements.length;offset+=200){await alive();await port.rpc("stage_movements",{...fence,rows:result.movements.slice(offset,offset+200).map(row=>({...row,ordinal:++movementOrdinal}))});}
