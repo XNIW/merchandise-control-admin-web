@@ -21,7 +21,7 @@ process.umask(0o077);mkdirSync(evidence,{mode:0o700});
 const sha=value=>createHash("sha256").update(value).digest("hex");
 const rowKey=r=>[r.external_namespace,r.external_id,r.business_ticks,r.gross_clp,r.fee_clp??"null",r.fee_vat_clp??"null",r.net_clp??"null"].join("|");
 const save=(file,value)=>{const path=join(evidence,file),temporary=path+".tmp";writeFileSync(temporary,JSON.stringify(value),{mode:0o600});renameSync(temporary,path);};
-let phase="ownership",browser;const children=[];
+let phase="ownership",browser,inspectFailure;const children=[];
 const receipt={status:"FAIL",syntheticOnly:true,loopbackOnly:true,coverage:"authenticated Core/Data HTTP services and real Admin browser; WPF hardware not claimed",cases:[]};
 function command(program,argv,cwd=root,env=process.env,timeout=120000){
  const result=spawnSync(program,argv,{cwd,env,encoding:"utf8",timeout,maxBuffer:8*1024*1024});
@@ -99,13 +99,19 @@ try{
  const baselineProbeResponse=await fetch(endpoint+"/api/pos/payment-history",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({deviceId:actorA.deviceId,sessionId:actorA.sessionId,deviceToken:actorA.deviceToken,sessionToken:actorA.sessionToken,operation:"baseline_context",payload:{local_dataset_id:"synthetic-probe",data_revision:"0",restore_epoch:"0",restore_lineage_id:randomUUID()}}),signal:AbortSignal.timeout(15000)});
  const baselineProbe=await baselineProbeResponse.json();
  receipt.baselineContextProbe={status:baselineProbeResponse.status,code:/^history_[a-z_]+$/.test(baselineProbe.code??"")?baselineProbe.code:null,resultKeys:baselineProbe.ok===true?Object.keys(baselineProbe.result).filter(k=>/^[a-z_]{1,48}$/.test(k)):[],baselineKeys:baselineProbe.ok===true&&baselineProbe.result?.baseline?Object.keys(baselineProbe.result.baseline).filter(k=>/^[a-z_]{1,48}$/.test(k)):[]};
- start("worker",process.execPath,[join(evidence,"history-worker.cjs")],{...process.env,PAYMENT_HISTORY_WORKER_GATEWAY_SECRET:secret,PAYMENT_HISTORY_ALLOW_LOOPBACK:"yes",PAYMENT_HISTORY_WORKER_GATEWAY_URL:endpoint+"/api/internal/payment-history/worker"});
+ const ownedWorker=start("worker",process.execPath,[join(evidence,"history-worker.cjs")],{...process.env,PAYMENT_HISTORY_WORKER_GATEWAY_SECRET:secret,PAYMENT_HISTORY_ALLOW_LOOPBACK:"yes",PAYMENT_HISTORY_WORKER_GATEWAY_URL:endpoint+"/api/internal/payment-history/worker"});
+ inspectFailure=()=>({
+  runs:JSON.parse(sql(`SELECT coalesce(jsonb_agg(jsonb_build_object('state',state,'errorCode',CASE WHEN error_code ~ '^(history|getnet)_[a-z_]{1,90}$' THEN error_code ELSE NULL END)),'[]') FROM public.payment_history_migration_runs WHERE shop_id=${q(shopId)};`)),
+  uploads:JSON.parse(sql(`SELECT coalesce(jsonb_agg(s),'[]') FROM (SELECT state,count(*)::int count FROM public.payment_history_uploads WHERE shop_id=${q(shopId)} GROUP BY state) s;`)),
+  workerExit:ownedWorker.exitCode,
+  workerEvents:readFileSync(join(evidence,"worker.private.log"),"utf8").split("\n").flatMap(line=>{try{const e=JSON.parse(line);return /^[a-z_]{1,64}$/.test(e.event)&&(!e.code||/^(history|getnet)_[a-z_]{1,90}$/.test(e.code))?[{event:e.event,...(e.code?{code:e.code}:{})}]:[];}catch{return[];}}).slice(-8)
+ });
  const clientContext={schema:"asus019-authenticated-history-v2",nonce,endpoint:endpoint+"/",clientSha:receipt.clientSha,shopId,staffId,credentialVersion:7,actorA,actorB,extendedCases:true,faultCases:true};
  save("context.private.json",clientContext);
  const clientArgs=[join(clientRoot,"tests/Win7POS.Core.Tests/bin/Release/net10.0/Win7POS.Core.Tests.dll"),join(evidence,"context.private.json")];
  phase="client_baselines";let client=start("client","dotnet",clientArgs,process.env);
  async function state(wanted){return until(async()=>{
-  if(existsSync(join(evidence,"client-state.private.json"))){const state=JSON.parse(readFileSync(join(evidence,"client-state.private.json"),"utf8"));demand(state.nonce===nonce,"history_test_state_nonce");if(state.status==="FAIL"){receipt.clientFailure={phase:/^[a-z_]+$/.test(state.phase)?state.phase:"unknown",exception:/^[A-Za-z]+Exception$/.test(state.exception)?state.exception:"Exception",codes:[state.code,state.lastCode].filter(c=>/^(history|historical)_[a-z_]+$/.test(c))};throw Error("history_test_client_rejected");}if(state.phase===wanted)return state;}
+  if(existsSync(join(evidence,"client-state.private.json"))){const state=JSON.parse(readFileSync(join(evidence,"client-state.private.json"),"utf8"));demand(state.nonce===nonce,"history_test_state_nonce");if(state.status==="FAIL"){const d=state.localDiagnostics;receipt.clientFailure={phase:/^[a-z_]+$/.test(state.phase)?state.phase:"unknown",exception:/^[A-Za-z]+Exception$/.test(state.exception)?state.exception:"Exception",codes:[state.code,state.lastCode].filter(c=>/^(history|historical)_[a-z_]+$/.test(c)),...(d?{localDiagnostics:{actor:["A","B"].includes(d.actor)?d.actor:null,baselineState:/^[a-z_]{1,40}$/.test(d.baselineState)?d.baselineState:null,baselineReason:/^(history|baseline)_[a-z_]{1,90}$/.test(d.baselineReason)?d.baselineReason:null,baselineUploadPresent:d.baselineUploadPresent===true,baselineRunPresent:d.baselineRunPresent===true,baselineReviewPresent:d.baselineReviewPresent===true}}:{})};throw Error("history_test_client_rejected");}if(state.phase===wanted)return state;}
   demand(client.exitCode===null,"history_test_client_early_exit");return null;
  },150000);}
  const source=await state("source_ready");demand(/^[0-9a-f]{64}$/.test(source.sourceSha)&&source.baselineCount>0,"history_test_source_scope");
@@ -194,6 +200,7 @@ try{
  receipt.status="PASS_CORE_DATA_ADMIN_ROUNDTRIP_DUPLICATE_UNDO_CORRECTION_RESTART";receipt.stage="complete";save("authenticated-history.json",receipt);
  console.log("authenticated_history_roundtrip_pass");
 }catch(error){
+ if(inspectFailure)try{receipt.protocolState=inspectFailure();}catch{receipt.protocolStateProbe="unavailable";}
  if(browser)try{await browser.close();}catch{}
  await stopChildren();receipt.stage=phase;receipt.code=/^history_test_[a-z_]+$/.test(error?.message??"")?error.message:"history_test_unexpected";save("authenticated-history.json",receipt);
  console.error("authenticated_history_failed:"+phase+":"+receipt.code);process.exitCode=1;
