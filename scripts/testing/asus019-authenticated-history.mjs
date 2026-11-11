@@ -3,8 +3,8 @@
 // HTTP interception, service-role browser session or mocked receipt is accepted.
 import {spawn,spawnSync} from "node:child_process";
 import {createHash,randomBytes,randomUUID,scryptSync} from "node:crypto";
-import {existsSync,mkdirSync,readFileSync,writeFileSync,openSync,closeSync,renameSync,realpathSync} from "node:fs";
-import {resolve,join,isAbsolute,dirname} from "node:path";
+import {existsSync,mkdirSync,readFileSync,writeFileSync,openSync,closeSync,renameSync,realpathSync,statSync} from "node:fs";
+import {resolve,join,isAbsolute,dirname,basename} from "node:path";
 import {fileURLToPath} from "node:url";
 import {setTimeout as delay} from "node:timers/promises";
 import {chromium} from "playwright";
@@ -106,7 +106,7 @@ try{
   workerExit:ownedWorker.exitCode,
   workerEvents:readFileSync(join(evidence,"worker.private.log"),"utf8").split("\n").flatMap(line=>{try{const e=JSON.parse(line);return /^[a-z_]{1,64}$/.test(e.event)&&(!e.code||/^(history|getnet)_[a-z_]{1,90}$/.test(e.code))?[{event:e.event,...(e.code?{code:e.code}:{})}]:[];}catch{return[];}}).slice(-8)
  });
- const clientContext={schema:"asus019-authenticated-history-v2",nonce,endpoint:endpoint+"/",clientSha:receipt.clientSha,shopId,staffId,credentialVersion:7,actorA,actorB,extendedCases:true,faultCases:true};
+ const clientContext={schema:"asus019-authenticated-history-v2",nonce,endpoint:endpoint+"/",clientSha:receipt.clientSha,shopId,staffId,credentialVersion:7,actorA,actorB,extendedCases:true,faultCases:true,adminOrigin:true};
  save("context.private.json",clientContext);
  const clientArgs=[join(clientRoot,"tests/Win7POS.Core.Tests/bin/Release/net10.0/Win7POS.Core.Tests.dll"),join(evidence,"context.private.json")];
  phase="client_baselines";let client=start("client","dotnet",clientArgs,process.env);
@@ -192,12 +192,63 @@ try{
  const restartFacts=sha(afterRestart.body.result.rows.map(rowKey).sort().join("\n"));demand(restartFacts===recovered.factsSha,"history_test_restart_browser_facts");
  receipt.cases.push({id:"lost-ack-real-process-restart-pull-before-ack",status:"PASS",count:recovered.count,factsSha256:restartFacts,canonicalReceipts:1});
  save("client-control.private.json",{nonce,phase:"restart_observed"});
+ const checked=async(operation,payload={})=>{const r=await call(operation,payload);demand(r.status===200&&r.body.ok===true,"history_test_financial_api_rejected");return r.body.result;};
+ const transfer=async(lane,operation,payload={})=>{
+  const r=await page.evaluate(async(body)=>{const response=await fetch("/api/shop/payment-history/transfer",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json","X-History-Request":"1"},body:JSON.stringify(body)});return {status:response.status,body:await response.json()};},{shop_id:shopId,lane,operation,payload});
+  demand(r.status===200&&r.body.ok===true,"history_test_transfer_api_rejected");return r.body.result;
+ };
+ const ownedBytes=(path,hash)=>{
+  demand(isAbsolute(path)&&realpathSync(path)===path&&[restart.a.root,restart.b.root].some(root=>path===join(realpathSync(root),"output",basename(path)))&&/^(?:new-[0-9a-f]{32}\.xlsx|freeze-[0-9a-f]{32}\.w7history\.zip)$/.test(basename(path)),"history_test_owned_export_path");
+  const size=statSync(path).size;demand(size>0&&size<=20971520,"history_test_owned_export_capacity");const bytes=readFileSync(path);demand(sha(bytes)===hash,"history_test_owned_export_hash");return bytes;
+ };
+ const upload=async(api,path,hash)=>{
+  const bytes=ownedBytes(path,hash),fileName=basename(path),created=await api("upload_create",{file_name:fileName,byte_length:String(bytes.length),sha256:hash});
+  const ok=await page.evaluate(async({signedUrl,bytes,fileName})=>{const form=new FormData();form.append("cacheControl","3600");form.append("",new File([new Uint8Array(bytes)],fileName));const r=await fetch(signedUrl,{method:"PUT",headers:{"x-upsert":"false"},body:form});return r.ok;},{signedUrl:created.signed_url,bytes:[...bytes],fileName});demand(ok,"history_test_browser_upload_failed");
+  await api("upload_ready",{upload_id:created.upload_id});await until(async()=>{const s=await api("upload_status",{upload_id:created.upload_id});demand(!["rejected","expired"].includes(s.state),"history_test_source_rejected");return s.state==="verified";});return created.upload_id;
+ };
+ phase="admin_inventory";const webSource=await state("web_source_ready");
+ const devices=await transfer("cutover","devices");demand(devices.devices.length===2&&devices.devices.every(d=>[actorA.deviceId,actorB.deviceId].includes(d.device_id)&&!d.revoked),"history_test_cutover_device_scope");
+ for(const actor of [actorA,actorB])await transfer("cutover","inventory",{device_id:actor.deviceId,hardware_reference_sha256:sha("Synthetic asset "+actor.deviceId),disposition:"active",protocol_version:1,client_build_sha:receipt.clientSha,reference:"Synthetic owned protocol1 device"});
+ const local=await transfer("cutover","status");demand(local.writer_authority==="local","history_test_initial_writer_mode");
+ await transfer("cutover","freeze",{writer_epoch:local.writer_epoch,complete_inventory:true,reference:"Complete inventory of both owned synthetic devices"});save("client-control.private.json",{nonce,phase:"admin_frozen"});
+ phase="frozen_source_reconciliation";const frozen=await state("freeze_acknowledged"),metadata=await checked("metadata");demand(frozen.exports.length===2,"history_test_frozen_export_count");
+ for(const exported of frozen.exports){
+  const api=(op,payload)=>transfer("migration",op,payload),uploadId=await upload(api,exported.path,exported.sha256);
+  const started=await api("start",{request_key:randomUUID(),upload_id:uploadId});
+  const job=await until(async()=>{const s=await api("status",{run_id:started.run_id});demand(!["failed","cancelled"].includes(s.state),"history_test_migration_analysis_failed");return s.state==="review_ready"?s:null;});
+  for(const scope of job.scopes){
+   const merchantIds=[...new Set(exported.bindings.filter(b=>b.scope===scope.id).map(b=>metadata.aliases.find(a=>a.alias_key===b.alias)?.merchant_id))];demand(merchantIds.length===1&&merchantIds[0],"history_test_frozen_mapping_missing");
+   await api("mapping",{run_id:started.run_id,local_scope_id:scope.id,merchant_id:merchantIds[0],label:"Synthetic canonical merchant",reference:"Independent existing alias mapping for this exact owned export"});
+  }
+  const review=await api("review",{run_id:started.run_id});demand(review.can_apply===true,"history_test_frozen_review_blocked");
+  const applied=await api("apply",{run_id:started.run_id,review_digest:review.review_digest,request_key:randomUUID()});demand(applied.new_active===0&&applied.new_inactive===0,"history_test_frozen_reconciliation_created_economics");
+ }
+ save("client-control.private.json",{nonce,phase:"frozen_sources_reconciled"});await state("frozen_replicas_current");
+ phase="activate_web_writer";const ready=await transfer("cutover","status");demand(ready.gates?.can_activate===true,"history_test_web_writer_not_ready");
+ const active=await transfer("cutover","activate_web",{writer_epoch:ready.writer_epoch,inventory_digest:ready.inventory_digest});demand(active.writer_authority==="web","history_test_web_writer_not_active");
+ phase="admin_origin_import";const webUpload=await upload(checked,webSource.sourcePath,webSource.sourceSha);
+ const webJob=await checked("start",{request_key:randomUUID(),upload_ids:[webUpload],configuration:{legacyAmountsAreClp:true,modernTimeInterpretation:"Unresolved",temporalPolicyVersion:"getnet-web-unresolved-v1",temporalEvidenceReference:""}});
+ await until(async()=>{const s=await checked("status",{job_id:webJob.job_id});demand(!["failed","cancelled"].includes(s.state),"history_test_web_analysis_failed");return s.state==="review_ready";});
+ const proofs=new Set(metadata.evidence.map(e=>e.evidence_id));
+ for(const merchant of metadata.merchants)for(const kind of ["legacy_currency","native_start"]){
+  const proof=await checked("evidence",{kind,level:"operator_attested",version:"synthetic-web-v1",reference:"Independent policy for this owned synthetic source",scope:{merchant_id:merchant.merchant_id,file_sha256:[webSource.sourceSha],from_ticks:"0",to_ticks:"3155378975999999999",...(kind==="native_start"?{native_start_ticks:"638712864000000000"}:{})}});proofs.add(proof.evidence_id);
+ }
+ await checked("configure",{job_id:webJob.job_id,evidence_ids:[...proofs]});const webReview=await checked("review",{job_id:webJob.job_id});demand(webReview.can_commit===true&&webReview.summary.new_count===webSource.expected.length,"history_test_web_review_blocked");
+ const webReceipt=await checked("commit",{job_id:webJob.job_id,request_key:randomUUID(),review_digest:webReview.review_digest});demand(webReceipt.kind==="apply","history_test_web_commit_missing");
+ save("client-control.private.json",{nonce,phase:"admin_import_committed"});const fromAdmin=await state("admin_origin");
+ demand(fromAdmin.status==="PASS_CORE_DATA_CASE"&&fromAdmin.count===recovered.count+webSource.expected.length,"history_test_web_replica_count");
+ await until(async()=>{const text=await page.locator("body").innerText();return webSource.expected.every(row=>text.includes(row.Id));},65000);
+ const webFacts=await checked("movements",{from_date:null,to_date:null,include_inactive:false,page_size:50,after:null}),webSha=sha(webFacts.rows.map(rowKey).sort().join("\n"));demand(webFacts.rows.length===fromAdmin.count&&webSha===fromAdmin.factsSha,"history_test_web_browser_facts");
+ receipt.cases.push({id:"admin-web-writer-server-pos-a-pos-b-no-echo",status:"PASS",count:fromAdmin.count,factsSha256:webSha});save("client-control.private.json",{nonce,phase:"admin_origin_observed"});
+ phase="session_revocation";await state("revocation_ready");
+ const revoked=sql(`UPDATE public.pos_sessions SET status='revoked',revoked_at=clock_timestamp() WHERE shop_id=${q(shopId)} AND shop_device_id=${q(actorB.deviceId)} AND pos_session_id=${q(actorB.sessionId)} AND status='active' RETURNING 1;`);demand(revoked==="1","history_test_revocation_scope");
+ save("client-control.private.json",{nonce,phase:"session_revoked"});const denial=await state("revocation");demand(denial.status==="PASS_SESSION_REVOCATION"&&denial.otherActorActive===true,"history_test_revocation_failed");receipt.cases.push({id:"real-session-revocation-stops-only-own-generation",status:"PASS"});save("client-control.private.json",{nonce,phase:"revocation_observed"});
  phase="native_invariants";
  const native=sql(`SELECT (SELECT count(*) FROM public.pos_sales WHERE shop_id=${q(shopId)})+(SELECT count(*) FROM public.pos_sale_stock_movements WHERE shop_id=${q(shopId)});`);
  demand(native==="0","history_test_native_mutation");
  const clientExit=await Promise.race([client.closed,delay(10000).then(()=>null)]);demand(clientExit?.code===0,"history_test_client_exit");
  await browser.close();browser=undefined;demand(await stopChildren(),"history_test_cleanup_forced");
- receipt.status="PASS_CORE_DATA_ADMIN_ROUNDTRIP_DUPLICATE_UNDO_CORRECTION_RESTART";receipt.stage="complete";save("authenticated-history.json",receipt);
+ receipt.status="PASS_CORE_DATA_BILATERAL_ADMIN_ORIGIN_RESTART_REVOCATION";receipt.stage="complete";save("authenticated-history.json",receipt);
  console.log("authenticated_history_roundtrip_pass");
 }catch(error){
  if(inspectFailure)try{receipt.protocolState=inspectFailure();}catch{receipt.protocolStateProbe="unavailable";}
