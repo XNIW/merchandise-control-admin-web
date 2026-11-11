@@ -8,7 +8,7 @@ select plan(11);
 insert into public.shops(shop_id,shop_code,shop_name,shop_status) values('10000000-0000-4000-8000-000000603019','HTTP-HISTORY-019','Synthetic HTTP history','active');
 insert into public.staff_accounts(staff_id,shop_id,staff_code,display_name,role_key,status,credential_kind,credential_hash,credential_updated_at,credential_expires_at,must_change_credential,credential_version,credential_status)
  values('30000000-0000-4000-8000-000000603019','10000000-0000-4000-8000-000000603019','1001','Synthetic HTTP operator','pos_admin','active','password','argon2id:synthetic-not-a-login',clock_timestamp(),clock_timestamp()+interval '1 hour',false,7,'active');
-insert into public.staff_role_permissions(shop_id,role_key,permission_key,enabled) values('10000000-0000-4000-8000-000000603019','pos_admin','shop_admin.full_access',true);
+insert into public.staff_role_permissions(shop_id,role_key,permission_key,enabled) values('10000000-0000-4000-8000-000000603019','pos_admin','shop_admin.full_access',true) on conflict(shop_id,role_key,permission_key) do update set enabled=excluded.enabled;
 insert into public.payment_history_runtime(shop_id) values('10000000-0000-4000-8000-000000603019');
 insert into public.shop_devices(shop_device_id,shop_id,device_identifier,display_name,device_type,status) values('20000000-0000-4000-8000-000000603019','10000000-0000-4000-8000-000000603019','SYNTHETIC-HTTP-019','Synthetic HTTP POS','pos','active');
 insert into public.pos_device_credentials(pos_device_credential_id,shop_id,shop_device_id,staff_id,token_hash,staff_credential_version,expires_at)
