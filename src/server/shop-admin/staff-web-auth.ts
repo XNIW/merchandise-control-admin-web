@@ -66,8 +66,9 @@ const MAX_CREDENTIAL_LENGTH = 256;
 const STAFF_WEB_SESSION_TTL_SECONDS = 12 * 60 * 60;
 const STAFF_WEB_SECRET_LENGTH = 32;
 
-function addSeconds(seconds: number) {
-  return new Date(Date.now() + seconds * 1000).toISOString();
+function addSeconds(seconds: number, notAfter: string | null = null) {
+  const ceiling = Date.now() + seconds * 1000;
+  return new Date(notAfter === null ? ceiling : Math.min(ceiling, Date.parse(notAfter))).toISOString();
 }
 
 function isFutureTimestamp(value: string | null | undefined) {
@@ -336,7 +337,7 @@ export async function authenticateStaffManagerWebLogin(
     }
 
     const sessionToken = generateStaffWebSecret();
-    const expiresAt = addSeconds(STAFF_WEB_SESSION_TTL_SECONDS);
+    const expiresAt = addSeconds(STAFF_WEB_SESSION_TTL_SECONDS, staff.credentialExpiresAt);
     const committed = await commitStaffWebLogin(supabase, {
       attemptKeyHash: parsed.attemptKeyHash,
       expectedCredentialVersion: staff.credentialVersion,

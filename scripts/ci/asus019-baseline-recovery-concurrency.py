@@ -62,12 +62,19 @@ def main():
             check(time.monotonic()<deadline,'BASELINE_LOCK_NOT_OBSERVED');h.pump(deadline)
     def ack(value,actor,state):
         raw=value['recovery_ack_json'];r=json.loads(raw);check(r['state']==state and r['session_id']==actor['sessionId'] and r['apply_request_key']==desc['applyRequestKey'] and r['run_id']==desc['runId'],'BASELINE_ACK_CHANGED');return raw
+    def applied_receipt(side,label,value):
+        # baseline_apply returns the migration receipt itself. Capture its
+        # canonical database text in the same transaction while its job lock
+        # is still held; recovery must return these exact original bytes.
+        check(isinstance(value,dict) and value.get('kind')=='migrate' and value.get('source_run_id')==desc['runId'],'BASELINE_APPLY_RECEIPT_SHAPE')
+        h.children[side].send(h.emit(side,label,",'receipt',(select j.receipt::text from public.payment_history_migration_runs j where j.shop_id="+q(shop)+'::uuid and j.run_id='+q(desc['runId'])+'::uuid and j.apply_request_key='+q(desc['applyRequestKey'])+'::uuid)'))
+        raw=h.frame(side,label)['receipt'];check(isinstance(raw,str) and json.loads(raw)==value,'BASELINE_ORIGINAL_RECEIPT_REQUIRED');return raw
     try:
         h=runner._GuardedLockCase(root,'history-baseline-'+kind);start('observer');before=query('BEFORE')
         check(before and before['state']=='review_ready' and before['sourceRows']==0 and before['receipts']==0 and before['native']==0 and before['actorSession']==original['sessionId'],'BASELINE_EMPTY_SOURCE_REQUIRED')
         start('first');start('second');key1=str(uuid.uuid4());key2=str(uuid.uuid4())
         if kind=='apply_recovery':
-            outcome('first','APPLY',call(original,'baseline_apply',apply));applied=result('first','APPLY');raw=applied['receipt_json'];check(isinstance(raw,str),'BASELINE_ORIGINAL_RECEIPT_REQUIRED')
+            outcome('first','APPLY',call(original,'baseline_apply',apply));applied=result('first','APPLY');raw=applied_receipt('first','APPLY_RECEIPT',applied)
             outcome('second','RECOVER',call(fresh,'baseline_recover',recover(key1)));witness=wait('second','first');commit('first','FIRST_COMMITTED');recovered=result('second','RECOVER');ack(recovered,fresh,'committed');check(recovered['receipt_json']==raw,'BASELINE_ORIGINAL_RECEIPT_CHANGED')
             outcome('second','REPLAY',call(fresh,'baseline_recover',recover(key1)));again=result('second','REPLAY');check(again==recovered,'BASELINE_COMMITTED_REPLAY_CHANGED');commit('second','SECOND_COMMITTED')
             after=query('AFTER');check(after['state']=='applied' and after['receipts']==1 and after['receipt']==raw and after['sourceRows']==0 and after['native']==0 and after['active']==before['active'] and after['bankReceipts']==before['bankReceipts'],'BASELINE_COMMITTED_COUNTS')
@@ -81,11 +88,13 @@ def main():
             # Finish this exact empty source through its current authenticated
             # actor/review/Apply. No unresolved server fixture or generic delete.
             outcome('second','REVIEW',call(later,'baseline_review',{'run_id':desc['runId']}));review=result('second','REVIEW');check(review['can_apply'] is True,'BASELINE_FINAL_REVIEW_BLOCKED')
-            outcome('second','APPLY',call(later,'baseline_apply',{**apply,'review_digest':review['review_digest']}));completed=result('second','APPLY');check(isinstance(completed['receipt_json'],str),'BASELINE_FINAL_RECEIPT');commit('second','FINAL_COMMITTED');final=query('FINAL')
-            check(final['state']=='applied' and final['receipts']==1 and final['active']==before['active'] and final['native']==0 and final['bankReceipts']==before['bankReceipts'],'BASELINE_FINAL_COUNTS')
+            outcome('second','APPLY',call(later,'baseline_apply',{**apply,'review_digest':review['review_digest']}));completed=result('second','APPLY');raw=applied_receipt('second','FINAL_RECEIPT',completed);commit('second','FINAL_COMMITTED');final=query('FINAL')
+            check(final['state']=='applied' and final['receipts']==1 and final['receipt']==raw and final['active']==before['active'] and final['native']==0 and final['bankReceipts']==before['bankReceipts'],'BASELINE_FINAL_COUNTS')
             report['cases'].append({'id':'baseline-two-current-session-recoveries','status':'PASS','wait':witness,'immutableRecoveryIntents':2,'leaseFenceIncrements':2,'receiptsDuringRecovery':0,'firstAckSHA256':sha(raw1),'secondAckSHA256':sha(raw2),'emptySourceCompleted':True,'newBankReceipts':0,'nativeRows':0,'activeEconomicsUnchanged':True})
         report['status']='PASS'
     except BaseException as error:
+        report['failureException']=type(error).__name__
+        if isinstance(error,KeyError) and len(error.args)==1 and isinstance(error.args[0],str) and re.fullmatch('[a-z_]{1,64}',error.args[0]):report['missingField']=error.args[0]
         report['failureCode']=str(error) if re.fullmatch('[A-Z][A-Z0-9_]{0,79}',str(error)) else 'BASELINE_UNEXPECTED';raise
     finally:
         if h is not None:
