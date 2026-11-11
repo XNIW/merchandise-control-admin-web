@@ -124,11 +124,18 @@ try{
  page.setDefaultTimeout(45000);await page.goto(endpoint+"/auth/login?mode=shop-code&next=%2Fshop%2Fpayment-history");
  await page.locator('[name="shopCode"]').fill(shopCode);await page.locator('[name="staffCode"]').fill(staffCode);await page.locator('[name="credential"]').fill(password);
  await page.locator('form:has([name="credential"]) button[type="submit"]').click();await page.waitForURL(url=>url.pathname==="/shop/payment-history");
- const call=(operation,payload={})=>page.evaluate(async({shopId,operation,payload})=>{
-  const response=await fetch("/api/shop/payment-history",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json","X-History-Request":"1"},body:JSON.stringify({shop_id:shopId,operation,payload})});return {status:response.status,body:await response.json()};
- },{shopId,operation,payload});
+ const call=async(operation,payload={})=>{
+  const result=await page.evaluate(async({shopId,operation,payload})=>{
+   const response=await fetch("/api/shop/payment-history",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json","X-History-Request":"1"},body:JSON.stringify({shop_id:shopId,operation,payload})});return {status:response.status,body:await response.json().catch(()=>null)};
+  },{shopId,operation,payload});
+  const keys=value=>value&&typeof value==="object"&&!Array.isArray(value)?Object.keys(value).filter(k=>/^[a-z_]{1,64}$/.test(k)).slice(0,32):[];
+  receipt.lastFinancialReply={operation,status:result.status,ok:result.body?.ok===true,code:/^(history|auth)_[a-z_]{1,90}$/.test(result.body?.code)?result.body.code:null,rootKeys:keys(result.body),resultKeys:keys(result.body?.result),rowCount:Array.isArray(result.body?.result?.rows)?result.body.result.rows.length:null};
+  return result;
+ };
+ const capabilityReply=await call("capabilities");receipt.browserCapabilities={status:capabilityReply.status,ok:capabilityReply.body?.ok===true,read:capabilityReply.body?.result?.capabilities?.read===true,runtimePresent:capabilityReply.body?.result?.runtime!=null};
  const baseline=await call("movements",{from_date:null,to_date:null,include_inactive:false,page_size:50,after:null});
- demand(baseline.status===200&&baseline.body.ok===true&&baseline.body.result.rows.length===source.baselineCount,"history_test_browser_baseline");
+ receipt.baselineExpectedCount=source.baselineCount;
+ demand(baseline.status===200&&baseline.body?.ok===true&&Array.isArray(baseline.body.result?.rows)&&baseline.body.result.rows.length===source.baselineCount,"history_test_browser_baseline");
  receipt.cases.push({id:"authenticated-original-baselines",status:"PASS",count:source.baselineCount});
  phase="independent_source_policy";
  const approveSource=hash=>{
