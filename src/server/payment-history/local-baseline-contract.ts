@@ -5,9 +5,10 @@ import {parseReceiptJson,ReceiptNumber} from "./lossless-receipt-json";
 // Private composition contract; these names are not admitted by device-boundary
 // until the full client/worker/SQL path is integrated and qualified together.
 export const BASELINE_OPERATIONS=["baseline_context","baseline_upload_create","baseline_upload_ready","baseline_upload_status","baseline_start",
- "baseline_status","baseline_resume","baseline_cancel","baseline_review","baseline_apply","baseline_receipt"] as const;
+ "baseline_status","baseline_review","baseline_apply","baseline_receipt","baseline_recover"] as const;
 export type BaselineOperation=typeof BASELINE_OPERATIONS[number];
-type Scope={shopId:string;deviceId:string;runId?:string;localDatasetId?:string;restoreLineageId?:string;restoreEpoch?:string;localRevision?:string;writerEpoch?:string;datasetId?:string};
+type Scope={shopId:string;deviceId:string;runId?:string;localDatasetId?:string;restoreLineageId?:string;restoreEpoch?:string;localRevision?:string;writerEpoch?:string;datasetId?:string;
+ staffId?:string;sessionId?:string;credentialVersion?:number;recoveryRequestKey?:string;applyRequestKey?:string;previousReviewDigest?:string|null};
 const fail=():never=>{throw Error("history_baseline_invalid");};
 const id=(v:unknown)=>{if(typeof v!=="string"||v==="00000000-0000-0000-0000-000000000000")return fail();demandUuid(v);return v;};
 const text=(v:unknown,max=256)=>{if(typeof v!=="string"||v.length<1||v.length>max||v.includes("\0"))return fail();return v;};
@@ -18,14 +19,14 @@ const fields={
  baseline_context:["local_dataset_id","data_revision","restore_epoch","restore_lineage_id"],
  baseline_upload_create:["request_key","file_name","sha256","byte_length"],baseline_upload_ready:["upload_id"],baseline_upload_status:["upload_id"],
  baseline_start:["request_key","upload_id","local_dataset_id","data_revision","restore_epoch","restore_lineage_id","writer_epoch"],
- baseline_status:["run_id"],baseline_resume:["run_id"],baseline_cancel:["run_id"],baseline_review:["run_id"],
- baseline_apply:["run_id","request_key","review_digest"],baseline_receipt:["request_key"]} as const;
+ baseline_status:["run_id"],baseline_review:["run_id"],
+ baseline_apply:["run_id","request_key","review_digest"],baseline_receipt:["request_key"],baseline_recover:["recovery_request_key","run_id","apply_request_key"]} as const;
 export function validateBaselineRequest(op:BaselineOperation,value:unknown){
- const p=closed(value,fields[op]);
+ const p=closed(value,[...fields[op],...(op==="baseline_recover"&&historyObject(value)&&Object.hasOwn(value,"previous_review_digest")?["previous_review_digest"]:[])]);
  for(const [k,v] of Object.entries(p)){
-  if(["request_key","upload_id","run_id","restore_lineage_id"].includes(k))id(v);
+  if(["request_key","upload_id","run_id","restore_lineage_id","recovery_request_key","apply_request_key"].includes(k))id(v);
   else if(["data_revision","restore_epoch","writer_epoch","byte_length"].includes(k))integer(v,BigInt(k==="writer_epoch"||k==="byte_length"?1:0),BigInt(k==="byte_length"?20971520:"9223372036854775807"));
-  else if(k==="sha256"||k==="review_digest")hash(v);
+  else if(k==="sha256"||k==="review_digest"||k==="previous_review_digest")hash(v);
   else if(k==="file_name"){text(v);if(!/^[^/\\]+\.w7history\.zip$/.test(v as string))fail();}
   else text(v);
  }
@@ -59,6 +60,7 @@ export function validateBaselineReceipt(raw:unknown,scope:Scope){
 // error text and signed URLs never become durable client metadata.
 export function projectBaselineSqlResult(op:BaselineOperation,value:unknown,scope:Scope){
  if(!historyObject(value))return fail();
+ if(op==="baseline_recover")return validateBaselineRecovery(value,scope);
  if(op==="baseline_context")return {baseline:validateBaselineContext(value)};
  if(op==="baseline_upload_create"){
   const r=closed(value,["upload_id","object_key"]);const upload=id(r.upload_id);
@@ -80,4 +82,20 @@ export function projectBaselineSqlResult(op:BaselineOperation,value:unknown,scop
  const run=id(value.run_id);if(scope.runId!==undefined&&run!==scope.runId)fail();
  if(!["queued","analysing","review_ready","applied","failed","cancelled"].includes(String(value.state)))fail();
  return {run_id:run,state:value.state};
+}
+export function validateBaselineRecovery(value:unknown,scope:Scope){
+ const result=closed(value,["recovery_ack_json","receipt_json"]),raw=result.recovery_ack_json;
+ if(typeof raw!=="string"||Buffer.byteLength(raw,"utf8")<1||Buffer.byteLength(raw,"utf8")>16384)fail();
+ const a=closed(parseReceiptJson(raw as string),["schema_version","state","shop_id","device_id","staff_id","session_id","credential_version",
+  "recovery_request_key","run_id","apply_request_key","previous_review_digest"]);
+ const version=scope.credentialVersion;
+ if(!(a.schema_version instanceof ReceiptNumber)||a.schema_version.raw!=="1"||!(a.credential_version instanceof ReceiptNumber)||
+  typeof version!=="number"||!Number.isInteger(version)||version<1||version>2147483647||a.credential_version.raw!==String(version))fail();
+ for(const [key,expected] of [["shop_id",scope.shopId],["device_id",scope.deviceId],["staff_id",scope.staffId],["session_id",scope.sessionId],
+  ["recovery_request_key",scope.recoveryRequestKey],["run_id",scope.runId],["apply_request_key",scope.applyRequestKey]] as const){id(a[key]);if(a[key]!==expected)fail();}
+ if(a.previous_review_digest!==null)hash(a.previous_review_digest);
+ if(a.previous_review_digest!==(scope.previousReviewDigest??null))fail();
+ if(a.state==="committed")validateBaselineReceipt(result.receipt_json,scope);
+ else if(a.state!=="uncommitted"||result.receipt_json!==null)fail();
+ return result;
 }

@@ -64,3 +64,37 @@ test('review cannot invent permission or accept an unbound result',()=>{
  assert.throws(()=>c.projectBaselineSqlResult('baseline_review',{...review,can_apply:1},scope()));
  assert.throws(()=>c.projectBaselineSqlResult('baseline_review',{...review,review_digest:'bad'},scope()));
 });
+const recoveryScope=()=>({...scope(),staffId:id(6),sessionId:id(7),credentialVersion:7,recoveryRequestKey:id(8),applyRequestKey:id(9),previousReviewDigest:'a'.repeat(64)});
+const recoveryAck=()=>({schema_version:1,state:'uncommitted',shop_id:id(2),device_id:id(3),staff_id:id(6),session_id:id(7),credential_version:7,
+ recovery_request_key:id(8),run_id:id(4),apply_request_key:id(9),previous_review_digest:'a'.repeat(64)});
+test('recovery request has original Apply identity and an optional strictly typed prior digest',()=>{
+ const p={recovery_request_key:id(8),run_id:id(4),apply_request_key:id(9)};
+ c.validateBaselineRequest('baseline_recover',p);c.validateBaselineRequest('baseline_recover',{...p,previous_review_digest:'a'.repeat(64)});
+ for(const delta of [{previous_review_digest:null},{previous_review_digest:1},{previous_review_digest:''},{extra:true},{apply_request_key:'00000000-0000-0000-0000-000000000000'}])
+  assert.throws(()=>c.validateBaselineRequest('baseline_recover',{...p,...delta}));
+});
+test('uncommitted recovery proof binds current lease and exact original intent without a financial receipt',()=>{
+ const value={recovery_ack_json:JSON.stringify(recoveryAck()),receipt_json:null};
+ assert.equal(c.validateBaselineRecovery(value,recoveryScope()).recovery_ack_json,value.recovery_ack_json);
+ for(const delta of [{sessionId:id(9)},{staffId:id(9)},{deviceId:id(9)},{credentialVersion:8},{applyRequestKey:id(8)},{recoveryRequestKey:id(9)},{previousReviewDigest:null}])
+  assert.throws(()=>c.validateBaselineRecovery(value,{...recoveryScope(),...delta}));
+ assert.throws(()=>c.validateBaselineRecovery({...value,receipt_json:JSON.stringify(receipt())},recoveryScope()));
+});
+test('committed recovery carries the original bound canonical receipt',()=>{
+ const value={recovery_ack_json:JSON.stringify({...recoveryAck(),state:'committed'}),receipt_json:JSON.stringify(receipt())};
+ assert.equal(c.projectBaselineSqlResult('baseline_recover',value,recoveryScope()).receipt_json,value.receipt_json);
+ assert.throws(()=>c.validateBaselineRecovery({...value,receipt_json:null},recoveryScope()));
+ assert.throws(()=>c.validateBaselineRecovery({...value,receipt_json:JSON.stringify({...receipt(),source_run_id:id(9)})},recoveryScope()));
+});
+test('recovery proof rejects duplicate keys, unknown fields and changed numeric representation',()=>{
+ const raw=JSON.stringify(recoveryAck());
+ for(const ack of ['{"state":"uncommitted",'+raw.slice(1),raw.replace('"credential_version":7','"credential_version":7.0'),
+  JSON.stringify({...recoveryAck(),schema_version:2}),JSON.stringify({...recoveryAck(),extra:true}),JSON.stringify({...recoveryAck(),state:'other'}),' '.repeat(16385)])
+  assert.throws(()=>c.validateBaselineRecovery({recovery_ack_json:ack,receipt_json:null},recoveryScope()));
+});
+test('an unsealed review has explicit null provenance in the proof and no omitted proof field',()=>{
+ const value={recovery_ack_json:JSON.stringify({...recoveryAck(),previous_review_digest:null}),receipt_json:null};
+ c.validateBaselineRecovery(value,{...recoveryScope(),previousReviewDigest:null});
+ const missing=recoveryAck();delete missing.previous_review_digest;
+ assert.throws(()=>c.validateBaselineRecovery({...value,recovery_ack_json:JSON.stringify(missing)},{...recoveryScope(),previousReviewDigest:null}));
+});
