@@ -255,14 +255,16 @@ jobs:
         uses: supabase/setup-cli@v1
         with:
           version: 2.109.0
-      - name: Install locked dependencies and Chromium
+      - name: Install locked dependencies and attest runner Chrome
         run: |
           npm ci
-          npx playwright install --with-deps chromium
+          test -x /opt/google/chrome/chrome
+          /opt/google/chrome/chrome --version
+          echo "ASUS019_BROWSER_EXECUTABLE=/opt/google/chrome/chrome" >> "$GITHUB_ENV"
       - name: Canonical owned replay without changed SQL budgets
         timeout-minutes: 25
         run: >-
-          python3 scripts/ci/mobile-recovery-local-replay.py run
+          python3 -B scripts/ci/mobile-recovery-local-replay.py run
           --repo "$GITHUB_WORKSPACE/admin"
           --workdir "$RUNNER_TEMP/asus019-history-local"
           --evidence-dir "$RUNNER_TEMP/asus019-history-database"

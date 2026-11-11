@@ -94,7 +94,12 @@ try{
   demand(client.exitCode===null,"history_test_client_early_exit");return null;
  },150000);}
  const source=await state("source_ready");demand(/^[0-9a-f]{64}$/.test(source.sourceSha)&&source.baselineCount>0,"history_test_source_scope");
- phase="admin_open_before_apply";browser=await chromium.launch({headless:true});const context=await browser.newContext();const page=await context.newPage();
+ phase="admin_open_before_apply";
+ const browserExecutable=process.env.ASUS019_BROWSER_EXECUTABLE;
+ demand(browserExecutable==="/opt/google/chrome/chrome"&&existsSync(browserExecutable),"history_test_browser_prerequisite");
+ receipt.browserExecutableSHA256=sha(readFileSync(browserExecutable));
+ browser=await chromium.launch({headless:true,executablePath:browserExecutable});receipt.browserVersion=browser.version();
+ const context=await browser.newContext();const page=await context.newPage();
  page.setDefaultTimeout(45000);await page.goto(endpoint+"/auth/login?mode=shop-code&next=%2Fshop%2Fpayment-history");
  await page.locator('[name="shopCode"]').fill(shopCode);await page.locator('[name="staffCode"]').fill(staffCode);await page.locator('[name="credential"]').fill(password);
  await page.locator('form:has([name="credential"]) button[type="submit"]').click();await page.waitForURL(url=>url.pathname==="/shop/payment-history");
