@@ -19,8 +19,8 @@ insert into public.payment_history_migration_runs(run_id,shop_id,source_upload_i
 insert into public.payment_history_source_snapshots(snapshot_id,shop_id,shop_device_id,local_dataset_id,data_revision,restore_epoch,archive_sha256,backup_sha256,source_manifest,source_summary,run_id,created_revision)
  select 'a0000000-0000-4000-8000-000000113019',shop_id,'20000000-0000-4000-8000-000000113019','synthetic-baseline',0,0,repeat('a',64),repeat('c',64),manifest,summary,run_id,0
  from public.payment_history_migration_runs where run_id='70000000-0000-4000-8000-000000113019';
-create function pg_temp.bind_baseline(p_dataset text default 'synthetic-baseline',p_revision bigint default 0,p_restore bigint default 0,p_lineage uuid default '50000000-0000-4000-8000-000000113019',p_epoch bigint default 1) returns jsonb language sql as $$
- select app_private.payment_history_bind_local_baseline_v2('10000000-0000-4000-8000-000000113019','20000000-0000-4000-8000-000000113019','a0000000-0000-4000-8000-000000113019',p_dataset,p_revision,p_restore,p_lineage,p_epoch);
+create function pg_temp.bind_baseline(p_dataset text default 'synthetic-baseline',p_revision bigint default 0,p_restore bigint default 0,p_lineage uuid default '50000000-0000-4000-8000-000000113019',p_epoch bigint default 1,p_snapshot uuid default 'a0000000-0000-4000-8000-000000113019') returns jsonb language sql as $$
+ select app_private.payment_history_bind_local_baseline_v2('10000000-0000-4000-8000-000000113019','20000000-0000-4000-8000-000000113019',p_snapshot,p_dataset,p_revision,p_restore,p_lineage,p_epoch);
 $$;
 select throws_ok($$select pg_temp.bind_baseline(null)$$,'22023','payment_history_local_baseline_invalid','missing expected dataset is rejected');
 select throws_ok($$select pg_temp.bind_baseline(p_epoch=>2)$$,'40001','payment_history_local_writer_closed','writer epoch is current and exact');
@@ -32,11 +32,20 @@ select throws_ok($$select pg_temp.bind_baseline(p_restore=>1)$$,'40001','payment
 update public.payment_history_migration_runs set state='review_ready' where run_id='70000000-0000-4000-8000-000000113019';
 select throws_ok($$select pg_temp.bind_baseline()$$,'40001','payment_history_local_baseline_unverified','analysis without applied canonical receipt cannot enroll');
 update public.payment_history_migration_runs set state='applied' where run_id='70000000-0000-4000-8000-000000113019';
-update public.payment_history_uploads set file_sha256=repeat('d',64) where upload_id='60000000-0000-4000-8000-000000113019';
-select throws_ok($$select pg_temp.bind_baseline()$$,'40001','payment_history_local_baseline_unverified','verified upload still matches exact archive');
-update public.payment_history_uploads set file_sha256=repeat('a',64) where upload_id='60000000-0000-4000-8000-000000113019';
+-- Model a distinct mismatched source at insertion. Verified upload identity
+-- is immutable; a test must not update its hash to simulate corruption.
+insert into public.payment_history_uploads(upload_id,shop_id,actor_kind,actor_id,object_key,file_name,file_sha256,byte_length,state,verified_at)
+ select '60000000-0000-4000-8000-000000223019',shop_id,actor_kind,actor_id,'history/'||shop_id::text||'/60000000-0000-4000-8000-000000223019',file_name,repeat('d',64),byte_length,state,verified_at
+ from public.payment_history_uploads where upload_id='60000000-0000-4000-8000-000000113019';
+insert into public.payment_history_migration_runs(run_id,shop_id,source_upload_id,actor_kind,actor_id,actor_session_id,request_key,request_digest,state,manifest,summary,receipt)
+ select '70000000-0000-4000-8000-000000223019',shop_id,'60000000-0000-4000-8000-000000223019',actor_kind,actor_id,actor_session_id,'90000000-0000-4000-8000-000000223019',request_digest,state,manifest,summary,jsonb_build_object('source_snapshot_id','a0000000-0000-4000-8000-000000223019')
+ from public.payment_history_migration_runs where run_id='70000000-0000-4000-8000-000000113019';
+insert into public.payment_history_source_snapshots(snapshot_id,shop_id,shop_device_id,local_dataset_id,data_revision,restore_epoch,archive_sha256,backup_sha256,source_manifest,source_summary,run_id,created_revision)
+ select 'a0000000-0000-4000-8000-000000223019',shop_id,shop_device_id,local_dataset_id,data_revision,restore_epoch,archive_sha256,backup_sha256,source_manifest,source_summary,'70000000-0000-4000-8000-000000223019',created_revision
+ from public.payment_history_source_snapshots where snapshot_id='a0000000-0000-4000-8000-000000113019';
+select throws_ok($$select pg_temp.bind_baseline(p_snapshot=>'a0000000-0000-4000-8000-000000223019')$$,'40001','payment_history_local_baseline_unverified','verified upload still matches exact archive');
 insert into public.payment_history_local_write_grants(shop_id,shop_device_id,writer_epoch,operation_id,issued_at,expires_at)
- values('10000000-0000-4000-8000-000000113019','20000000-0000-4000-8000-000000113019',1,'b0000000-0000-4000-8000-000000113019',clock_timestamp()-interval '2 minutes',clock_timestamp()-interval '1 minute');
+ values('10000000-0000-4000-8000-000000113019','20000000-0000-4000-8000-000000113019',1,'b0000000-0000-4000-8000-000000113019',clock_timestamp()-interval '2 minutes',clock_timestamp()-interval '90 seconds');
 select throws_ok($$select pg_temp.bind_baseline()$$,'40001','payment_history_local_baseline_outcome_unknown','expired legacy grant is not proof of absent local commit');
 delete from public.payment_history_local_write_grants where shop_id='10000000-0000-4000-8000-000000113019';
 insert into public.payment_history_local_publications(operation_id,shop_id,shop_device_id,server_dataset_id,local_dataset_id,restore_lineage_id,restore_epoch,writer_epoch,operation_kind,request_fingerprint,content_digest,protocol_version,base_revision,page_count)
