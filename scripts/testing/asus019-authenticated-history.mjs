@@ -106,7 +106,7 @@ try{
   workerExit:ownedWorker.exitCode,
   workerEvents:readFileSync(join(evidence,"worker.private.log"),"utf8").split("\n").flatMap(line=>{try{const e=JSON.parse(line);return /^[a-z_]{1,64}$/.test(e.event)&&(!e.code||/^(history|getnet)_[a-z_]{1,90}$/.test(e.code))?[{event:e.event,...(e.code?{code:e.code}:{})}]:[];}catch{return[];}}).slice(-8)
  });
- const clientContext={schema:"asus019-authenticated-history-v2",nonce,endpoint:endpoint+"/",clientSha:receipt.clientSha,shopId,staffId,credentialVersion:7,actorA,actorB,extendedCases:true,faultCases:true,adminOrigin:true};
+ const clientContext={schema:"asus019-authenticated-history-v2",nonce,endpoint:endpoint+"/",clientSha:receipt.clientSha,shopId,staffId,credentialVersion:7,actorA,actorB,extendedCases:true,faultCases:true,adminOrigin:true,conflictCases:true};
  save("context.private.json",clientContext);
  const clientArgs=[join(clientRoot,"tests/Win7POS.Core.Tests/bin/Release/net10.0/Win7POS.Core.Tests.dll"),join(evidence,"context.private.json")];
  phase="client_baselines";let client=start("client","dotnet",clientArgs,process.env);
@@ -192,6 +192,13 @@ try{
  const restartFacts=sha(afterRestart.body.result.rows.map(rowKey).sort().join("\n"));demand(restartFacts===recovered.factsSha,"history_test_restart_browser_facts");
  receipt.cases.push({id:"lost-ack-real-process-restart-pull-before-ack",status:"PASS",count:recovered.count,factsSha256:restartFacts,canonicalReceipts:1});
  save("client-control.private.json",{nonce,phase:"restart_observed"});
+ phase="conflict_source_ready";const conflictSource=await state(phase);approveSource(conflictSource.sourceSha);save("client-control.private.json",{nonce,phase:"allow_conflict_prepare"});
+ const conflict=await state("conflict");demand(conflict.status==="PASS_CONFLICT_DENIED_ABORT_RECONCILED"&&conflict.count===recovered.count&&conflict.factsSha===recovered.factsSha,"history_test_conflict_client_mismatch");
+ const conflictEvidence=JSON.parse(sql(`SELECT jsonb_build_object('grants',(SELECT count(*) FROM public.payment_history_local_publications WHERE shop_id=${q(shopId)} AND operation_id=${q(conflict.operation)}::uuid AND grant_id IS NOT NULL),'receipts',(SELECT count(*) FROM public.payment_history_receipts WHERE shop_id=${q(shopId)} AND request_key=${q(conflict.operation)}::uuid),'writer',(SELECT writer_authority FROM public.payment_history_runtime WHERE shop_id=${q(shopId)}));`));
+ demand(conflictEvidence.grants===0&&conflictEvidence.receipts===0&&conflictEvidence.writer==="local","history_test_conflict_server_mutation");
+ const afterConflict=await call("movements",{from_date:null,to_date:null,include_inactive:false,page_size:50,after:null});
+ demand(afterConflict.status===200&&afterConflict.body.ok===true&&afterConflict.body.result.rows.length===recovered.count&&sha(afterConflict.body.result.rows.map(rowKey).sort().join("\n"))===recovered.factsSha,"history_test_conflict_browser_mutation");
+ receipt.cases.push({id:"peer-economic-conflict-denied-with-negative-outcome-reconciled",status:"PASS",count:conflict.count,factsSha256:conflict.factsSha,grants:0,canonicalReceipts:0});save("client-control.private.json",{nonce,phase:"conflict_observed"});
  const checked=async(operation,payload={})=>{const r=await call(operation,payload);demand(r.status===200&&r.body.ok===true,"history_test_financial_api_rejected");return r.body.result;};
  const transfer=async(lane,operation,payload={})=>{
   const r=await page.evaluate(async(body)=>{const response=await fetch("/api/shop/payment-history/transfer",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json","X-History-Request":"1"},body:JSON.stringify(body)});return {status:response.status,body:await response.json()};},{shop_id:shopId,lane,operation,payload});
@@ -253,7 +260,7 @@ try{
  demand(native==="0","history_test_native_mutation");
  const clientExit=await Promise.race([client.closed,delay(10000).then(()=>null)]);demand(clientExit?.code===0,"history_test_client_exit");
  await browser.close();browser=undefined;demand(await stopChildren(),"history_test_cleanup_forced");
- receipt.status="PASS_CORE_DATA_BILATERAL_ADMIN_ORIGIN_RESTART_REVOCATION";receipt.stage="complete";save("authenticated-history.json",receipt);
+ receipt.status="PASS_CORE_DATA_BILATERAL_ADMIN_ORIGIN_RESTART_REVOCATION_CONFLICT";receipt.stage="complete";save("authenticated-history.json",receipt);
  console.log("authenticated_history_roundtrip_pass");
 }catch(error){
  if(inspectFailure)try{receipt.protocolState=inspectFailure();}catch{receipt.protocolStateProbe="unavailable";}
