@@ -13,16 +13,8 @@ SHOP = "10000000-0000-4000-8000-000000403019"
 SCHEMA = "asus019_concurrency"
 
 
-def qualify(root, runner, evidence_root=None):
-    check = runner.require
-    endpoint = runner.local_endpoint(root)  # Existing container/scope guard.
-    argv = ["docker", "exec", "-i", endpoint["containerID"],
-            "/nix/var/nix/profiles/default/bin/psql", "-X", "-qAt",
-            "-v", "ON_ERROR_STOP=1", "-v", "VERBOSITY=sqlstate",
-            "-U", "postgres", "-d", "postgres"]
-    source_root = Path(runner.__file__).resolve().parents[2]
-    fixture = (source_root / "supabase/tests/asus019_payment_history_local_content_grants.sql").read_text(encoding="utf-8")
-    anchor = "select ok(not has_function_privilege('service_role'"
+def build_setup(fixture, check):
+    anchor = "select ok(not has_function_privilege('service_role','app_private.payment_history_local_authorize_v2("
     check(fixture.count(anchor) == 1, "HISTORY_FIXTURE_BOUNDARY")
     prefix = fixture.split(anchor)[0]
     check(prefix.count("select plan(54);") == 1, "HISTORY_FIXTURE_PLAN")
@@ -33,8 +25,20 @@ def qualify(root, runner, evidence_root=None):
     native_start = fixture.index("insert into public.pos_sales_sync_batches(")
     native_end = fixture.index("$$;", fixture.index("create function pg_temp.native_at(", native_start)) + 3
     native = fixture[native_start:native_end].replace("pg_temp.", SCHEMA + ".")
-    setup = (prefix + native + "\nselect " + SCHEMA + ".stage_case('a-new');\nselect " + SCHEMA + ".review_case('a-new');\n"
+    return (prefix + native + "\nselect " + SCHEMA + ".stage_case('a-new');\nselect " + SCHEMA + ".review_case('a-new');\n"
              "select " + SCHEMA + ".stage_case('a-duplicate');\nselect " + SCHEMA + ".review_case('a-duplicate');\ncommit;\n")
+
+
+def qualify(root, runner, evidence_root=None):
+    check = runner.require
+    endpoint = runner.local_endpoint(root)  # Existing container/scope guard.
+    argv = ["docker", "exec", "-i", endpoint["containerID"],
+            "/nix/var/nix/profiles/default/bin/psql", "-X", "-qAt",
+            "-v", "ON_ERROR_STOP=1", "-v", "VERBOSITY=sqlstate",
+            "-U", "postgres", "-d", "postgres"]
+    source_root = Path(runner.__file__).resolve().parents[2]
+    fixture = (source_root / "supabase/tests/asus019_payment_history_local_content_grants.sql").read_text(encoding="utf-8")
+    setup = build_setup(fixture, check)
     # Source SQL is entirely the checked-in synthetic fixture. No user SQL, URL,
     # linked target, credential or arbitrary command is accepted by this module.
     initialized = subprocess.run(argv, input=setup.encode("utf-8"), capture_output=True, timeout=45, check=False)
