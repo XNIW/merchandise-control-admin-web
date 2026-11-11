@@ -155,10 +155,23 @@ def closed_pgtap_diagnostics(stdout, stderr, known):
         (r'duplicate key value', 'UNIQUE_CONSTRAINT'), (r'column .+ does not exist', 'MISSING_COLUMN'),
         (r'function .+ does not exist', 'MISSING_FUNCTION'), (r'permission denied', 'PERMISSION_DENIED'),
         (r'syntax error', 'SYNTAX_ERROR'), (r'Bad plan|planned \d+ tests but ran', 'TEST_PLAN_MISMATCH'),
-        (r'Failed tests?:', 'ASSERTION_FAILURE'),
+        (r'Failed tests?:', 'ASSERTION_FAILURE'), (r'ambiguous', 'AMBIGUOUS_IDENTIFIER'),
+        (r'record .+ is not assigned yet', 'UNASSIGNED_RECORD'),
     ) if re.search(pattern, source, re.I)]
-    return {'status':'FAIL', 'testFiles':files, 'sqlLocations':[{'file':name,'line':line} for name,line in sorted(locations)],
-            'failedAssertionNumbers':failures, 'categories':categories or ['UNCLASSIFIED_PGTAP_FAILURE']}
+    result = {'status':'FAIL', 'testFiles':files, 'sqlLocations':[{'file':name,'line':line} for name,line in sorted(locations)],
+              'failedAssertionNumbers':failures, 'categories':categories or ['UNCLASSIFIED_PGTAP_FAILURE']}
+    allowed_codes = {'payment_history_local_request_invalid','payment_history_local_writer_closed',
+        'payment_history_local_context_unverified','payment_history_local_identity_conflict',
+        'payment_history_local_record_invalid','payment_history_local_page_invalid',
+        'payment_history_local_header_mismatch','payment_history_local_page_digest_invalid',
+        'payment_history_local_content_digest_invalid','payment_history_local_preparation_key_invalid',
+        'payment_history_local_preparation_index_incomplete','payment_history_local_review_stale',
+        'payment_history_local_review_source_invalid','payment_history_local_policy_unverified',
+        'payment_history_local_merchant_unverified','payment_history_local_transaction_invalid',
+        'payment_history_transaction_invalid','payment_history_economics_invalid'}
+    codes = sorted({m[0] for m in re.finditer(r'\bpayment_history_[a-z_]{1,90}\b', source) if m[0] in allowed_codes})
+    if codes: result['domainCodes'] = codes
+    return result
 
 def put(path, data):
     require(not path.exists() and not path.is_symlink(), "output already exists")
