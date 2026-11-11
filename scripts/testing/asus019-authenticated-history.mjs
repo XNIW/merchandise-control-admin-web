@@ -124,6 +124,13 @@ try{
  page.setDefaultTimeout(45000);await page.goto(endpoint+"/auth/login?mode=shop-code&next=%2Fshop%2Fpayment-history");
  await page.locator('[name="shopCode"]').fill(shopCode);await page.locator('[name="staffCode"]').fill(staffCode);await page.locator('[name="credential"]').fill(password);
  await page.locator('form:has([name="credential"]) button[type="submit"]').click();await page.waitForURL(url=>url.pathname==="/shop/payment-history");
+ // Inspect only closed facts about the actual synthetic browser session.
+ // Never publish its cookie, token hash, session identity or request body.
+ const staffCookie=(await context.cookies(endpoint)).find(c=>c.name==="mc_staff_web_session");
+ receipt.browserSessionProbe={cookiePresent:!!staffCookie,cookieRootPath:staffCookie?.path==="/",cookieHttpOnly:staffCookie?.httpOnly===true,cookieSecure:staffCookie?.secure===true};
+ if(staffCookie){
+  receipt.browserSessionProbe.database=JSON.parse(sql(`BEGIN;SET LOCAL request.jwt.claim.role='service_role';SET LOCAL request.jwt.claims='{"role":"service_role"}';SELECT coalesce((SELECT jsonb_build_object('sessionMatched',true,'role',a.role_key,'sessionStatus',s.status,'expiresFuture',s.expires_at>clock_timestamp(),'credentialVersionsMatch',s.staff_credential_version=a.credential_version,'staffWebRevoked',a.web_access_revoked_at IS NOT NULL,'invalidatedAfterIssued',coalesce(a.session_invalidated_at>s.issued_at,false),'leaseAccepted',app_private.staff_web_runtime_lease_is_valid_v1(a.shop_id,a.staff_id,s.staff_web_session_id,s.session_token_hash,s.staff_credential_version,null),'historyReadPermission',app_private.payment_history_staff_can_v1(a.shop_id,a.staff_id,'read'),'leaseDefinitionAllowsPosAdmin',position('pos_admin' in pg_get_functiondef('app_private.staff_web_runtime_lease_is_valid_v1(uuid,uuid,uuid,text,integer,text)'::regprocedure))>0) FROM public.staff_web_sessions s JOIN public.staff_accounts a ON a.shop_id=s.shop_id AND a.staff_id=s.staff_id WHERE s.shop_id=${q(shopId)} AND s.staff_id=${q(staffId)} AND s.session_token_hash=${q('sha256:'+sha(staffCookie.value))}),jsonb_build_object('sessionMatched',false));ROLLBACK;`));
+ }
  const call=async(operation,payload={})=>{
   const result=await page.evaluate(async({shopId,operation,payload})=>{
    const response=await fetch("/api/shop/payment-history",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json","X-History-Request":"1"},body:JSON.stringify({shop_id:shopId,operation,payload})});return {status:response.status,body:await response.json().catch(()=>null)};
