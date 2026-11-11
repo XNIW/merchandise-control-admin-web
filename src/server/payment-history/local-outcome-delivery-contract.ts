@@ -27,6 +27,7 @@ function originalProof(raw:unknown,w:ReturnType<typeof validateLocalOutcomeWitne
 }
 export function validateLocalOutcomeDelivery(value:unknown,scope:LocalCommitScope){
  const p=closedHistoryObject(value,["operation_id","grant_id","content_digest","local_revision","local_sequence","local_receipt_json","witness_json","local_proof_json"]);
+ if(p.operation_id!==scope.operationId||p.content_digest!==scope.contentDigest)return fail();
  const {witness_json:raw,local_proof_json:rawProof,...delivery}=p;
  validateLocalCommitRequest("local_deliver",delivery);
  const w=validateLocalOutcomeWitness(raw,{outcome:"committed",shop_id:scope.shopId,device_id:scope.deviceId,operation_id:scope.operationId,
