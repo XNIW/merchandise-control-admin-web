@@ -2,7 +2,7 @@ begin;
 set local role postgres;
 create extension if not exists pgtap with schema extensions;
 set local search_path=public,extensions;
-select plan(18);
+select plan(20);
 insert into public.shops(shop_id,shop_code,shop_name,shop_status) values('10000000-0000-4000-8000-000000103019','OWNER019','Synthetic ownership','active');
 insert into public.shop_devices(shop_device_id,shop_id,device_identifier,display_name,device_type,status)
  values('20000000-0000-4000-8000-000000103019','10000000-0000-4000-8000-000000103019','SYNTHETIC-OWNER','Synthetic ownership','pos','active');
@@ -20,12 +20,12 @@ insert into public.payment_history_evidence(evidence_id,shop_id,kind,verificatio
  values('b0000000-0000-4000-8000-000000103019','10000000-0000-4000-8000-000000103019','merchant_mapping','operator_attested','verified','synthetic','synthetic','{}','pos_staff_manager','30000000-0000-4000-8000-000000103019',clock_timestamp());
 insert into public.payment_history_merchants(merchant_id,shop_id,label,evidence_id)
  values('c0000000-0000-4000-8000-000000103019','10000000-0000-4000-8000-000000103019','Synthetic merchant','b0000000-0000-4000-8000-000000103019');
-insert into public.payment_history_batches(batch_id,shop_id,origin,apply_operation_id,created_revision) values
- ('d0000000-0000-4000-8000-000000103019','10000000-0000-4000-8000-000000103019','local_migration','d1000000-0000-4000-8000-000000103019',1),
- ('d2000000-0000-4000-8000-000000103019','10000000-0000-4000-8000-000000103019','local_migration','d3000000-0000-4000-8000-000000103019',1);
-insert into public.payment_history_movement_versions(movement_version_id,shop_id,merchant_id,external_namespace,external_id,identity_key,economic_digest,business_ticks,business_date,gross_clp,movement_kind,transaction_state,transaction,owner_batch_id,created_revision) values
- ('e0000000-0000-4000-8000-000000103019','10000000-0000-4000-8000-000000103019','c0000000-0000-4000-8000-000000103019','getnet.legacy.transaction','synthetic-base',repeat('d',64),repeat('e',64),637135200000000000,'2020-01-01',1000,'Sale','ABONADO','{}','d0000000-0000-4000-8000-000000103019',1),
- ('e1000000-0000-4000-8000-000000103019','10000000-0000-4000-8000-000000103019','c0000000-0000-4000-8000-000000103019','getnet.legacy.transaction','synthetic-incremental',repeat('f',64),repeat('e',64),637135200000000000,'2020-01-01',1000,'Sale','ABONADO','{}','d2000000-0000-4000-8000-000000103019',1);
+insert into public.payment_history_batches(batch_id,shop_id,origin,apply_operation_id,created_revision,state,cancelled_revision,cancelled_at) values
+ ('d0000000-0000-4000-8000-000000103019','10000000-0000-4000-8000-000000103019','local_migration','d1000000-0000-4000-8000-000000103019',1,'cancelled',2,clock_timestamp()),
+ ('d2000000-0000-4000-8000-000000103019','10000000-0000-4000-8000-000000103019','local_migration','d3000000-0000-4000-8000-000000103019',1,'cancelled',2,clock_timestamp());
+insert into public.payment_history_movement_versions(movement_version_id,shop_id,merchant_id,external_namespace,external_id,identity_key,economic_digest,business_ticks,business_date,gross_clp,movement_kind,transaction_state,transaction,owner_batch_id,created_revision,active) values
+ ('e0000000-0000-4000-8000-000000103019','10000000-0000-4000-8000-000000103019','c0000000-0000-4000-8000-000000103019','getnet.legacy.transaction','synthetic-base',repeat('d',64),repeat('e',64),637135200000000000,'2020-01-01',1000,'Sale','ABONADO','{}','d0000000-0000-4000-8000-000000103019',1,false),
+ ('e1000000-0000-4000-8000-000000103019','10000000-0000-4000-8000-000000103019','c0000000-0000-4000-8000-000000103019','getnet.legacy.transaction','synthetic-incremental',repeat('f',64),repeat('e',64),637135200000000000,'2020-01-01',1000,'Sale','ABONADO','{}','d2000000-0000-4000-8000-000000103019',1,false);
 insert into public.payment_history_source_objects(shop_id,source_snapshot_id,table_name,local_id,object_digest,original_object)
  values('10000000-0000-4000-8000-000000103019','a0000000-0000-4000-8000-000000103019','batches','baseline',repeat('a',64),'{"apply_operation_id":"d1000000000040008000000000103019"}');
 insert into public.payment_history_local_batch_map values('10000000-0000-4000-8000-000000103019','20000000-0000-4000-8000-000000103019','synthetic-dataset','baseline','d0000000-0000-4000-8000-000000103019',repeat('a',64));
@@ -57,10 +57,15 @@ select throws_ok($$select pg_temp.target('{"previous_local_batch_id":"baseline",
 update public.payment_history_local_writer_contexts set restore_lineage_id='50000000-0000-4000-8000-000000103020' where shop_id='10000000-0000-4000-8000-000000103019';
 select throws_ok($$select pg_temp.target()$$,'40001','payment_history_local_context_unverified','an old preparation cannot borrow a restored context');
 update public.payment_history_local_writer_contexts set restore_lineage_id='50000000-0000-4000-8000-000000103019' where shop_id='10000000-0000-4000-8000-000000103019';
+update public.payment_history_movement_versions set active=true where movement_version_id='e0000000-0000-4000-8000-000000103019';
+select throws_ok($$select pg_temp.target()$$,'40001','payment_history_local_correction_owner_unverified','an active financial version cannot be corrected through inactive recovery');
 update public.payment_history_movement_versions set active=false where movement_version_id='e0000000-0000-4000-8000-000000103019';
-select throws_ok($$select pg_temp.target()$$,'40001','payment_history_local_correction_owner_unverified','a superseded canonical version cannot be corrected again');
+insert into public.payment_history_movement_versions(movement_version_id,shop_id,merchant_id,external_namespace,external_id,identity_key,economic_digest,business_ticks,business_date,gross_clp,movement_kind,transaction_state,transaction,owner_batch_id,created_revision,active,supersedes_version_id)
+ select 'e2000000-0000-4000-8000-000000103019',shop_id,merchant_id,external_namespace,external_id,identity_key,economic_digest,business_ticks,business_date,gross_clp,movement_kind,transaction_state,transaction,owner_batch_id,2,false,movement_version_id from public.payment_history_movement_versions where movement_version_id='e0000000-0000-4000-8000-000000103019';
+select throws_ok($$select pg_temp.target()$$,'40001','payment_history_local_correction_owner_unverified','a newer inactive correction prevents superseding an older version');
+select throws_ok($$select pg_temp.target('{"previous_transaction_id":"2"}')$$,'40001','payment_history_local_correction_owner_unverified','newer versions never turn a duplicate observation into ownership');
 select is((select count(*) from public.payment_history_receipts where shop_id='10000000-0000-4000-8000-000000103019'),0::bigint,'ownership lookup creates no economic receipt');
 select is((select count(*) from public.pos_sales where shop_id='10000000-0000-4000-8000-000000103019'),0::bigint,'ownership lookup creates no native sale');
-select is((select count(*) from public.payment_history_movement_versions where shop_id='10000000-0000-4000-8000-000000103019'),2::bigint,'lookup creates no canonical movements');
+select is((select count(*) from public.payment_history_movement_versions where shop_id='10000000-0000-4000-8000-000000103019'),3::bigint,'lookup creates no canonical movements beyond its three source fixture rows');
 select * from finish();
 rollback;
