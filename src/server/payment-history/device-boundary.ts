@@ -1,14 +1,15 @@
 import "server-only";
 import type {Json} from "@/lib/supabase/database.types";
-import {createSupabaseAdminClient,resolveSupabaseAdminConfig} from "@/lib/supabase/admin";
+import {createSupabaseAdminClient} from "@/lib/supabase/admin";
 import {loadPosRuntimeLease} from "@/server/pos-auth/runtime-boundary";
 import {verifyPosSecret} from "@/server/pos-auth/tokens";
 import {demandUuid} from "./ledger-contract";
 import {closedHistoryObject,historyObject} from "./replica-contract";
 import {COMPOSED_DEVICE_OPERATIONS,isComposedHistoryV2,validateComposedDeviceRequest,projectComposedDeviceResult} from "./device-composed-contract";
-import {baselineUploadTarget} from "./baseline-upload-target";
+import {baselineSourceExists} from "./baseline-upload-target";
+import {URL} from "node:url";
 export class PosHistoryError extends Error{constructor(readonly code:string,readonly status:number){super(code);}}
-export async function deviceHistoryRequest(value:unknown){
+export async function deviceHistoryRequest(value:unknown,sourceUploadUrl?:string){
  const input=closedHistoryObject(value,["deviceId","sessionId","deviceToken","sessionToken","operation","payload"]);
  demandUuid(String(input.deviceId));demandUuid(String(input.sessionId));
  if(typeof input.operation!=="string"||!COMPOSED_DEVICE_OPERATIONS.includes(input.operation)||[input.deviceToken,input.sessionToken].some(v=>typeof v!=="string"||v.length<20||v.length>256))throw new PosHistoryError("history_input_invalid",400);
@@ -40,8 +41,11 @@ export async function deviceHistoryRequest(value:unknown){
  let result:Record<string,unknown>;try{
   result=projectComposedDeviceResult(op,data.result,payload,scope);
   if(op==="baseline_upload_create"){
-   const config=resolveSupabaseAdminConfig();if(config.status!=="configured")throw Error("history_cloud_unavailable");
-   result=await baselineUploadTarget(result,scope,db.storage.from("payment-history-sources"),config.url);
+   if(!sourceUploadUrl)throw Error("history_cloud_unavailable");const target=new URL(sourceUploadUrl);
+   if(target.username||target.password||target.search||target.hash||target.pathname!=="/api/pos/payment-history/source"||
+    !(target.protocol==="https:"||target.protocol==="http:"&&["127.0.0.1","localhost","[::1]"].includes(target.hostname)))throw Error("history_upload_target_invalid");
+   const exists=await baselineSourceExists(result,scope,db.storage.from("payment-history-sources"));
+   result={...result,upload_required:!exists,signed_url:exists?null:target.href};
   }
  }catch{throw new PosHistoryError("history_response_invalid",503);}
  return {ok:true,shop_id:data.shop_id,device_id:data.device_id,session_id:data.session_id,result};

@@ -25,13 +25,18 @@ export function validateBaselineUploadTarget(value:unknown,scope:{shopId:string;
   !url.search.startsWith("?token=")||url.search.length<=7||url.search.includes("&")||!url.searchParams.get("token"))return fail();
  return r;
 }
-export async function baselineUploadTarget(value:unknown,scope:{shopId:string;deviceId:string},storage:BaselineSourceStorage,storageOrigin:string){
+export async function baselineSourceExists(value:unknown,scope:{shopId:string;deviceId:string},storage:BaselineSourceStorage){
  const r=projectBaselineSqlResult("baseline_upload_create",value,scope),path=String(r.object_key);
  const info=await storage.info(path);
  // Presence recovers a lost PUT ACK, never source validity. The unchanged
  // verification worker must still download and hash the original object.
- if(info.error===null&&historyObject(info.data))return validateBaselineUploadTarget({...r,upload_required:false,signed_url:null},scope,storageOrigin);
+ if(info.error===null&&historyObject(info.data))return true;
  if(info.data!==null||info.error?.status!==404)return fail();
+ return false;
+}
+export async function baselineUploadTarget(value:unknown,scope:{shopId:string;deviceId:string},storage:BaselineSourceStorage,storageOrigin:string){
+ const r=projectBaselineSqlResult("baseline_upload_create",value,scope),path=String(r.object_key);
+ if(await baselineSourceExists(r,scope,storage))return validateBaselineUploadTarget({...r,upload_required:false,signed_url:null},scope,storageOrigin);
  const signed=await storage.createSignedUploadUrl(path,{upsert:false});
  if(signed.error||!signed.data)return fail();
  return validateBaselineUploadTarget({...r,upload_required:true,signed_url:signed.data.signedUrl},scope,storageOrigin);
