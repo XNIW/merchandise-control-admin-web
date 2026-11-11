@@ -228,8 +228,13 @@ try{
  const active=await transfer("cutover","activate_web",{writer_epoch:ready.writer_epoch,inventory_digest:ready.inventory_digest});demand(active.writer_authority==="web","history_test_web_writer_not_active");
  phase="admin_origin_import";const webUpload=await upload(checked,webSource.sourcePath,webSource.sourceSha);
  const webJob=await checked("start",{request_key:randomUUID(),upload_ids:[webUpload],configuration:{legacyAmountsAreClp:true,modernTimeInterpretation:"Unresolved",temporalPolicyVersion:"getnet-web-unresolved-v1",temporalEvidenceReference:""}});
- await until(async()=>{const s=await checked("status",{job_id:webJob.job_id});demand(!["failed","cancelled"].includes(s.state),"history_test_web_analysis_failed");return s.state==="review_ready";});
+ const webAnalysis=await until(async()=>{const s=await checked("status",{job_id:webJob.job_id});demand(!["failed","cancelled"].includes(s.state),"history_test_web_analysis_failed");return s.state==="review_ready"?s:null;});
  const proofs=new Set(metadata.evidence.map(e=>e.evidence_id));
+ for(const candidate of webAnalysis.merchants){
+  const merchantId=metadata.aliases.find(a=>a.alias_key===candidate.alias_key)?.merchant_id;demand(merchantId,"history_test_web_mapping_missing");
+  const proof=await checked("evidence",{kind:"merchant_mapping",level:"operator_attested",version:"synthetic-web-mapping-v1",reference:"Independent existing alias mapping for this exact synthetic source",scope:{merchant_id:merchantId,alias_key:candidate.alias_key,file_sha256:[webSource.sourceSha],from_ticks:"0",to_ticks:"3155378975999999999"}});
+  await checked("merchant",{merchant_id:merchantId,label:"Synthetic canonical merchant",evidence_id:proof.evidence_id,source_identity:candidate.source_identity});proofs.add(proof.evidence_id);
+ }
  for(const merchant of metadata.merchants)for(const kind of ["legacy_currency","native_start"]){
   const proof=await checked("evidence",{kind,level:"operator_attested",version:"synthetic-web-v1",reference:"Independent policy for this owned synthetic source",scope:{merchant_id:merchant.merchant_id,file_sha256:[webSource.sourceSha],from_ticks:"0",to_ticks:"3155378975999999999",...(kind==="native_start"?{native_start_ticks:"638712864000000000"}:{})}});proofs.add(proof.evidence_id);
  }
