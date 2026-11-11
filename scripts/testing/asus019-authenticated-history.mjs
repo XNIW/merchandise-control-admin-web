@@ -62,6 +62,8 @@ try{
  const credentialHash=["","scrypt-v1","n=16384,r=8,p=1,l=64",salt.toString("base64url"),key.toString("base64url")].join("$");
  const actor=()=>({deviceId:randomUUID(),sessionId:randomUUID(),credentialId:randomUUID(),deviceToken:"mcpos_device_"+randomBytes(32).toString("hex"),sessionToken:"mcpos_session_"+randomBytes(32).toString("hex")});
  const actorA=actor(),actorB=actor();
+ const recoveryGroup=()=>{const original=actor(),fresh=()=>({...actor(),deviceId:original.deviceId,credentialId:original.credentialId,deviceToken:original.deviceToken});return {original,fresh:fresh(),later:fresh()};};
+ const recoveryActors={apply_recovery:recoveryGroup(),two_recoveries:recoveryGroup()},recoveryApplyActor=recoveryActors.apply_recovery.original,recoverySessionsActor=recoveryActors.two_recoveries.original;
  const original=JSON.parse(readFileSync(join(root,"tests/fixtures/payment-history/local-export-v1/sql-payload.json"),"utf8"));
  const aliases=[...new Set(original.movements.map(m=>m.aliasKey))];demand(aliases.length>0&&aliases.length<=3&&aliases.every(a=>typeof a==="string"&&a.length<300),"history_test_checked_fixture");
  phase="synthetic_setup";
@@ -70,9 +72,11 @@ try{
  VALUES(${q(staffId)},${q(shopId)},${q(staffCode)},'Synthetic history operator','pos_admin','active','password',${q(credentialHash)},clock_timestamp(),clock_timestamp()+interval '1 hour',false,7,'active');
  INSERT INTO public.staff_role_permissions(shop_id,role_key,permission_key,enabled) VALUES(${q(shopId)},'pos_admin','shop_admin.full_access',true) ON CONFLICT(shop_id,role_key,permission_key) DO UPDATE SET enabled=true;
  INSERT INTO public.payment_history_runtime(shop_id) VALUES(${q(shopId)});`;
- for(const [index,a] of [actorA,actorB].entries())setup+=`
+ for(const [index,a] of [actorA,actorB,recoveryApplyActor,recoverySessionsActor].entries())setup+=`
  INSERT INTO public.shop_devices(shop_device_id,shop_id,device_identifier,display_name,device_type,status) VALUES(${q(a.deviceId)},${q(shopId)},'AUTH-HISTORY-${index}','Synthetic POS ${index}','pos','active');
  INSERT INTO public.pos_device_credentials(pos_device_credential_id,shop_id,shop_device_id,staff_id,token_hash,staff_credential_version,expires_at) VALUES(${q(a.credentialId)},${q(shopId)},${q(a.deviceId)},${q(staffId)},${q('sha256:'+sha(a.deviceToken))},7,clock_timestamp()+interval '1 hour');
+ INSERT INTO public.pos_sessions(pos_session_id,shop_id,shop_device_id,staff_id,pos_device_credential_id,session_token_hash,staff_credential_version,issued_at,expires_at) VALUES(${q(a.sessionId)},${q(shopId)},${q(a.deviceId)},${q(staffId)},${q(a.credentialId)},${q('sha256:'+sha(a.sessionToken))},7,clock_timestamp()-interval '1 minute',clock_timestamp()+interval '30 minutes');`;
+ for(const a of Object.values(recoveryActors).flatMap(g=>[g.fresh,g.later]))setup+=`
  INSERT INTO public.pos_sessions(pos_session_id,shop_id,shop_device_id,staff_id,pos_device_credential_id,session_token_hash,staff_credential_version,issued_at,expires_at) VALUES(${q(a.sessionId)},${q(shopId)},${q(a.deviceId)},${q(staffId)},${q(a.credentialId)},${q('sha256:'+sha(a.sessionToken))},7,clock_timestamp()-interval '1 minute',clock_timestamp()+interval '30 minutes');`;
  for(const alias of aliases){const merchant=randomUUID(),proof=randomUUID();setup+=`
  INSERT INTO public.payment_history_evidence(evidence_id,shop_id,kind,verification_level,status,policy_version,reference,scope,actor_kind,actor_id,verified_at) VALUES(${q(proof)},${q(shopId)},'merchant_mapping','operator_attested','verified','synthetic-auth-v1','Synthetic independent mapping',jsonb_build_object('merchant_id',${q(merchant)},'alias_key',${q(alias)}),'pos_staff_manager',${q(staffId)},clock_timestamp());
@@ -106,7 +110,7 @@ try{
   workerExit:ownedWorker.exitCode,
   workerEvents:readFileSync(join(evidence,"worker.private.log"),"utf8").split("\n").flatMap(line=>{try{const e=JSON.parse(line);return /^[a-z_]{1,64}$/.test(e.event)&&(!e.code||/^(history|getnet)_[a-z_]{1,90}$/.test(e.code))?[{event:e.event,...(e.code?{code:e.code}:{})}]:[];}catch{return[];}}).slice(-8)
  });
- const clientContext={schema:"asus019-authenticated-history-v2",nonce,endpoint:endpoint+"/",clientSha:receipt.clientSha,shopId,staffId,credentialVersion:7,actorA,actorB,extendedCases:true,faultCases:true,adminOrigin:true,conflictCases:true};
+ const clientContext={schema:"asus019-authenticated-history-v2",nonce,endpoint:endpoint+"/",clientSha:receipt.clientSha,shopId,staffId,credentialVersion:7,actorA,actorB,recoveryActors,recoveryApplyActor,recoverySessionsActor,extendedCases:true,faultCases:true,adminOrigin:true,conflictCases:true,recoveryRaces:true};
  save("context.private.json",clientContext);
  const clientArgs=[join(clientRoot,"tests/Win7POS.Core.Tests/bin/Release/net10.0/Win7POS.Core.Tests.dll"),join(evidence,"context.private.json")];
  phase="client_baselines";let client=start("client","dotnet",clientArgs,process.env);
@@ -114,7 +118,17 @@ try{
   if(existsSync(join(evidence,"client-state.private.json"))){const state=JSON.parse(readFileSync(join(evidence,"client-state.private.json"),"utf8"));demand(state.nonce===nonce,"history_test_state_nonce");if(state.status==="FAIL"){const d=state.localDiagnostics;receipt.clientFailure={phase:/^[a-z_]+$/.test(state.phase)?state.phase:"unknown",exception:/^[A-Za-z]+Exception$/.test(state.exception)?state.exception:"Exception",codes:[state.code,state.lastCode].filter(c=>/^(history|historical)_[a-z_]+$/.test(c)),...(d?{localDiagnostics:{actor:["A","B"].includes(d.actor)?d.actor:null,baselineState:/^[a-z_]{1,40}$/.test(d.baselineState)?d.baselineState:null,baselineReason:/^(history|baseline)_[a-z_]{1,90}$/.test(d.baselineReason)?d.baselineReason:null,baselineUploadPresent:d.baselineUploadPresent===true,baselineRunPresent:d.baselineRunPresent===true,baselineReviewPresent:d.baselineReviewPresent===true}}:{})};throw Error("history_test_client_rejected");}if(state.phase===wanted)return state;}
   demand(client.exitCode===null,"history_test_client_early_exit");return null;
  },150000);}
+ for(const [ready,kind,suffix] of [["recovery_apply_ready","apply_recovery","apply"],["recovery_sessions_ready","two_recoveries","sessions"]]){
+  phase=ready;const staged=await state(ready);demand(staged.descriptor?.nonce===nonce,"history_test_recovery_descriptor_scope");
+  const descriptorFile=`baseline-lock-${suffix}.private.json`,closedFile=`baseline-recovery-${suffix}.json`;save(descriptorFile,{...staged.descriptor,kind});
+  const raced=JSON.parse(command("python3",["-B",join(root,"scripts/ci/asus019-baseline-recovery-concurrency.py"),"--workdir",options["--owned-workdir"],"--context",join(evidence,"context.private.json"),"--descriptor",join(evidence,descriptorFile),"--output",join(evidence,closedFile)],root,process.env,60000));
+  demand(raced.status==="PASS"&&raced.cases.length===1&&sha(readFileSync(join(evidence,closedFile)))===raced.evidenceSHA256,"history_test_recovery_race_evidence");
+  receipt.cases.push(...raced.cases.map(c=>({...c,evidenceSHA256:raced.evidenceSHA256})));save("client-control.private.json",{nonce,phase:ready+"_observed"});
+ }
+ const retiredIds=[recoveryApplyActor.deviceId,recoverySessionsActor.deviceId],retiredSql=retiredIds.map(q).join(",");
+ sql(`BEGIN;UPDATE public.pos_sessions SET status='revoked',revoked_at=clock_timestamp() WHERE shop_id=${q(shopId)} AND shop_device_id IN (${retiredSql});UPDATE public.pos_device_credentials SET status='revoked',revoked_at=clock_timestamp() WHERE shop_id=${q(shopId)} AND shop_device_id IN (${retiredSql});UPDATE public.shop_devices SET status='revoked',revoked_at=clock_timestamp() WHERE shop_id=${q(shopId)} AND shop_device_id IN (${retiredSql});COMMIT;`);
  const source=await state("source_ready");demand(/^[0-9a-f]{64}$/.test(source.sourceSha)&&source.baselineCount>0,"history_test_source_scope");
+ receipt.cases.push({id:"core-original-baselines-a-server-b",status:"PASS",count:source.baselineCount,originalEconomicsVerified:true});
  phase="admin_open_before_apply";
  const browserExecutable=process.env.ASUS019_BROWSER_EXECUTABLE;
  demand(browserExecutable==="/opt/google/chrome/chrome"&&existsSync(browserExecutable),"history_test_browser_prerequisite");
@@ -221,8 +235,9 @@ try{
   await api("upload_ready",{upload_id:created.upload_id});await until(async()=>{const s=await api("upload_status",{upload_id:created.upload_id});demand(!["rejected","expired"].includes(s.state),"history_test_source_rejected");return s.state==="verified";});return created.upload_id;
  };
  phase="admin_inventory";const webSource=await state("web_source_ready");
- const devices=await transfer("cutover","devices");demand(devices.devices.length===2&&devices.devices.every(d=>[actorA.deviceId,actorB.deviceId].includes(d.device_id)&&!d.revoked),"history_test_cutover_device_scope");
+ const devices=await transfer("cutover","devices");demand(devices.devices.length===4&&devices.devices.every(d=>retiredIds.includes(d.device_id)?d.revoked===true:[actorA.deviceId,actorB.deviceId].includes(d.device_id)&&!d.revoked),"history_test_cutover_device_scope");
  for(const actor of [actorA,actorB])await transfer("cutover","inventory",{device_id:actor.deviceId,hardware_reference_sha256:sha("Synthetic asset "+actor.deviceId),disposition:"active",protocol_version:1,client_build_sha:receipt.clientSha,reference:"Synthetic owned protocol1 device"});
+ for(const deviceId of retiredIds)await transfer("cutover","inventory",{device_id:deviceId,hardware_reference_sha256:sha("Synthetic recovery asset "+deviceId),disposition:"retired_verified",protocol_version:0,client_build_sha:null,reference:"Owned empty recovery fixture completed; device credential and sessions revoked"});
  const local=await transfer("cutover","status");demand(local.writer_authority==="local","history_test_initial_writer_mode");
  await transfer("cutover","freeze",{writer_epoch:local.writer_epoch,complete_inventory:true,reference:"Complete inventory of both owned synthetic devices"});save("client-control.private.json",{nonce,phase:"admin_frozen"});
  phase="frozen_source_reconciliation";const frozen=await state("freeze_acknowledged"),metadata=await checked("metadata");demand(frozen.exports.length===2,"history_test_frozen_export_count");
@@ -267,7 +282,7 @@ try{
  demand(native==="0","history_test_native_mutation");
  const clientExit=await Promise.race([client.closed,delay(10000).then(()=>null)]);demand(clientExit?.code===0,"history_test_client_exit");
  await browser.close();browser=undefined;demand(await stopChildren(),"history_test_cleanup_forced");
- receipt.status="PASS_CORE_DATA_BILATERAL_ADMIN_ORIGIN_RESTART_REVOCATION_CONFLICT";receipt.stage="complete";save("authenticated-history.json",receipt);
+ receipt.status="PASS_CORE_DATA_BILATERAL_ADMIN_ORIGIN_RESTART_REVOCATION_CONFLICT_RECOVERY_LOCKS";receipt.stage="complete";save("authenticated-history.json",receipt);
  console.log("authenticated_history_roundtrip_pass");
 }catch(error){
  if(inspectFailure)try{receipt.protocolState=inspectFailure();}catch{receipt.protocolStateProbe="unavailable";}

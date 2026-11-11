@@ -289,4 +289,6 @@ jobs:
             ${{ runner.temp }}/asus019-history-database/extension-diagnostics.json
             ${{ runner.temp }}/asus019-history-database/history-concurrency.json
             ${{ runner.temp }}/asus019-authenticated-history/authenticated-history.json
+            ${{ runner.temp }}/asus019-authenticated-history/baseline-recovery-apply.json
+            ${{ runner.temp }}/asus019-authenticated-history/baseline-recovery-sessions.json
           if-no-files-found: error
