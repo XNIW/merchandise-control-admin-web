@@ -18,6 +18,7 @@ def build_setup(fixture, check):
     anchor = "select ok(not has_function_privilege('service_role','app_private.payment_history_local_authorize_v2("
     check(fixture.count(anchor) == 1, "HISTORY_FIXTURE_BOUNDARY")
     prefix = fixture.split(anchor)[0]
+    prefix = prefix.replace("begin;", "begin;\nset local statement_timeout='8s';\nset local lock_timeout='6s';", 1)
     check(prefix.count("select plan(54);") == 1, "HISTORY_FIXTURE_PLAN")
     prefix = prefix.replace("select plan(54);", "")
     prefix = prefix.replace("set local search_path=public,extensions;",
@@ -50,9 +51,10 @@ def qualify(root, runner, evidence_root=None):
     output = (evidence_root or root / ".replay") / "history-concurrency.json"
     report["setupExitCode"] = initialized.returncode
     report["setupSQLSTATES"] = re.findall(r"(?:ERROR|FATAL):\s+([0-9A-Z]{5})(?:\s|$)", initialized.stderr.decode(errors="replace"))[:8]
-    runner.dump(output, report)
-    check(initialized.returncode == 0 and len(initialized.stdout) + len(initialized.stderr) <= 49152,
-          "HISTORY_CONCURRENCY_SETUP")
+    if initialized.returncode != 0 or len(initialized.stdout) + len(initialized.stderr) > 49152:
+        report["status"]="FAIL_SETUP"
+        runner.dump(output, report)
+        check(False,"HISTORY_CONCURRENCY_SETUP")
 
     def start(h, side):
         c = h.start(side)
@@ -167,6 +169,11 @@ def qualify(root, runner, evidence_root=None):
                                 "originalProofRetained": True, "remainingMilliseconds": 0, "nativeSales": 0, "grants": 1, "drain": 1})
         finish(h); h = None
         report["status"] = "PASS"
+    except BaseException as error:
+        report["status"]="FAIL"
+        code=str(error)
+        report["failureCode"]=code if re.fullmatch(r"[A-Z][A-Z0-9_]{0,79}",code) else "unavailable"
+        raise
     finally:
         if h is not None:
             try: finish(h)
