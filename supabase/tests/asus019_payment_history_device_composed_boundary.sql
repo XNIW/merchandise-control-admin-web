@@ -2,7 +2,7 @@ begin;
 set local role postgres;
 create extension if not exists pgtap with schema extensions;
 set local search_path=public,extensions;
-select plan(54);
+select plan(43);
 -- Synthetic component: real CLR archives/drafts and Node normalization.
 -- Baselines go through the real POS actor, worker, review and apply engine.
 -- Private fresh delivery with real CLR receipts. This is not HTTP/WPF E2E.
@@ -166,28 +166,6 @@ select is(pg_temp.composed('a-new','local_receipt',jsonb_build_object('operation
  (select value from state where key='public-positive'),'receipt lookup uses the same canonical result');
 
 insert into state values('canonical-after-positive',jsonb_build_object('versions',(select count(*) from public.payment_history_movement_versions)));
--- The HTTP adapter delegates to the same authenticated SQL engine. Its only
--- difference is the non-retrying HTTP status for deterministic domain denials.
-create function pg_temp.http_composed(label text,op text,p jsonb) returns jsonb language sql as $$
- select public.payment_history_device_http_v2((x->>'shop_id')::uuid,(x->>'device_id')::uuid,'30000000-0000-4000-8000-000000403019',
-  ('60000000-0000-4000-8000-'||lpad(case when x->>'device_id'='20000000-0000-4000-8000-000000403019' then '1' else '2' end,12,'0'))::uuid,
-  'sha256:'||repeat(case when x->>'device_id'='20000000-0000-4000-8000-000000403019' then '1' else '2' end,64),
-  'sha256:'||repeat(case when x->>'device_id'='20000000-0000-4000-8000-000000403019' then '3' else '4' end,64),7,op,p)->'result'
- from pg_temp.case_input(label) x;
-$$;
-select has_function('public','payment_history_device_http_v2',array['uuid','uuid','uuid','uuid','text','text','integer','text','jsonb'],'HTTP boundary exists with the same complete actor and payload');
-select ok(not has_function_privilege('anon','public.payment_history_device_http_v2(uuid,uuid,uuid,uuid,text,text,integer,text,jsonb)','EXECUTE'),'HTTP bridge is not anonymous');
-select ok(not has_function_privilege('authenticated','public.payment_history_device_http_v2(uuid,uuid,uuid,uuid,text,text,integer,text,jsonb)','EXECUTE'),'HTTP bridge is not exposed to browser users');
-select ok(has_function_privilege('service_role','public.payment_history_device_http_v2(uuid,uuid,uuid,uuid,text,text,integer,text,jsonb)','EXECUTE'),'server retains the complete authenticated boundary');
-select ok(not (select prosecdef from pg_proc where oid='public.payment_history_device_http_v2(uuid,uuid,uuid,uuid,text,text,integer,text,jsonb)'::regprocedure),'HTTP error conversion adds no definer privilege');
-select is(pg_temp.http_composed('a-new','local_receipt',jsonb_build_object('operation_id',pg_temp.case_input('a-new')->>'operation_id','content_digest',pg_temp.case_input('a-new')->>'content_digest')),(select value from state where key='public-positive'),'HTTP bridge returns the exact original canonical receipt');
-select throws_ok($$select pg_temp.composed('a-new','local_review',jsonb_build_object('operation_id','e0000000-0000-4000-8000-000000403019','content_digest',repeat('a',64),'ordinal',1))$$,'40001','payment_history_local_review_stale','raw SQL engine retains its original domain error');
-select throws_ok($$select pg_temp.http_composed('a-new','local_review',jsonb_build_object('operation_id','e0000000-0000-4000-8000-000000403019','content_digest',repeat('a',64),'ordinal',1))$$,'PT409','payment_history_local_review_stale','HTTP exposes the same denial without serialization retry');
-select set_config('request.jwt.claim.role','authenticated',true);
-select throws_ok($$select pg_temp.http_composed('a-new','local_receipt','{}')$$,'42501','payment_history_device_denied','HTTP bridge does not weaken the original service role gate');
-select set_config('request.jwt.claim.role','service_role',true);
-select throws_ok($$select pg_temp.http_composed('a-new','local_review','{}')$$,'22023','payment_history_operation_invalid','malformed payload is not converted into a domain conflict');
-select ok((select count(*)=0 from public.payment_history_local_publications where operation_id='e0000000-0000-4000-8000-000000403019' and grant_id is not null) and (select count(*)=0 from public.payment_history_receipts where request_key='e0000000-0000-4000-8000-000000403019') and (select count(*) from public.payment_history_movement_versions)=(select (value->>'versions')::bigint from state where key='canonical-after-positive') and (select count(*)=0 from public.pos_sales),'HTTP denials create no grants, receipts, economics or native sales');
 insert into public.payment_history_role_permissions(shop_id,role_key,capability,enabled) values('10000000-0000-4000-8000-000000403019','pos_admin','migrate',false);
 select throws_ok($$select pg_temp.baseline_request(1,'upload_create',pg_temp.upload_payload())$$,'42501','payment_history_device_denied','response recovery rechecks current migration permission');
 delete from public.payment_history_role_permissions where shop_id='10000000-0000-4000-8000-000000403019' and role_key='pos_admin' and capability='migrate';
