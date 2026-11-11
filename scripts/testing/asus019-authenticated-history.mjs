@@ -79,14 +79,18 @@ try{
  INSERT INTO public.payment_history_merchants(merchant_id,shop_id,label,evidence_id) VALUES(${q(merchant)},${q(shopId)},'Synthetic evidenced merchant',${q(proof)});
  INSERT INTO public.payment_history_merchant_aliases(shop_id,merchant_id,alias_key,source_identity,evidence_id) VALUES(${q(shopId)},${q(merchant)},${q(alias)},'{"synthetic":true}',${q(proof)});`;}
  sql(setup+"COMMIT; NOTIFY pgrst,'reload schema';");
- const endpoint="http://127.0.0.1:3019",secret=randomBytes(32).toString("hex");
+ // NextRequest canonicalizes numeric loopback hosts to localhost. Use that
+ // canonical configured origin; the POS retains its exact-origin check.
+ const endpoint="http://localhost:3019",secret=randomBytes(32).toString("hex");
+ const canonicalOrigin=command(process.execPath,["-e","const {NextRequest}=require('next/server');process.stdout.write(new URL(new NextRequest('http://localhost:3019/api/pos/payment-history').url).origin)"]).trim();
+ demand(canonicalOrigin===endpoint,"history_test_framework_origin_mismatch");receipt.canonicalAppOrigin=true;
  const env={...process.env,NEXT_TELEMETRY_DISABLED:"1",NEXT_PUBLIC_SUPABASE_URL:runtime.url,NEXT_PUBLIC_SUPABASE_ANON_KEY:runtime.anonKey,SUPABASE_SERVICE_ROLE_KEY:runtime.serviceKey,PAYMENT_HISTORY_WORKER_GATEWAY_SECRET:secret};
  phase="build";
  const build=command("dotnet",["build","tests/Win7POS.Core.Tests/Win7POS.Core.Tests.csproj","-c","Release","-p:AuthenticatedHistoryHarness=true","--nologo","-v:q"],clientRoot,process.env);
  writeFileSync(join(evidence,"build.private.log"),build,{mode:0o600});
  command(process.execPath,["scripts/build-payment-history-worker.mjs",join(evidence,"history-worker.cjs")]);
  receipt.workerSha256=sha(readFileSync(join(evidence,"history-worker.cjs")));
- phase="next_start";start("next",process.execPath,[join(root,"node_modules/next/dist/bin/next"),"dev","--hostname","127.0.0.1","--port","3019"],env);
+ phase="next_start";start("next",process.execPath,[join(root,"node_modules/next/dist/bin/next"),"dev","--hostname","localhost","--port","3019"],env);
  await until(async()=>{try{return(await fetch(endpoint+"/auth/login",{signal:AbortSignal.timeout(5000)})).ok;}catch{return false;}},90000);
  // Read-only probes retain only protocol shape/status in closed evidence.
  // They neither prepare an upload nor create a writer context or receipt.
