@@ -10,6 +10,8 @@ declare p public.payment_history_local_publications;c public.payment_history_loc
   raise exception using errcode='22023',message='payment_history_local_correction_owner_invalid';end if;
  select * into p from public.payment_history_local_publications where operation_id=p_operation for share;
  if not found or p.operation_kind<>'Apply' or p.state<>'preparing' then raise exception using errcode='40001',message='payment_history_local_preparation_stale';end if;
+ perform 1 from public.payment_history_runtime where shop_id=p.shop_id and dataset_id=p.server_dataset_id for share;
+ if not found then raise exception using errcode='40001',message='payment_history_local_preparation_stale';end if;
  select * into c from public.payment_history_local_writer_contexts where shop_id=p.shop_id and shop_device_id=p.shop_device_id for share;
  if not found or row(c.local_dataset_id,c.restore_lineage_id,c.restore_epoch) is distinct from row(p.local_dataset_id,p.restore_lineage_id,p.restore_epoch)
   or c.source_snapshot_id is null then raise exception using errcode='40001',message='payment_history_local_context_unverified';end if;
@@ -23,7 +25,7 @@ declare p public.payment_history_local_publications;c public.payment_history_loc
   select v.movement_version_id into target from public.payment_history_local_publication_map m
    join public.payment_history_movement_versions v on v.shop_id=m.shop_id and v.movement_version_id=m.movement_version_id
    join public.payment_history_batches b on b.shop_id=v.shop_id and b.batch_id=v.owner_batch_id
-   where m.shop_id=p.shop_id and m.operation_id=previous.operation_id and m.owned and v.active and b.state='active'
+   where m.shop_id=p.shop_id and m.operation_id=previous.operation_id and m.owned and not v.active and b.state='cancelled'
     and b.batch_id=(previous.server_receipt->>'batch_id')::uuid and v.identity_key=p_identity and v.economic_digest=p_fields->>'previous_economic_digest'
    for share of v,b;
  else
@@ -41,10 +43,18 @@ declare p public.payment_history_local_publications;c public.payment_history_loc
    join public.payment_history_batches b on b.shop_id=v.shop_id and b.batch_id=v.owner_batch_id
    where s.shop_id=p.shop_id and s.snapshot_id=c.source_snapshot_id and s.shop_device_id=p.shop_device_id and s.local_dataset_id=p.local_dataset_id and s.restore_epoch=p.restore_epoch
     and (o.original_object->>'apply_operation_id')::uuid=(p_fields->>'previous_apply_operation_id')::uuid
-    and v.active and b.state='active' and v.identity_key=p_identity and v.economic_digest=p_fields->>'previous_economic_digest'
+    and not v.active and b.state='cancelled' and v.identity_key=p_identity and v.economic_digest=p_fields->>'previous_economic_digest'
     and mm.source_economic_digest=v.economic_digest for share of s,run,u,o,bm,mm,v,b;
  end if;
- if target is null then raise exception using errcode='40001',message='payment_history_local_correction_owner_unverified';end if;
+ -- Windows corrections apply to an owned inactive version after Undo. An
+ -- active conflict is always blocked. Older or ambiguous inactive branches
+ -- cannot be silently reactivated through a historical ownership reference.
+ if target is null or exists(select 1 from public.payment_history_movement_versions v where v.shop_id=p.shop_id and v.identity_key=p_identity and v.active)
+  or exists(select 1 from public.payment_history_movement_versions newer join public.payment_history_movement_versions old on old.movement_version_id=target and old.shop_id=p.shop_id
+    where newer.shop_id=p.shop_id and newer.identity_key=p_identity and newer.movement_version_id<>target
+     and (newer.supersedes_version_id=target or newer.created_revision>old.created_revision or newer.created_revision=old.created_revision
+      and not exists(select 1 from public.payment_history_movement_versions child where child.shop_id=p.shop_id and child.supersedes_version_id=newer.movement_version_id))) then
+  raise exception using errcode='40001',message='payment_history_local_correction_owner_unverified';end if;
  return target;
 end;$$;
 revoke all on function app_private.payment_history_local_correction_target_v2(uuid,jsonb,text) from public,anon,authenticated,service_role;
