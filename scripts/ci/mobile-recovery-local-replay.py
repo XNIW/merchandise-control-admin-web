@@ -18,6 +18,7 @@ NATIVE_EMPTY = '20261108051044_asus_019_native_empty_catalog_scope.sql'
 NATIVE_EMPTY_SHA = 'af69667d6e8e9988a833c4cb2b818c4378061cbc6869c4821b29aa5e64e379ce'
 NATIVE_EMPTY_BODY_MD5 = '9622c4d3a4c793a7803d730b8a8c51d4'
 REVIEWED_EXTENSIONS = {
+    '20261111092708_payment_history_local_outcome_reconciliation_v2.sql': {'sha256':'77baa9f4c3970ffcacb0364852c02d48b2075b4bb4aa1359fe0fbef5eec15b39','additionalAssertions':50,'testFile':'supabase/tests/asus019_payment_history_local_outcome_witnesses.sql'},
     '20261111075532_payment_history_local_delivery_v2.sql': {'sha256':'25780fa985cc6e729ca317857ab20dac3ccc87a20ebfb9abcea6d2b78c955525','additionalAssertions':62,'testFile':'supabase/tests/asus019_payment_history_local_delivery.sql'},
     '20261111063201_payment_history_local_content_grants_v2.sql': {'sha256':'3ae615ba10d9e91a7c916e8bc1080e942910a4ab5483fd744a6fc011357defe8','additionalAssertions':54,'testFile':'supabase/tests/asus019_payment_history_local_content_grants.sql'},
     '20261111051947_payment_history_local_undo_review_v2.sql': {'sha256':'29f9c9551201c03771e49be8fe49a6e1a13c67a730538a9c043f0fb66f44fa16','additionalAssertions':39,'testFile':'supabase/tests/asus019_payment_history_local_undo_review.sql'},
@@ -177,7 +178,8 @@ def closed_pgtap_diagnostics(stdout, stderr, known):
         'payment_history_local_correction_unverified','payment_history_local_correction_owner_unverified',
         'payment_history_local_receipt_invalid','payment_history_local_receipt_mismatch','payment_history_local_receipt_capacity',
         'payment_history_local_receipt_conflict','payment_history_local_batch_conflict',
-        'payment_history_local_delivery_reconciliation_required','payment_history_local_sequence_immutable'}
+        'payment_history_local_delivery_reconciliation_required','payment_history_local_sequence_immutable',
+        'payment_history_local_witness_invalid','payment_history_local_witness_required','payment_history_local_witness_conflict','payment_history_local_witness_context_changed','payment_history_local_intent_conflict','payment_history_local_intent_unregistered','payment_history_local_intent_immutable','payment_history_local_commit_exists'}
     codes = sorted({m[0] for m in re.finditer(r'\bpayment_history_[a-z_]{1,90}\b', source) if m[0] in allowed_codes})
     if codes: result['domainCodes'] = codes
     return result
