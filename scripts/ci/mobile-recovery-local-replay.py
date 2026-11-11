@@ -18,7 +18,7 @@ NATIVE_EMPTY = '20261108051044_asus_019_native_empty_catalog_scope.sql'
 NATIVE_EMPTY_SHA = 'af69667d6e8e9988a833c4cb2b818c4378061cbc6869c4821b29aa5e64e379ce'
 NATIVE_EMPTY_BODY_MD5 = '9622c4d3a4c793a7803d730b8a8c51d4'
 REVIEWED_EXTENSIONS = {
-    '20261111075532_payment_history_local_delivery_v2.sql': {'sha256':'6074394ee15bfc35a4cf783abcaeff1b7f4b47730c2ffa1a505261b8ab849108','additionalAssertions':62,'testFile':'supabase/tests/asus019_payment_history_local_delivery.sql'},
+    '20261111075532_payment_history_local_delivery_v2.sql': {'sha256':'25780fa985cc6e729ca317857ab20dac3ccc87a20ebfb9abcea6d2b78c955525','additionalAssertions':62,'testFile':'supabase/tests/asus019_payment_history_local_delivery.sql'},
     '20261111063201_payment_history_local_content_grants_v2.sql': {'sha256':'3ae615ba10d9e91a7c916e8bc1080e942910a4ab5483fd744a6fc011357defe8','additionalAssertions':54,'testFile':'supabase/tests/asus019_payment_history_local_content_grants.sql'},
     '20261111051947_payment_history_local_undo_review_v2.sql': {'sha256':'29f9c9551201c03771e49be8fe49a6e1a13c67a730538a9c043f0fb66f44fa16','additionalAssertions':39,'testFile':'supabase/tests/asus019_payment_history_local_undo_review.sql'},
     '20261111041740_payment_history_local_semantic_decisions_v2.sql': {'sha256':'8e0ddbfacbc41613db0b8bb4c13f2b3033af561a0fe362a16bdeaec6a44e1bbf','additionalAssertions':30,'testFile':'supabase/tests/asus019_payment_history_local_semantic_decisions.sql'},
@@ -173,7 +173,11 @@ def closed_pgtap_diagnostics(stdout, stderr, known):
         'payment_history_local_merchant_unverified','payment_history_local_transaction_invalid',
         'payment_history_transaction_invalid','payment_history_economics_invalid',
         'payment_history_local_undo_owner_invalid','payment_history_local_undo_owner_unverified',
-        'payment_history_local_undo_stale','payment_history_local_review_incomplete'}
+        'payment_history_local_undo_stale','payment_history_local_review_incomplete',
+        'payment_history_local_correction_unverified','payment_history_local_correction_owner_unverified',
+        'payment_history_local_receipt_invalid','payment_history_local_receipt_mismatch','payment_history_local_receipt_capacity',
+        'payment_history_local_receipt_conflict','payment_history_local_batch_conflict',
+        'payment_history_local_delivery_reconciliation_required','payment_history_local_sequence_immutable'}
     codes = sorted({m[0] for m in re.finditer(r'\bpayment_history_[a-z_]{1,90}\b', source) if m[0] in allowed_codes})
     if codes: result['domainCodes'] = codes
     return result

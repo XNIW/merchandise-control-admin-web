@@ -1,4 +1,5 @@
 import {createHash} from "node:crypto";
+import {LOCAL_RECEIPT_MAX_BYTES,validateLocalReceipt} from "./local-receipt-contract";
 import {demandDigest,demandUuid,windowsFieldHash} from "./ledger-contract";
 import {closedHistoryObject,historyObject} from "./replica-contract";
 
@@ -80,9 +81,8 @@ export function validateLocalCommitRequest(operation:LocalCommitOperation,value:
   validateLocalCommitPage(p.page_json,p.page_sha256);
  }else if(operation==="local_deliver"){
   uuid(p.grant_id);integer(p.local_revision);integer(p.local_sequence,BigInt("1"));
-  bounded(p.local_receipt_json,65536);
-  // Receipt numeric values need the existing lossless parser before economic
-  // comparison. Never coerce Int64 amounts through JavaScript Number.
+  bounded(p.local_receipt_json,LOCAL_RECEIPT_MAX_BYTES);
+  validateLocalReceipt(p.local_receipt_json as string,p.operation_id as string);
  }
  return p;
 }

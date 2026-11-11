@@ -232,3 +232,113 @@ declare p public.payment_history_local_publications;begin
   'operation_id',p.operation_id,'content_digest',p.content_digest,'receipt',p.server_receipt);
 end;$$;
 revoke all on function app_private.payment_history_local_receipt_v2(uuid,uuid,uuid,uuid,text,text,integer,uuid,text) from public,anon,authenticated,service_role;
+
+-- An incremental source has no attested SQLite numeric row ID. Preserve the
+-- supplied ID only in immutable local provenance; authorize its canonical
+-- predecessor through the exact prior Apply/batch/identity/economic digest.
+-- Baseline sources still require their original attested numeric row ID.
+create or replace function app_private.payment_history_local_review_movement_v2(p_operation uuid,p_page integer,p_record integer) returns void
+language plpgsql volatile set search_path='' as $$
+declare p public.payment_history_local_publications;r public.payment_history_runtime;review public.payment_history_local_reviews;
+ item record;file_row record;binding record;overlap_row record;correction_row record;mapping record;
+ f jsonb;t jsonb;semantic jsonb;economics jsonb;local_previous jsonb;pending jsonb;approval jsonb;
+ local_key text;source_key text;native_policy uuid;other_policy uuid;policy_kind text;dependency jsonb;proof_id uuid;
+ local_new boolean;is_correction boolean:=false;canonical_new boolean;version_id uuid;supersedes uuid;existing_digest text;
+ begin
+ select * into p from public.payment_history_local_publications where operation_id=p_operation;
+ if not found then raise exception using errcode='40001',message='payment_history_local_preparation_stale';end if;
+ select * into r from public.payment_history_runtime where shop_id=p.shop_id for share;
+ select * into p from public.payment_history_local_publications where operation_id=p_operation for update;
+ select * into review from public.payment_history_local_reviews where operation_id=p_operation for update;
+ if not found or p.state<>'preparing' or p.operation_kind<>'Apply' or p.grant_id is not null or r.writer_authority<>'local'
+  or row(review.server_dataset_id,review.server_revision,review.writer_epoch) is distinct from row(r.dataset_id,r.revision,r.writer_epoch)
+  or row(p.server_dataset_id,p.writer_epoch) is distinct from row(r.dataset_id,r.writer_epoch) then
+  raise exception using errcode='40001',message='payment_history_local_review_stale';end if;
+ select * into item from app_private.payment_history_local_review_records_v2(p.shop_id,p.shop_device_id,p_operation,p_page) where record_ordinal=p_record and kind='movement';
+ if not found then raise exception using errcode='22023',message='payment_history_local_review_movement_invalid';end if;
+ if exists(select 1 from public.payment_history_local_review_movements where operation_id=p_operation and source_ordinal=item.movement_ordinal) then return;end if;
+ f:=item.fields;dependency:=review.dependency_hashes;
+ select * into file_row from app_private.payment_history_local_auxiliary_v2(p_operation,'file',app_private.payment_history_field_hash_v1(array[f->>'source_file_id']));
+ select * into binding from app_private.payment_history_local_auxiliary_v2(p_operation,'binding',app_private.payment_history_field_hash_v1(array[f->>'alias_key']));
+ select * into overlap_row from app_private.payment_history_local_auxiliary_v2(p_operation,'overlap',app_private.payment_history_field_hash_v1(array['single']));
+ if file_row.fields is null or file_row.fields->>'profile' is distinct from f->>'profile' or binding.fields is null or overlap_row.fields is null
+  or length(coalesce(binding.fields->>'local_scope_id','')) not between 1 and 256 then
+  raise exception using errcode='22023',message='payment_history_local_review_source_invalid';end if;
+ t:=app_private.payment_history_local_transaction_v2(f,file_row.fields->>'sha256');
+ select a.alias_id,a.merchant_id,a.evidence_id into mapping from public.payment_history_merchant_aliases a
+  join public.payment_history_evidence e on e.shop_id=a.shop_id and e.evidence_id=a.evidence_id
+  join public.payment_history_merchants m on m.shop_id=a.shop_id and m.merchant_id=a.merchant_id
+  where a.shop_id=p.shop_id and a.alias_key=f->>'alias_key' and a.active and a.alias_version='getnet-merchant-alias-v1'
+   and m.provider='getnet' and e.kind='merchant_mapping' and e.status='verified' and e.verification_level<>'unverified'
+   and e.scope->>'merchant_id'=a.merchant_id::text and e.scope->>'alias_key'=a.alias_key for share of a,e,m;
+ if not found then raise exception using errcode='22023',message='payment_history_local_merchant_unverified';end if;
+ dependency:=app_private.payment_history_local_review_dependency_v2(p.shop_id,dependency,'a',mapping.alias_id);
+ dependency:=app_private.payment_history_local_review_dependency_v2(p.shop_id,dependency,'m',mapping.merchant_id);
+ dependency:=app_private.payment_history_local_review_dependency_v2(p.shop_id,dependency,'e',mapping.evidence_id);
+ select e.evidence_id into native_policy from public.payment_history_evidence e where e.shop_id=p.shop_id and e.kind='native_start'
+  and e.scope->>'native_start_ticks'=overlap_row.fields->>'native_start_ticks'
+  and app_private.payment_history_proof_covers_v1(p.shop_id,array[e.evidence_id],'native_start',mapping.merchant_id,file_row.fields->>'sha256',t)
+  order by e.evidence_id limit 1 for share;
+ policy_kind:=case when f->>'profile'='GetnetModern' then 'modern_time' else 'legacy_currency' end;
+ select e.evidence_id into other_policy from public.payment_history_evidence e where e.shop_id=p.shop_id and e.kind=policy_kind
+  and app_private.payment_history_proof_covers_v1(p.shop_id,array[e.evidence_id],policy_kind,mapping.merchant_id,file_row.fields->>'sha256',t)
+  order by e.evidence_id limit 1 for share;
+ if native_policy is null or other_policy is null then raise exception using errcode='22023',message='payment_history_local_policy_unverified';end if;
+ semantic:=app_private.payment_history_local_review_transaction_v2(p.shop_id,f,file_row.fields->>'sha256',overlap_row.fields->>'native_start_ticks',array[native_policy,other_policy]);
+ economics:=semantic->'economics';
+ for proof_id in select value::uuid from jsonb_array_elements_text(semantic->'evidence_ids') loop
+  dependency:=app_private.payment_history_local_review_dependency_v2(p.shop_id,dependency,'e',proof_id);
+ end loop;
+ local_key:=app_private.payment_history_field_hash_v1(array[p.shop_id::text,binding.fields->>'local_scope_id',f->>'external_namespace',f->>'external_id']);
+ select m.economics into pending from public.payment_history_local_review_movements m where m.operation_id=p_operation and m.local_identity=local_key and m.local_inserted order by m.source_ordinal limit 1;
+ if found then local_previous:=jsonb_build_object('active',true,'economics',pending);
+ else local_previous:=app_private.payment_history_local_projection_v2(p_operation,binding.fields->>'local_scope_id',f->>'external_namespace',f->>'external_id');end if;
+ local_new:=not coalesce((local_previous->>'active')::boolean,false);
+ source_key:=app_private.payment_history_field_hash_v1(array[f->>'source_file_id',f->>'source_sheet',f->>'source_row']);
+ select * into correction_row from app_private.payment_history_local_auxiliary_v2(p_operation,'correction',source_key);
+ approval:=correction_row.fields;
+ if not local_new and app_private.payment_history_local_economic_conflict_v2(local_previous->'economics',economics) then
+  raise exception using errcode='40001',message='payment_history_local_economic_conflict';end if;
+ if local_new and local_previous is not null and app_private.payment_history_local_economic_conflict_v2(local_previous->'economics',economics) then
+  if approval is null or coalesce(local_previous->>'source_kind','') not in('baseline','publication')
+   or (local_previous->>'source_kind'='baseline' and approval->>'previous_transaction_id' is distinct from local_previous->>'local_transaction_id')
+   or approval->>'previous_local_batch_id' is distinct from local_previous->>'local_batch_id'
+   or (approval->>'previous_apply_operation_id')::uuid is distinct from (local_previous->>'apply_operation_id')::uuid
+   or approval->>'previous_economic_digest' is distinct from local_previous->>'economic_digest'
+   or approval->>'proposed_economic_digest' is distinct from semantic->>'economic_digest'
+   or approval->>'context_fingerprint' is distinct from app_private.payment_history_field_hash_v1(array['correction-review-context-v1',p.shop_id::text,p.local_dataset_id,p.base_revision::text,p.restore_epoch::text])
+   or length(btrim(coalesce(approval->>'evidence_reference',''))) not between 1 and 2048
+   or approval->>'approval_fingerprint' is distinct from app_private.payment_history_field_hash_v1(array[approval->>'previous_transaction_id',approval->>'previous_economic_digest',approval->>'proposed_economic_digest',approval->>'source_file_id',approval->>'source_sheet',approval->>'source_row',approval->>'context_fingerprint',approval->>'evidence_reference']) then
+   raise exception using errcode='40001',message='payment_history_local_correction_unverified';end if;
+  is_correction:=true;
+ elsif approval is not null then raise exception using errcode='40001',message='payment_history_local_correction_stale';end if;
+ select movement_version_id,economic_digest into version_id,existing_digest from public.payment_history_movement_versions
+  where shop_id=p.shop_id and identity_key=semantic->>'identity_key' and active for share;
+ if found then
+  if existing_digest is distinct from semantic->>'economic_digest' then raise exception using errcode='40001',message='payment_history_canonical_economic_conflict';end if;
+  canonical_new:=false;
+ else
+  select canonical_version,economic_digest into version_id,existing_digest from public.payment_history_local_review_movements
+   where operation_id=p_operation and canonical_identity=semantic->>'identity_key' order by source_ordinal limit 1;
+  if found then
+   if existing_digest is distinct from semantic->>'economic_digest' then raise exception using errcode='40001',message='payment_history_canonical_economic_conflict';end if;
+   canonical_new:=false;
+  else
+   if exists(select 1 from public.payment_history_movement_versions where shop_id=p.shop_id and identity_key=semantic->>'identity_key') then
+    if local_previous is null or not local_new then raise exception using errcode='40001',message='payment_history_local_correction_owner_unverified';end if;
+    supersedes:=app_private.payment_history_local_inactive_owner_v2(p_operation,local_previous->>'local_transaction_id',local_previous->>'local_batch_id',
+     (local_previous->>'apply_operation_id')::uuid,semantic->>'identity_key',local_previous->>'economic_digest');
+   elsif local_previous is not null then raise exception using errcode='40001',message='payment_history_local_projection_unverified';end if;
+   version_id:=gen_random_uuid();canonical_new:=true;
+  end if;
+ end if;
+ insert into public.payment_history_local_review_movements values(p.shop_id,p_operation,item.movement_ordinal,p_page,p_record,binding.source_page,binding.source_record,
+  binding.fields->>'local_scope_id',local_key,semantic->>'identity_key',mapping.merchant_id,semantic->'transaction',economics,semantic->>'economic_digest',
+  local_new,is_correction,canonical_new,version_id,supersedes);
+ update public.payment_history_local_reviews set dependency_hashes=dependency,
+  local_inserted=local_inserted+local_new::integer,local_duplicates=local_duplicates+(not local_new)::integer,
+  local_corrections=local_corrections+is_correction::integer,local_gross=local_gross+case when local_new then (economics->>'grossClp')::bigint else 0 end,
+  canonical_inserted=canonical_inserted+canonical_new::integer,canonical_duplicates=canonical_duplicates+(not canonical_new)::integer,
+  canonical_gross=canonical_gross+case when canonical_new then (economics->>'grossClp')::bigint else 0 end where operation_id=p_operation;
+end;$$;
+revoke all on function app_private.payment_history_local_review_movement_v2(uuid,integer,integer) from public,anon,authenticated,service_role;
