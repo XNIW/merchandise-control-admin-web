@@ -16,6 +16,24 @@ const baselines=Promise.all(corpus.baselines.map(async source=>{
  assert.equal(result.manifestSha256,source.manifest_sha256);return result;
 }));
 
+test('SQL corpus transport preserves every original CLR page byte including Unicode',()=>{
+ const source=readFileSync('supabase/tests/asus019_payment_history_local_semantic_decisions.sql','utf8');
+ const parts=source.split('$publication_corpus$');assert.equal(parts.length,3);
+ const embedded=JSON.parse(parts[1]);assert.equal(embedded.cases.length,corpus.cases.length);
+ let unicodeObserved=false;
+ for(const expected of corpus.cases){
+  const actual=embedded.cases.find(item=>item.operation_id===expected.operation_id);assert(actual);
+  assert.equal(actual.pages.length,expected.pages.length);
+  for(let i=0;i<expected.pages.length;i++){
+   assert.equal(actual.pages[i].page_json,expected.pages[i].page_json,expected.name);
+   assert.equal(actual.pages[i].page_sha256,expected.pages[i].page_sha256,expected.name);
+   contract.validateLocalCommitPage(actual.pages[i].page_json,actual.pages[i].page_sha256);
+   unicodeObserved ||= expected.pages[i].page_json.includes('\u00e9');
+  }
+ }
+ assert.equal(unicodeObserved,true,'fixture must exercise actual non-ASCII page bytes');
+});
+
 test('real CLR existing and empty baselines preserve their original ledger and source tuples',async()=>{
  assert.equal(provenance.syntheticOnly,true);assert.equal(corpus.syntheticOnly,true);assert.equal(corpus.nativeEffects,0);
  const [a,b]=await baselines;
