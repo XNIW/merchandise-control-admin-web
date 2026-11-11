@@ -29,7 +29,7 @@ function command(program,argv,cwd=root,env=process.env,timeout=120000){
 }
 function start(name,program,argv,env){
  const output=openSync(join(evidence,name+".private.log"),"wx",0o600);
- const child=spawn(program,argv,{cwd:name==="client"?clientRoot:root,env,stdio:["ignore",output,output],detached:true});closeSync(output);
+ const child=spawn(program,argv,{cwd:name.startsWith("client")?clientRoot:root,env,stdio:["ignore",output,output],detached:true});closeSync(output);
  child.closed=new Promise(resolve=>child.once("close",(code,signal)=>resolve({code,signal})));
  child.once("error",()=>{});children.push({name,child});return child;
 }
@@ -100,8 +100,10 @@ try{
  const baselineProbe=await baselineProbeResponse.json();
  receipt.baselineContextProbe={status:baselineProbeResponse.status,code:/^history_[a-z_]+$/.test(baselineProbe.code??"")?baselineProbe.code:null,resultKeys:baselineProbe.ok===true?Object.keys(baselineProbe.result).filter(k=>/^[a-z_]{1,48}$/.test(k)):[],baselineKeys:baselineProbe.ok===true&&baselineProbe.result?.baseline?Object.keys(baselineProbe.result.baseline).filter(k=>/^[a-z_]{1,48}$/.test(k)):[]};
  start("worker",process.execPath,[join(evidence,"history-worker.cjs")],{...process.env,PAYMENT_HISTORY_WORKER_GATEWAY_SECRET:secret,PAYMENT_HISTORY_ALLOW_LOOPBACK:"yes",PAYMENT_HISTORY_WORKER_GATEWAY_URL:endpoint+"/api/internal/payment-history/worker"});
- save("context.private.json",{schema:"asus019-authenticated-history-v2",nonce,endpoint:endpoint+"/",clientSha:receipt.clientSha,shopId,staffId,credentialVersion:7,actorA,actorB,extendedCases:true});
- phase="client_baselines";const client=start("client","dotnet",[join(clientRoot,"tests/Win7POS.Core.Tests/bin/Release/net10.0/Win7POS.Core.Tests.dll"),join(evidence,"context.private.json")],process.env);
+ const clientContext={schema:"asus019-authenticated-history-v2",nonce,endpoint:endpoint+"/",clientSha:receipt.clientSha,shopId,staffId,credentialVersion:7,actorA,actorB,extendedCases:true,faultCases:true};
+ save("context.private.json",clientContext);
+ const clientArgs=[join(clientRoot,"tests/Win7POS.Core.Tests/bin/Release/net10.0/Win7POS.Core.Tests.dll"),join(evidence,"context.private.json")];
+ phase="client_baselines";let client=start("client","dotnet",clientArgs,process.env);
  async function state(wanted){return until(async()=>{
   if(existsSync(join(evidence,"client-state.private.json"))){const state=JSON.parse(readFileSync(join(evidence,"client-state.private.json"),"utf8"));demand(state.nonce===nonce,"history_test_state_nonce");if(state.status==="FAIL"){receipt.clientFailure={phase:/^[a-z_]+$/.test(state.phase)?state.phase:"unknown",exception:/^[A-Za-z]+Exception$/.test(state.exception)?state.exception:"Exception",codes:[state.code,state.lastCode].filter(c=>/^(history|historical)_[a-z_]+$/.test(c))};throw Error("history_test_client_rejected");}if(state.phase===wanted)return state;}
   demand(client.exitCode===null,"history_test_client_early_exit");return null;
@@ -164,12 +166,32 @@ try{
   }
   receipt.cases.push({id:name,status:"PASS",count,factsSha256});save("client-control.private.json",{nonce,phase:name+"_observed"});
  }
+ phase="fault_source_ready";const faultSource=await state(phase);approveSource(faultSource.sourceSha);save("client-control.private.json",{nonce,phase:"allow_fault_apply"});
+ phase="lost_ack_checkpoint";const pending=await state("restart_pending");
+ demand(pending.ackDroppedAfterRealReceipt===true&&pending.pullBeforeAck===true&&pending.count===published.count+faultSource.expected.length&&/^[0-9a-f-]{36}$/.test(pending.operation),"history_test_lost_ack_checkpoint");
+ const receiptCount=()=>sql(`SELECT count(*) FROM public.payment_history_receipts WHERE shop_id=${q(shopId)} AND request_key=${q(pending.operation)}::uuid;`);
+ demand(receiptCount()==="1","history_test_lost_ack_canonical_receipt");
+ const oldExit=await Promise.race([client.closed,delay(10000).then(()=>null)]);demand(oldExit?.code===0,"history_test_original_process_not_closed");
+ // These exact-file capabilities are private, never part of the public artifact.
+ // The new CLR process reopens the original owned databases and creates new
+ // generations; no reconstructed database or fabricated acknowledgement.
+ const restart=JSON.parse(readFileSync(join(evidence,"restart.private.json"),"utf8"));
+ demand(restart.schema==="asus019-restart-v1"&&restart.nonce===nonce&&restart.operation.replaceAll("-","")===pending.operation.replaceAll("-",""),"history_test_restart_capability_scope");
+ save("context.private.json",{...clientContext,restart});client=start("client-restarted","dotnet",clientArgs,process.env);
+ phase="restart_recovery";const recovered=await state("restart_recovered");
+ demand(recovered.status==="PASS_LOST_ACK_RESTART_PULL_BEFORE_ACK"&&recovered.count===pending.count&&recovered.operation===pending.operation&&receiptCount()==="1","history_test_restart_canonical_mismatch");
+ await until(async()=>{const text=await page.locator("body").innerText();return recovered.newIds.every(id=>text.includes(id));},65000);
+ const afterRestart=await call("movements",{from_date:null,to_date:null,include_inactive:false,page_size:50,after:null});
+ demand(afterRestart.status===200&&afterRestart.body.ok===true&&afterRestart.body.result.rows.length===recovered.count,"history_test_restart_browser_count");
+ const restartFacts=sha(afterRestart.body.result.rows.map(rowKey).sort().join("\n"));demand(restartFacts===recovered.factsSha,"history_test_restart_browser_facts");
+ receipt.cases.push({id:"lost-ack-real-process-restart-pull-before-ack",status:"PASS",count:recovered.count,factsSha256:restartFacts,canonicalReceipts:1});
+ save("client-control.private.json",{nonce,phase:"restart_observed"});
  phase="native_invariants";
  const native=sql(`SELECT (SELECT count(*) FROM public.pos_sales WHERE shop_id=${q(shopId)})+(SELECT count(*) FROM public.pos_sale_stock_movements WHERE shop_id=${q(shopId)});`);
  demand(native==="0","history_test_native_mutation");
  const clientExit=await Promise.race([client.closed,delay(10000).then(()=>null)]);demand(clientExit?.code===0,"history_test_client_exit");
  await browser.close();browser=undefined;demand(await stopChildren(),"history_test_cleanup_forced");
- receipt.status="PASS_CORE_DATA_ADMIN_ROUNDTRIP_DUPLICATE_UNDO_CORRECTION";receipt.stage="complete";save("authenticated-history.json",receipt);
+ receipt.status="PASS_CORE_DATA_ADMIN_ROUNDTRIP_DUPLICATE_UNDO_CORRECTION_RESTART";receipt.stage="complete";save("authenticated-history.json",receipt);
  console.log("authenticated_history_roundtrip_pass");
 }catch(error){
  if(browser)try{await browser.close();}catch{}
