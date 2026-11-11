@@ -9,6 +9,7 @@ import {fileURLToPath} from "node:url";
 import {setTimeout as delay} from "node:timers/promises";
 import {chromium} from "playwright";
 import {createClient} from "@supabase/supabase-js";
+import {projectClientFailure,logClosedReport} from "./asus019-closed-history-report.mjs";
 
 const root=resolve(dirname(fileURLToPath(import.meta.url)),"../..");
 const args=process.argv.slice(2),options={};
@@ -20,18 +21,10 @@ demand(process.platform==="linux"&&!existsSync(evidence),"history_test_fresh_lin
 process.umask(0o077);mkdirSync(evidence,{mode:0o700});
 const sha=value=>createHash("sha256").update(value).digest("hex");
 const rowKey=r=>[r.external_namespace,r.external_id,r.business_ticks,r.gross_clp,r.fee_clp??"null",r.fee_vat_clp??"null",r.net_clp??"null"].join("|");
-const closedClientCode=value=>typeof value==="string"&&/^(?:(?:history|historical|auth)_[a-z0-9_]{1,90}|http_(?:[0-9]{3}|5xx)|success|invalid_response|io_error|network_error|dns|tls|timeout|cancelled|response_too_large|rate_limited|db_failure)$/.test(value);
 const save=(file,value)=>{const path=join(evidence,file),temporary=path+".tmp";writeFileSync(temporary,JSON.stringify(value),{mode:0o600});renameSync(temporary,path);};
 let phase="ownership",browser,inspectFailure;const children=[];
 const receipt={status:"FAIL",syntheticOnly:true,loopbackOnly:true,coverage:"authenticated Core/Data HTTP services and real Admin browser; WPF hardware not claimed",cases:[]};
-function logClosedReport(){
- // Same redacted report as the artifact, never the private context or logs.
- // Keep the original test outcome when the secondary export is unavailable.
- const bytes=JSON.stringify(receipt);
- if(Buffer.byteLength(bytes,"utf8")>65536){console.error("authenticated_history_closed_report_capacity");return;}
- console.log("ASUS019_CLOSED_REPORT:"+bytes);
- console.log("ASUS019_CLOSED_REPORT_SHA256:"+sha(bytes));
-}
+
 function command(program,argv,cwd=root,env=process.env,timeout=120000){
  const result=spawnSync(program,argv,{cwd,env,encoding:"utf8",timeout,maxBuffer:8*1024*1024});
  demand(result.status===0&&!result.error,"history_test_command_failed");return result.stdout;
@@ -59,6 +52,9 @@ async function until(read,timeout=60000){
 try{
  const runtime=JSON.parse(command("python3",["-B",join(root,"scripts/ci/asus019-history-local-runtime.py"),"--workdir",options["--owned-workdir"]]));
  demand(/^[0-9a-f]{64}$/.test(runtime.containerID)&&/^r4-ci-preflight-[0-9a-f]{12}$/.test(runtime.project)&&runtime.url==="http://127.0.0.1:54321","history_test_owned_runtime");
+ const restImages=command("docker",["ps","--filter","label=com.supabase.cli.project="+runtime.project,"--format","{{.ID}} {{.Image}}"]).trim().split("\n").map(line=>line.trim().split(/\s+/)).filter(parts=>parts.length===2&&/^(?:public\.ecr\.aws\/)?supabase\/postgrest:v[0-9][0-9A-Za-z._-]*$/.test(parts[1]));
+ demand(restImages.length===1&&/^[0-9a-f]{12,64}$/.test(restImages[0][0]),"history_test_rest_runtime_scope");
+ const restImageId=command("docker",["inspect","--format","{{.Image}}",restImages[0][0]]).trim();demand(/^sha256:[0-9a-f]{64}$/.test(restImageId),"history_test_rest_image_identity");receipt.restRuntime={image:restImages[0][1],imageSHA256:restImageId};
  receipt.serverSha=command("git",["rev-parse","HEAD"]).trim();receipt.clientSha=command("git",["rev-parse","HEAD"],clientRoot).trim();
  demand(/^[0-9a-f]{40}$/.test(receipt.clientSha)&&receipt.clientSha===process.env.ASUS019_CLIENT_SHA&&runtime.head===receipt.serverSha&&command("git",["status","--porcelain"]).trim()===""&&command("git",["status","--porcelain"],clientRoot).trim()==="","history_test_frozen_sources");
  const sql=text=>{
@@ -124,7 +120,7 @@ try{
  const clientArgs=[join(clientRoot,"tests/Win7POS.Core.Tests/bin/Release/net10.0/Win7POS.Core.Tests.dll"),join(evidence,"context.private.json")];
  phase="client_baselines";let client=start("client","dotnet",clientArgs,process.env);
  async function state(wanted){return until(async()=>{
-  if(existsSync(join(evidence,"client-state.private.json"))){const state=JSON.parse(readFileSync(join(evidence,"client-state.private.json"),"utf8"));demand(state.nonce===nonce,"history_test_state_nonce");if(state.status==="FAIL"){const d=state.localDiagnostics,r=state.requestFailure;receipt.clientFailure={phase:/^[a-z_]+$/.test(state.phase)?state.phase:"unknown",exception:/^[A-Za-z]+Exception$/.test(state.exception)?state.exception:"Exception",codes:[state.code,state.lastCode].filter(closedClientCode),...(r&&typeof r==="object"&&!Array.isArray(r)?{requestFailure:{phase:/^[a-z_]{1,40}$/.test(r.phase)?r.phase:null,actor:["A","B","other_test_actor"].includes(r.actor)?r.actor:null,operation:/^[a-z_]{1,40}$/.test(r.operation)?r.operation:null,code:closedClientCode(r.code)?r.code:null,httpStatus:Number.isInteger(r.httpStatus)&&r.httpStatus>=100&&r.httpStatus<=599?r.httpStatus:null,transportDenied:r.transportDenied===true,retryable:r.retryable===true}}:{}),...(d?{localDiagnostics:{actor:["A","B"].includes(d.actor)?d.actor:null,baselineState:/^[a-z_]{1,40}$/.test(d.baselineState)?d.baselineState:null,baselineReason:/^(history|baseline)_[a-z_]{1,90}$/.test(d.baselineReason)?d.baselineReason:null,baselineUploadPresent:d.baselineUploadPresent===true,baselineRunPresent:d.baselineRunPresent===true,baselineReviewPresent:d.baselineReviewPresent===true}}:{})};throw Error("history_test_client_rejected");}if(state.phase===wanted)return state;}
+  if(existsSync(join(evidence,"client-state.private.json"))){const state=JSON.parse(readFileSync(join(evidence,"client-state.private.json"),"utf8"));demand(state.nonce===nonce,"history_test_state_nonce");if(state.status==="FAIL"){receipt.clientFailure=projectClientFailure(state);throw Error("history_test_client_rejected");}if(state.phase===wanted)return state;}
   demand(client.exitCode===null,"history_test_client_early_exit");return null;
  },150000);}
  for(const [ready,kind,suffix] of [["recovery_apply_ready","apply_recovery","apply"],["recovery_sessions_ready","two_recoveries","sessions"]]){
@@ -223,6 +219,15 @@ try{
  receipt.cases.push({id:"lost-ack-real-process-restart-pull-before-ack",status:"PASS",count:recovered.count,factsSha256:restartFacts,canonicalReceipts:1});
  save("client-control.private.json",{nonce,phase:"restart_observed"});
  phase="conflict_source_ready";const conflictSource=await state(phase);approveSource(conflictSource.sourceSha);save("client-control.private.json",{nonce,phase:"allow_conflict_prepare"});
+ phase="conflict_sql_probe";const conflictReview=await state("conflict_review_ready");
+ demand(conflictReview.payload?.operation_id===conflictSource.operation&&/^[0-9a-f]{64}$/.test(conflictReview.payload?.content_digest??"")&&conflictReview.payload?.ordinal===1,"history_test_conflict_probe_scope");
+ const conflictProbe=JSON.parse(sql(`BEGIN; SET LOCAL statement_timeout='8s'; SET LOCAL lock_timeout='6s'; SET LOCAL search_path=pg_catalog; SET LOCAL request.jwt.claim.role='service_role'; SET LOCAL request.jwt.claims='{"role":"service_role"}';
+ CREATE FUNCTION pg_temp.asus019_conflict_probe() RETURNS jsonb LANGUAGE plpgsql AS $probe$ BEGIN
+ PERFORM public.payment_history_device_v2(${q(shopId)}::uuid,${q(actorB.deviceId)}::uuid,${q(staffId)}::uuid,${q(actorB.sessionId)}::uuid,${q("sha256:"+sha(actorB.deviceToken))},${q("sha256:"+sha(actorB.sessionToken))},7,'local_review',${q(JSON.stringify(conflictReview.payload))}::jsonb);
+ RETURN jsonb_build_object('sqlstate','00000','code','unexpected_success'); EXCEPTION WHEN OTHERS THEN RETURN jsonb_build_object('sqlstate',SQLSTATE,'code',CASE WHEN SQLERRM ~ '^payment_history_[a-z_]{1,90}$' THEN SQLERRM ELSE 'unclassified' END); END $probe$;
+ SELECT pg_temp.asus019_conflict_probe(); ROLLBACK;`));
+ demand(conflictProbe.sqlstate==="40001"&&conflictProbe.code==="payment_history_canonical_economic_conflict","history_test_conflict_sql_cause_mismatch");
+ receipt.conflictSqlProbe={...conflictProbe,transactionRolledBack:true,samePreparedContent:true,coverage:"owned SQL diagnostic; HTTP denial remains required"};save("client-control.private.json",{nonce,phase:"allow_conflict_review"});
  const conflict=await state("conflict");demand(conflict.status==="PASS_CONFLICT_DENIED_ABORT_RECONCILED"&&conflict.count===recovered.count&&conflict.factsSha===recovered.factsSha,"history_test_conflict_client_mismatch");
  const conflictEvidence=JSON.parse(sql(`SELECT jsonb_build_object('grants',(SELECT count(*) FROM public.payment_history_local_publications WHERE shop_id=${q(shopId)} AND operation_id=${q(conflict.operation)}::uuid AND grant_id IS NOT NULL),'receipts',(SELECT count(*) FROM public.payment_history_receipts WHERE shop_id=${q(shopId)} AND request_key=${q(conflict.operation)}::uuid),'writer',(SELECT writer_authority FROM public.payment_history_runtime WHERE shop_id=${q(shopId)}));`));
  demand(conflictEvidence.grants===0&&conflictEvidence.receipts===0&&conflictEvidence.writer==="local","history_test_conflict_server_mutation");
@@ -292,12 +297,12 @@ try{
  const clientExit=await Promise.race([client.closed,delay(10000).then(()=>null)]);demand(clientExit?.code===0,"history_test_client_exit");
  await browser.close();browser=undefined;demand(await stopChildren(),"history_test_cleanup_forced");
  receipt.status="PASS_CORE_DATA_BILATERAL_ADMIN_ORIGIN_RESTART_REVOCATION_CONFLICT_RECOVERY_LOCKS";receipt.stage="complete";save("authenticated-history.json",receipt);
- logClosedReport();
+ logClosedReport(receipt);
  console.log("authenticated_history_roundtrip_pass");
 }catch(error){
  if(inspectFailure)try{receipt.protocolState=inspectFailure();}catch{receipt.protocolStateProbe="unavailable";}
  if(browser)try{await browser.close();}catch{}
  await stopChildren();receipt.stage=phase;receipt.code=/^history_test_[a-z_]+$/.test(error?.message??"")?error.message:"history_test_unexpected";save("authenticated-history.json",receipt);
- logClosedReport();
+ logClosedReport(receipt);
  console.error("authenticated_history_failed:"+phase+":"+receipt.code);process.exitCode=1;
 }

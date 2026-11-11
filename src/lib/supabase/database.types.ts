@@ -7093,6 +7093,10 @@ export type Database = {
         Args: { p_shop_id: string; p_operation: string; p_payload?: Json; p_staff_id?: string; p_staff_web_session_id?: string; p_session_token_hash?: string; p_credential_version?: number }
         Returns: Json
       }
+      payment_history_device_http_v2: {
+        Args: { p_shop_id: string; p_shop_device_id: string; p_staff_id: string; p_pos_session_id: string; p_device_token_hash: string; p_session_token_hash: string; p_credential_version: number; p_operation: string; p_payload?: Json }
+        Returns: Json
+      }
       payment_history_device_v2: {
         Args: { p_shop_id: string; p_shop_device_id: string; p_staff_id: string; p_pos_session_id: string; p_device_token_hash: string; p_session_token_hash: string; p_credential_version: number; p_operation: string; p_payload?: Json }
         Returns: Json

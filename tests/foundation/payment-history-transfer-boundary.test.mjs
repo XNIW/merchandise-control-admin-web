@@ -19,6 +19,15 @@ function device(){
  return {calls,lease,input,boundary,setAnswer(v){answer=v;},setLeases(...v){leases=v;}};
 }
 test("device endpoint derives shop and staff from the actual lease and forwards hashes only",async()=>{const x=device(),reply=await x.boundary.deviceHistoryRequest(x.input);assert.equal(reply.result.writer_authority,"local");const request=x.calls.find(c=>c.name);assert.equal(request.name,"payment_history_device_v1");assert.equal(request.args.p_shop_id,id(1));assert.equal(request.args.p_staff_id,id(3));assert.equal(request.args.p_credential_version,7);assert.equal(request.args.p_device_token_hash,hash(token));assert.equal(JSON.stringify(request.args).includes(token),false);});
+for(const sqlCode of ["40001","PT409"])test("complete v2 HTTP boundary preserves deterministic conflict "+sqlCode,async()=>{
+ const x=device();x.input.operation="local_review";x.input.payload={operation_id:id(6),content_digest:"a".repeat(64),ordinal:1};x.setAnswer({data:null,error:{code:sqlCode,message:"payment_history_canonical_economic_conflict"}});
+ await assert.rejects(()=>x.boundary.deviceHistoryRequest(x.input),e=>e.code==="history_cloud_writer_closed"&&e.status===409);
+ assert.equal(x.calls.find(c=>c.name).name,"payment_history_device_http_v2");assert.equal(x.calls.filter(c=>c.name).length,1);
+});
+for(const sqlCode of ["57014","08006","XX000"])test("database failure never becomes a deterministic conflict "+sqlCode,async()=>{
+ const x=device();x.input.operation="local_review";x.input.payload={operation_id:id(6),content_digest:"a".repeat(64),ordinal:1};x.setAnswer({data:null,error:{code:sqlCode,message:"PRIVATE_SENTINEL"}});
+ await assert.rejects(()=>x.boundary.deviceHistoryRequest(x.input),e=>e.code==="history_cloud_unavailable"&&e.status===503&&!e.message.includes("PRIVATE"));
+});
 for(const key of ["deviceToken","sessionToken"])test("invalid "+key+" stops shared authentication before an authority or replica",async()=>{const x=device();x.input[key]+="changed";await assert.rejects(()=>x.boundary.deviceHistoryRequest(x.input),e=>e.code==="auth_denied"&&e.status===403);assert.equal(x.calls.some(c=>c.name),false);});
 
 for(const [status,code,http] of [["denied","auth_denied",403],["db_failure","history_cloud_unavailable",503]])test("runtime "+status+" is distinct from a history-only permission denial",async()=>{const x=device();x.setLeases({status});await assert.rejects(()=>x.boundary.deviceHistoryRequest(x.input),e=>e.code===code&&e.status===http);assert.equal(x.calls.some(c=>c.name),false);});

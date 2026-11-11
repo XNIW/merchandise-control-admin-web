@@ -25,7 +25,7 @@ export async function deviceHistoryRequest(value:unknown,sourceUploadUrl?:string
  const scope={shopId:lease.shop.shop_id,deviceId:lease.device.shop_device_id,staffId:lease.staff.staff_id,sessionId:lease.session.pos_session_id,credentialVersion:lease.session.staff_credential_version};
  let payload:Record<string,unknown>;
  try{payload=validateComposedDeviceRequest(op,input.payload,scope);}catch{throw new PosHistoryError("history_input_invalid",400);}
- const {data,error}=await db.rpc(isComposedHistoryV2(op)?"payment_history_device_v2":"payment_history_device_v1",{p_shop_id:scope.shopId,p_shop_device_id:scope.deviceId,p_staff_id:scope.staffId,p_pos_session_id:scope.sessionId,p_device_token_hash:lease.credential.token_hash,p_session_token_hash:lease.session.session_token_hash,p_credential_version:scope.credentialVersion,p_operation:op,p_payload:payload as Json});
+ const {data,error}=await db.rpc(isComposedHistoryV2(op)?"payment_history_device_http_v2":"payment_history_device_v1",{p_shop_id:scope.shopId,p_shop_device_id:scope.deviceId,p_staff_id:scope.staffId,p_pos_session_id:scope.sessionId,p_device_token_hash:lease.credential.token_hash,p_session_token_hash:lease.session.session_token_hash,p_credential_version:scope.credentialVersion,p_operation:op,p_payload:payload as Json});
  if(error){
   // SQL rechecks the lease. A revoked session racing the initial lookup must
   // stop shared authentication, while a history-only denial stays scoped.
@@ -34,8 +34,9 @@ export async function deviceHistoryRequest(value:unknown,sourceUploadUrl?:string
    if(op.startsWith("baseline_")&&error.message==="payment_history_job_actor_mismatch")throw new PosHistoryError("history_baseline_session_changed",409);
    throw new PosHistoryError("history_cloud_access_denied",403);
   }
-  if(op==="baseline_apply"&&error.code==="40001"&&error.message==="payment_history_review_stale_or_blocked")throw new PosHistoryError("history_baseline_review_stale",409);
-  throw new PosHistoryError(error.code==="40001"&&["snapshot_start","delta_start","page","replica_ack"].includes(op)?"history_resnapshot_required":error.code==="40001"?"history_cloud_writer_closed":"history_cloud_unavailable",error.code==="40001"?409:503);
+  const conflict=error.code==="40001"||error.code==="PT409";
+  if(op==="baseline_apply"&&conflict&&error.message==="payment_history_review_stale_or_blocked")throw new PosHistoryError("history_baseline_review_stale",409);
+  throw new PosHistoryError(conflict&&["snapshot_start","delta_start","page","replica_ack"].includes(op)?"history_resnapshot_required":conflict?"history_cloud_writer_closed":"history_cloud_unavailable",conflict?409:503);
  }
  if(!historyObject(data)||Object.keys(data).length!==5||data.ok!==true||data.shop_id!==lease.shop.shop_id||data.device_id!==lease.device.shop_device_id||data.session_id!==lease.session.pos_session_id||Buffer.byteLength(JSON.stringify(data))>4194304)throw new PosHistoryError("history_response_invalid",503);
  let result:Record<string,unknown>;try{
