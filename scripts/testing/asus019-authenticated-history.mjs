@@ -8,6 +8,7 @@ import {resolve,join,isAbsolute,dirname} from "node:path";
 import {fileURLToPath} from "node:url";
 import {setTimeout as delay} from "node:timers/promises";
 import {chromium} from "playwright";
+import {createClient} from "@supabase/supabase-js";
 
 const root=resolve(dirname(fileURLToPath(import.meta.url)),"../..");
 const args=process.argv.slice(2),options={};
@@ -86,8 +87,15 @@ try{
  receipt.workerSha256=sha(readFileSync(join(evidence,"history-worker.cjs")));
  phase="next_start";start("next",process.execPath,[join(root,"node_modules/next/dist/bin/next"),"dev","--hostname","127.0.0.1","--port","3019"],env);
  await until(async()=>{try{return(await fetch(endpoint+"/auth/login",{signal:AbortSignal.timeout(5000)})).ok;}catch{return false;}},90000);
- start("worker",process.execPath,[join(evidence,"history-worker.cjs")],{...env,PAYMENT_HISTORY_ALLOW_LOOPBACK:"yes",PAYMENT_HISTORY_WORKER_GATEWAY_URL:endpoint+"/api/internal/payment-history/worker"});
- save("context.private.json",{schema:"asus019-authenticated-history-v1",nonce,endpoint:endpoint+"/",clientSha:receipt.clientSha,shopId,staffId,credentialVersion:7,actorA,actorB});
+ // Read-only probes retain only protocol shape/status in closed evidence.
+ // They neither prepare an upload nor create a writer context or receipt.
+ const storageProbe=await createClient(runtime.url,runtime.serviceKey,{auth:{persistSession:false,autoRefreshToken:false}}).storage.from("payment-history-sources").info(`history/${shopId}/${randomUUID()}`);
+ receipt.storageMissingProbe={status:storageProbe.error?.status??null,statusCode:/^\d{3}$/.test(String(storageProbe.error?.statusCode??""))?String(storageProbe.error.statusCode):null,errorName:storageProbe.error?.name==="StorageApiError"?"StorageApiError":"other",objectNotFound:storageProbe.error?.message==="Object not found",dataPresent:storageProbe.data!==null};
+ const baselineProbeResponse=await fetch(endpoint+"/api/pos/payment-history",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({deviceId:actorA.deviceId,sessionId:actorA.sessionId,deviceToken:actorA.deviceToken,sessionToken:actorA.sessionToken,operation:"baseline_context",payload:{local_dataset_id:"synthetic-probe",data_revision:"0",restore_epoch:"0",restore_lineage_id:randomUUID()}}),signal:AbortSignal.timeout(15000)});
+ const baselineProbe=await baselineProbeResponse.json();
+ receipt.baselineContextProbe={status:baselineProbeResponse.status,code:/^history_[a-z_]+$/.test(baselineProbe.code??"")?baselineProbe.code:null,resultKeys:baselineProbe.ok===true?Object.keys(baselineProbe.result).filter(k=>/^[a-z_]{1,48}$/.test(k)):[],baselineKeys:baselineProbe.ok===true&&baselineProbe.result?.baseline?Object.keys(baselineProbe.result.baseline).filter(k=>/^[a-z_]{1,48}$/.test(k)):[]};
+ start("worker",process.execPath,[join(evidence,"history-worker.cjs")],{...process.env,PAYMENT_HISTORY_WORKER_GATEWAY_SECRET:secret,PAYMENT_HISTORY_ALLOW_LOOPBACK:"yes",PAYMENT_HISTORY_WORKER_GATEWAY_URL:endpoint+"/api/internal/payment-history/worker"});
+ save("context.private.json",{schema:"asus019-authenticated-history-v1",nonce,endpoint:endpoint+"/",clientSha:receipt.clientSha,shopId,staffId,credentialVersion:7,actorA,actorB,extendedCases:true});
  phase="client_baselines";const client=start("client","dotnet",[join(clientRoot,"tests/Win7POS.Core.Tests/bin/Release/net10.0/Win7POS.Core.Tests.dll"),join(evidence,"context.private.json")],process.env);
  async function state(wanted){return until(async()=>{
   if(existsSync(join(evidence,"client-state.private.json"))){const state=JSON.parse(readFileSync(join(evidence,"client-state.private.json"),"utf8"));demand(state.nonce===nonce,"history_test_state_nonce");if(state.status==="FAIL"){receipt.clientFailure={phase:/^[a-z_]+$/.test(state.phase)?state.phase:"unknown",exception:/^[A-Za-z]+Exception$/.test(state.exception)?state.exception:"Exception",codes:[state.code,state.lastCode].filter(c=>/^(history|historical)_[a-z_]+$/.test(c))};throw Error("history_test_client_rejected");}if(state.phase===wanted)return state;}
@@ -126,13 +134,23 @@ try{
  const actualSha=sha(tuples.join("\n"));demand(actualSha===published.factsSha,"history_test_browser_fact_mismatch");
  demand(Number(result.body.result.totals.matched_count)===published.count,"history_test_browser_total_mismatch");
  receipt.cases.push({id:"pos-a-server-open-admin-pos-b-pos-a",status:"PASS",count:published.count,factsSha256:actualSha});
+ save("client-control.private.json",{nonce,phase:"admin_observed"});
+ for(const name of ["duplicate","undo"]){
+  phase=name;const current=await state(name);demand(current.status==="PASS_CORE_DATA_CASE","history_test_extended_client_status");
+  const count=name==="duplicate"?published.count:source.baselineCount;demand(current.count===count,"history_test_extended_count");
+  if(name==="undo")await until(async()=>{const text=await page.locator("body").innerText();return published.newIds.every(id=>!text.includes(id));},65000);
+  const view=await call("movements",{from_date:null,to_date:null,include_inactive:false,page_size:50,after:null});
+  demand(view.status===200&&view.body.ok===true&&view.body.result.rows.length===count,"history_test_extended_browser_count");
+  const tuples=view.body.result.rows.map(r=>[r.external_namespace,r.external_id,r.business_ticks,r.gross_clp].join("|")).sort();
+  const factsSha256=sha(tuples.join("\n"));demand(factsSha256===current.factsSha,"history_test_extended_browser_facts");
+  receipt.cases.push({id:name,status:"PASS",count,factsSha256});save("client-control.private.json",{nonce,phase:name+"_observed"});
+ }
  phase="native_invariants";
  const native=sql(`SELECT (SELECT count(*) FROM public.pos_sales WHERE shop_id=${q(shopId)})+(SELECT count(*) FROM public.pos_sale_stock_movements WHERE shop_id=${q(shopId)});`);
  demand(native==="0","history_test_native_mutation");
- save("client-control.private.json",{nonce,phase:"admin_observed"});
  const clientExit=await Promise.race([client.closed,delay(10000).then(()=>null)]);demand(clientExit?.code===0,"history_test_client_exit");
  await browser.close();browser=undefined;demand(await stopChildren(),"history_test_cleanup_forced");
- receipt.status="PASS_CORE_DATA_ADMIN_ROUNDTRIP";receipt.stage="complete";save("authenticated-history.json",receipt);
+ receipt.status="PASS_CORE_DATA_ADMIN_ROUNDTRIP_DUPLICATE_UNDO";receipt.stage="complete";save("authenticated-history.json",receipt);
  console.log("authenticated_history_roundtrip_pass");
 }catch(error){
  if(browser)try{await browser.close();}catch{}
