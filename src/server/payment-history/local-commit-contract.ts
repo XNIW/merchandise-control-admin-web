@@ -9,7 +9,7 @@ export const LOCAL_COMMIT_PROTOCOL_VERSION=2;
 export const LOCAL_COMMIT_PAGE_BYTES=256*1024;
 export const LOCAL_COMMIT_RECORD_BYTES=16384;
 export const LOCAL_COMMIT_MAX_PAGES=20000;
-export const LOCAL_COMMIT_OPERATIONS=["local_prepare","local_stage","local_authorize","local_deliver","local_receipt"] as const;
+export const LOCAL_COMMIT_OPERATIONS=["local_prepare","local_stage","local_review","local_authorize","local_deliver","local_receipt"] as const;
 export type LocalCommitOperation=typeof LOCAL_COMMIT_OPERATIONS[number];
 export type LocalCommitRecord={kind:string;fields:Record<string,string|null>};
 const columns={
@@ -66,19 +66,26 @@ export function localCommitContentDigest(pageDigests:readonly string[]){
 }
 export function validateLocalCommitRequest(operation:LocalCommitOperation,value:unknown){
  const fields={
-  local_prepare:["operation_id","kind","local_dataset_id","restore_epoch","restore_lineage_id","base_revision","writer_epoch","request_fingerprint","content_digest","page_count","protocol_version"],
+  local_prepare:["operation_id","kind","local_dataset_id","restore_epoch","restore_lineage_id","base_revision","writer_epoch","request_fingerprint","content_digest","page_count","protocol_version","local_nonce"],
   local_stage:["operation_id","content_digest","ordinal","page_json","page_sha256"],
-  local_authorize:["operation_id","content_digest"],
+  local_review:["operation_id","content_digest","ordinal",...(historyObject(value)&&Object.hasOwn(value,"review_token")?["review_token"]:[])],
+  local_authorize:["operation_id","content_digest","review_token"],
   local_deliver:["operation_id","grant_id","content_digest","local_revision","local_sequence","local_receipt_json"],
   local_receipt:["operation_id","content_digest"]
  };
  const p=closedHistoryObject(value,fields[operation]);uuid(p.operation_id);digest(p.content_digest);
  if(operation==="local_prepare"){
   if(p.protocol_version!==2||!["Apply","Undo"].includes(String(p.kind))||!Number.isSafeInteger(p.page_count)||Number(p.page_count)<1||Number(p.page_count)>LOCAL_COMMIT_MAX_PAGES)return fail();
-  bounded(p.local_dataset_id,256);integer(p.restore_epoch);uuid(p.restore_lineage_id);integer(p.base_revision);integer(p.writer_epoch,BigInt("1"));digest(p.request_fingerprint);
+  bounded(p.local_dataset_id,256);integer(p.restore_epoch);uuid(p.restore_lineage_id);integer(p.base_revision);integer(p.writer_epoch,BigInt("1"));digest(p.request_fingerprint);uuid(p.local_nonce);
+  if(p.local_nonce==="00000000-0000-0000-0000-000000000000")return fail();
  }else if(operation==="local_stage"){
   if(!Number.isSafeInteger(p.ordinal)||Number(p.ordinal)<1||Number(p.ordinal)>LOCAL_COMMIT_MAX_PAGES)return fail();
   validateLocalCommitPage(p.page_json,p.page_sha256);
+ }else if(operation==="local_review"){
+  if(!Number.isSafeInteger(p.ordinal)||Number(p.ordinal)<1||Number(p.ordinal)>LOCAL_COMMIT_MAX_PAGES)return fail();
+  if(p.review_token!==undefined)uuid(p.review_token);else if(p.ordinal!==1)return fail();
+ }else if(operation==="local_authorize"){
+  uuid(p.review_token);
  }else if(operation==="local_deliver"){
   uuid(p.grant_id);integer(p.local_revision);integer(p.local_sequence,BigInt("1"));
   bounded(p.local_receipt_json,LOCAL_RECEIPT_MAX_BYTES);
@@ -124,6 +131,7 @@ export function validateLocalCommitResult(operation:LocalCommitOperation,value:u
  const keys={
   local_prepare:["state","operation_id","content_digest","next_ordinal","page_count"],
   local_stage:["state","operation_id","content_digest","next_ordinal"],
+  local_review:["state","operation_id","content_digest","review_token","next_ordinal"],
   local_authorize:["state","operation_id","content_digest","grant_id","writer_epoch","remaining_milliseconds","proof"],
   local_deliver:["state","operation_id","content_digest","receipt"],
   local_receipt:["state","operation_id","content_digest","receipt"]
@@ -133,6 +141,9 @@ export function validateLocalCommitResult(operation:LocalCommitOperation,value:u
  if(operation==="local_prepare"||operation==="local_stage"){
   if(result.state!=="preparing"||!Number.isSafeInteger(result.next_ordinal)||Number(result.next_ordinal)<1||Number(result.next_ordinal)>LOCAL_COMMIT_MAX_PAGES+1)return fail();
   if(operation==="local_prepare"&&(!Number.isSafeInteger(result.page_count)||Number(result.page_count)<1||Number(result.page_count)>LOCAL_COMMIT_MAX_PAGES||Number(result.next_ordinal)>Number(result.page_count)+1))return fail();
+ }else if(operation==="local_review"){
+  if(!["reviewing","reviewed"].includes(String(result.state))||!Number.isSafeInteger(result.next_ordinal)||Number(result.next_ordinal)<2||Number(result.next_ordinal)>LOCAL_COMMIT_MAX_PAGES+1)return fail();
+  uuid(result.review_token);
  }else if(operation==="local_authorize"){
   if(result.state!=="authorized"||!Number.isSafeInteger(result.remaining_milliseconds)||Number(result.remaining_milliseconds)<0||Number(result.remaining_milliseconds)>60000)return fail();
   uuid(result.grant_id);integer(result.writer_epoch,BigInt("1"));

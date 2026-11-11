@@ -32,10 +32,22 @@ test("modified bytes, oversized pages and empty pages never share an authorizati
  assert.throws(()=>c.localCommitContentDigest([]));assert.notEqual(c.localCommitContentDigest([digest,digest]),content);
 });
 test("prepare binds operation kind, digest, dataset, restore and writer epoch before any local mutation",()=>{
- const p={operation_id:operation,kind:"Undo",local_dataset_id:"synthetic-dataset",restore_epoch:"0",restore_lineage_id:id,base_revision:"12",writer_epoch:"3",request_fingerprint:"a".repeat(64),content_digest:content,page_count:1,protocol_version:2};
+ const p={operation_id:operation,kind:"Undo",local_dataset_id:"synthetic-dataset",restore_epoch:"0",restore_lineage_id:id,base_revision:"12",writer_epoch:"3",request_fingerprint:"a".repeat(64),content_digest:content,page_count:1,protocol_version:2,local_nonce:device};
  assert.equal(c.validateLocalCommitRequest("local_prepare",p).content_digest,content);
  for(const changed of [{...p,writer_epoch:"0"},{...p,restore_epoch:"01"},{...p,page_count:20001},{...p,protocol_version:1},{...p,shop_id:id}])
   assert.throws(()=>c.validateLocalCommitRequest("local_prepare",changed));
+});
+
+test("review progresses in bounded pages and authorization requires the same explicit review token",()=>{
+ const p={operation_id:operation,content_digest:content,ordinal:1};
+ assert.equal(c.validateLocalCommitRequest("local_review",p).ordinal,1);
+ assert.equal(c.validateLocalCommitRequest("local_review",{...p,ordinal:2,review_token:device}).review_token,device);
+ for(const changed of [{...p,ordinal:0},{...p,ordinal:20001},{...p,ordinal:2},{...p,review_token:null},{...p,review_token:"bad"}])assert.throws(()=>c.validateLocalCommitRequest("local_review",changed));
+ assert.throws(()=>c.validateLocalCommitRequest("local_authorize",{operation_id:operation,content_digest:content}));
+ assert.equal(c.validateLocalCommitRequest("local_authorize",{operation_id:operation,content_digest:content,review_token:device}).review_token,device);
+ const result={state:"reviewed",operation_id:operation,content_digest:content,review_token:device,next_ordinal:20001};
+ assert.equal(c.validateLocalCommitResult("local_review",result,scope).state,"reviewed");
+ for(const changed of [{...result,next_ordinal:1},{...result,next_ordinal:20002},{...result,state:"authorized"},{...result,review_token:"bad"}])assert.throws(()=>c.validateLocalCommitResult("local_review",changed,scope));
 });
 test("delivery and receipt lookup do not mint another mutation grant",()=>{
  const receipt='{"OperationId":"'+operation.replaceAll('-','')+'","OperationKind":"Undo","BatchId":"retained-local-batch","InsertedCount":1,"DuplicateCount":0,"RejectedCount":0,"SignedAmountClp":9223372036854775807,"CorrectionCount":0,"CorrectionApprovals":[]}';
