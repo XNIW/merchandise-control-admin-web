@@ -153,6 +153,8 @@ do $$declare hashes jsonb;begin
  from public.payment_history_merchants m cross join(values('native_start'),('legacy_currency')) k(kind)
  where m.shop_id='10000000-0000-4000-8000-000000403019';
 end;$$;
+select lives_ok($$select pg_temp.composed('a-duplicate','local_abort',jsonb_build_object('operation_id',pg_temp.case_input('a-duplicate')->>'operation_id','content_digest',pg_temp.case_input('a-duplicate')->>'content_digest','witness_json',pg_temp.make_witness('a-duplicate','aborted')))$$,'negative no-prepare witness is retired through authenticated device boundary');
+select ok((select aborted from public.payment_history_local_intents where operation_id=(pg_temp.case_input('a-duplicate')->>'operation_id')::uuid),'original negative intent cannot later resurrect');
 select lives_ok($$select pg_temp.stage_public('a-new')$$,'authenticated boundary prepares and stages CLR content with immutable nonce');
 select lives_ok($$insert into state values('public-review',pg_temp.review_public('a-new'))$$,'public review delegates to actual bounded economic review');
 select lives_ok($$insert into state select 'public-grant',pg_temp.composed('a-new','local_authorize',jsonb_build_object('operation_id',x->>'operation_id','content_digest',x->>'content_digest','review_token',(select value->>'review_token' from state where key='public-review'))) from pg_temp.case_input('a-new') x$$,'public authorization binds exact reviewed root');
@@ -162,15 +164,14 @@ select is(pg_temp.positive_public('a-new'),(select value from state where key='p
 select is((select count(*) from public.payment_history_receipts where request_key=(pg_temp.case_input('a-new')->>'operation_id')::uuid),1::bigint,'one original operation owns one permanent economic receipt');
 select is(pg_temp.composed('a-new','local_receipt',jsonb_build_object('operation_id',pg_temp.case_input('a-new')->>'operation_id','content_digest',pg_temp.case_input('a-new')->>'content_digest')),
  (select value from state where key='public-positive'),'receipt lookup uses the same canonical result');
-select lives_ok($$select pg_temp.composed('a-duplicate','local_abort',jsonb_build_object('operation_id',pg_temp.case_input('a-duplicate')->>'operation_id','content_digest',pg_temp.case_input('a-duplicate')->>'content_digest','witness_json',pg_temp.make_witness('a-duplicate','aborted')))$$,'negative no-prepare witness is retired through authenticated device boundary');
-select ok((select aborted from public.payment_history_local_intents where operation_id=(pg_temp.case_input('a-duplicate')->>'operation_id')::uuid),'original negative intent cannot later resurrect');
 
+insert into state values('canonical-after-positive',jsonb_build_object('versions',(select count(*) from public.payment_history_movement_versions)));
 insert into public.payment_history_role_permissions(shop_id,role_key,capability,enabled) values('10000000-0000-4000-8000-000000403019','pos_admin','migrate',false);
 select throws_ok($$select pg_temp.baseline_request(1,'upload_create',pg_temp.upload_payload())$$,'42501','payment_history_device_denied','response recovery rechecks current migration permission');
 delete from public.payment_history_role_permissions where shop_id='10000000-0000-4000-8000-000000403019' and role_key='pos_admin' and capability='migrate';
 update public.pos_sessions set status='revoked',revoked_at=clock_timestamp() where pos_session_id='60000000-0000-4000-8000-000000000001';
 select throws_ok($$select pg_temp.baseline_request(1,'upload_create',pg_temp.upload_payload())$$,'42501','payment_history_device_denied','revoked lease cannot recover a signed object target');
-select ok((select count(*)=0 from public.payment_history_movement_versions) and (select count(*)=0 from public.pos_sales),'source admission creates no bank or native sale');
+select ok((select count(*) from public.payment_history_movement_versions)=(select (value->>'versions')::bigint from state where key='canonical-after-positive') and (select count(*)=0 from public.pos_sales),'source response recovery and denials preserve canonical rows and native sales');
 select is((select value->>'object_key' from state where key='first'),'history/10000000-0000-4000-8000-000000403019/'||(select value->>'upload_id' from state where key='first'),'object key is derived only from authenticated shop and owned upload');
 select * from finish();
 rollback;
