@@ -5,6 +5,7 @@ review functions. It is installed after pgTAP (whose fixture transactions have
 rolled back), never in a linked database. No public v2 boundary is exposed.
 """
 import json
+import re
 import subprocess
 import time
 from pathlib import Path
@@ -47,6 +48,8 @@ def qualify(root, runner, evidence_root=None):
               "fixtureSHA256": runner.sha(fixture.encode("utf-8")),
               "setupSHA256": runner.sha(setup.encode("utf-8")), "cases": [], "cleanup": []}
     output = (evidence_root or root / ".replay") / "history-concurrency.json"
+    report["setupExitCode"] = initialized.returncode
+    report["setupSQLSTATES"] = re.findall(r"(?:ERROR|FATAL):\s+([0-9A-Z]{5})(?:\s|$)", initialized.stderr.decode(errors="replace"))[:8]
     runner.dump(output, report)
     check(initialized.returncode == 0 and len(initialized.stdout) + len(initialized.stderr) <= 49152,
           "HISTORY_CONCURRENCY_SETUP")
@@ -61,7 +64,8 @@ def qualify(root, runner, evidence_root=None):
     def outcome(h, side, kind, body):
         h.children[side].send("CREATE FUNCTION pg_temp.try_" + kind.lower() + "() RETURNS jsonb LANGUAGE plpgsql AS $b$ "
             "DECLARE value jsonb; BEGIN " + body + "; RETURN jsonb_build_object('sqlstate','00000','value',value); "
-            "EXCEPTION WHEN OTHERS THEN RETURN jsonb_build_object('sqlstate',SQLSTATE); END $b$;\n" +
+            "EXCEPTION WHEN OTHERS THEN RETURN jsonb_build_object('sqlstate',SQLSTATE,'code',CASE WHEN SQLERRM IN "
+            "('payment_history_local_publications_not_drained','payment_history_local_native_overlap') THEN SQLERRM ELSE 'unclassified' END); END $b$;\n" +
             h.emit(side, kind, ",'result',pg_temp.try_" + kind.lower() + "()"))
 
     def wait_for(h, waiter, blocker, label):
@@ -87,7 +91,8 @@ def qualify(root, runner, evidence_root=None):
         # rollback/EOF naturally; a forced local termination cannot be PASS.
         closed = [{"side": r["side"], "exit": r["exit"],
                    "rollbackAndNaturalExit": r["rollbackAndNaturalExit"],
-                   "sqlstates": r["sqlstates"]} for r in cleanup]
+                   "sqlstates": r["sqlstates"],
+                   "stderrSQLSTATES": re.findall(r"(?:ERROR|FATAL):\s+([0-9A-Z]{5})(?:\s|$)",r["stderr"])[:8]} for r in cleanup]
         report["cleanup"].extend(closed)
         check(all(r["rollbackAndNaturalExit"] for r in closed), "HISTORY_CLEANUP_UNPROVEN")
 
@@ -130,9 +135,11 @@ def qualify(root, runner, evidence_root=None):
         h.frame("second", "COMMITTED")
         start(h, "other")
         outcome(h, "other", "UNKNOWN", "value:=" + SCHEMA + ".authorize_case('a-duplicate')")
-        check(h.frame("other", "UNKNOWN")["result"]["sqlstate"] == "40001", "HISTORY_UNKNOWN_NOT_FENCED")
+        unknown=h.frame("other", "UNKNOWN")["result"]
+        check(unknown["sqlstate"] == "40001" and unknown["code"] == "payment_history_local_publications_not_drained", "HISTORY_UNKNOWN_NOT_FENCED")
         outcome(h, "other", "OVERLAP", "PERFORM " + SCHEMA + ".native_at('2024-01-01','concurrent-overlap')")
-        check(h.frame("other", "OVERLAP")["result"]["sqlstate"] == "40001", "HISTORY_OVERLAP_NOT_FENCED")
+        overlap=h.frame("other", "OVERLAP")["result"]
+        check(overlap["sqlstate"] == "40001" and overlap["code"] == "payment_history_local_native_overlap", "HISTORY_OVERLAP_NOT_FENCED")
         report["cases"].append({"id": "two-authorizers-one-original-proof", "status": "PASS", "wait": witness,
                                 "unknownOperationDenied": True, "overlappingNativeDenied": True})
         finish(h); h = None
