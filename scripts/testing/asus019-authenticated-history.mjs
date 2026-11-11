@@ -19,6 +19,7 @@ const evidence=resolve(options["--evidence-dir"]),clientRoot=realpathSync(option
 demand(process.platform==="linux"&&!existsSync(evidence),"history_test_fresh_linux_required");
 process.umask(0o077);mkdirSync(evidence,{mode:0o700});
 const sha=value=>createHash("sha256").update(value).digest("hex");
+const rowKey=r=>[r.external_namespace,r.external_id,r.business_ticks,r.gross_clp,r.fee_clp??"null",r.fee_vat_clp??"null",r.net_clp??"null"].join("|");
 const save=(file,value)=>{const path=join(evidence,file),temporary=path+".tmp";writeFileSync(temporary,JSON.stringify(value),{mode:0o600});renameSync(temporary,path);};
 let phase="ownership",browser;const children=[];
 const receipt={status:"FAIL",syntheticOnly:true,loopbackOnly:true,coverage:"authenticated Core/Data HTTP services and real Admin browser; WPF hardware not claimed",cases:[]};
@@ -95,7 +96,7 @@ try{
  const baselineProbe=await baselineProbeResponse.json();
  receipt.baselineContextProbe={status:baselineProbeResponse.status,code:/^history_[a-z_]+$/.test(baselineProbe.code??"")?baselineProbe.code:null,resultKeys:baselineProbe.ok===true?Object.keys(baselineProbe.result).filter(k=>/^[a-z_]{1,48}$/.test(k)):[],baselineKeys:baselineProbe.ok===true&&baselineProbe.result?.baseline?Object.keys(baselineProbe.result.baseline).filter(k=>/^[a-z_]{1,48}$/.test(k)):[]};
  start("worker",process.execPath,[join(evidence,"history-worker.cjs")],{...process.env,PAYMENT_HISTORY_WORKER_GATEWAY_SECRET:secret,PAYMENT_HISTORY_ALLOW_LOOPBACK:"yes",PAYMENT_HISTORY_WORKER_GATEWAY_URL:endpoint+"/api/internal/payment-history/worker"});
- save("context.private.json",{schema:"asus019-authenticated-history-v1",nonce,endpoint:endpoint+"/",clientSha:receipt.clientSha,shopId,staffId,credentialVersion:7,actorA,actorB,extendedCases:true});
+ save("context.private.json",{schema:"asus019-authenticated-history-v2",nonce,endpoint:endpoint+"/",clientSha:receipt.clientSha,shopId,staffId,credentialVersion:7,actorA,actorB,extendedCases:true});
  phase="client_baselines";const client=start("client","dotnet",[join(clientRoot,"tests/Win7POS.Core.Tests/bin/Release/net10.0/Win7POS.Core.Tests.dll"),join(evidence,"context.private.json")],process.env);
  async function state(wanted){return until(async()=>{
   if(existsSync(join(evidence,"client-state.private.json"))){const state=JSON.parse(readFileSync(join(evidence,"client-state.private.json"),"utf8"));demand(state.nonce===nonce,"history_test_state_nonce");if(state.status==="FAIL"){receipt.clientFailure={phase:/^[a-z_]+$/.test(state.phase)?state.phase:"unknown",exception:/^[A-Za-z]+Exception$/.test(state.exception)?state.exception:"Exception",codes:[state.code,state.lastCode].filter(c=>/^(history|historical)_[a-z_]+$/.test(c))};throw Error("history_test_client_rejected");}if(state.phase===wanted)return state;}
@@ -118,9 +119,13 @@ try{
  demand(baseline.status===200&&baseline.body.ok===true&&baseline.body.result.rows.length===source.baselineCount,"history_test_browser_baseline");
  receipt.cases.push({id:"authenticated-original-baselines",status:"PASS",count:source.baselineCount});
  phase="independent_source_policy";
- sql(`INSERT INTO public.payment_history_evidence(evidence_id,shop_id,kind,verification_level,status,policy_version,reference,scope,actor_kind,actor_id,verified_at)
- SELECT gen_random_uuid(),m.shop_id,k.kind,'operator_attested','verified','synthetic-v1','Synthetic independent import policy',jsonb_build_object('merchant_id',m.merchant_id,'file_sha256',jsonb_build_array(${q(source.sourceSha)}),'from_ticks','0','to_ticks','3155378975999999999','native_start_ticks','638712864000000000'),'pos_staff_manager',${q(staffId)},clock_timestamp()
- FROM public.payment_history_merchants m CROSS JOIN(VALUES('native_start'),('legacy_currency')) k(kind) WHERE m.shop_id=${q(shopId)};`);
+ const approveSource=hash=>{
+  demand(/^[0-9a-f]{64}$/.test(hash),"history_test_policy_source_hash");
+  sql(`INSERT INTO public.payment_history_evidence(evidence_id,shop_id,kind,verification_level,status,policy_version,reference,scope,actor_kind,actor_id,verified_at)
+  SELECT gen_random_uuid(),m.shop_id,k.kind,'operator_attested','verified','synthetic-v1','Synthetic independent import policy',jsonb_build_object('merchant_id',m.merchant_id,'file_sha256',jsonb_build_array(${q(hash)}),'from_ticks','0','to_ticks','3155378975999999999','native_start_ticks','638712864000000000'),'pos_staff_manager',${q(staffId)},clock_timestamp()
+  FROM public.payment_history_merchants m CROSS JOIN(VALUES('native_start'),('legacy_currency')) k(kind) WHERE m.shop_id=${q(shopId)};`);
+ };
+ approveSource(source.sourceSha);
  save("client-control.private.json",{nonce,phase:"allow_local_apply"});
  phase="client_roundtrip";const published=await state("published");
  demand(published.status==="PASS_CORE_DATA_ROUNDTRIP"&&published.count===source.baselineCount+source.expected.length,"history_test_client_counts");
@@ -130,19 +135,29 @@ try{
  await until(async()=>{const text=await page.locator("body").innerText();return published.newIds.every(id=>text.includes(id));},65000);
  const result=await call("movements",{from_date:null,to_date:null,include_inactive:false,page_size:50,after:null});
  demand(result.status===200&&result.body.ok===true&&result.body.result.rows.length===published.count,"history_test_browser_final_count");
- const tuples=result.body.result.rows.map(r=>[r.external_namespace,r.external_id,r.business_ticks,r.gross_clp].join("|")).sort();
+ const tuples=result.body.result.rows.map(rowKey).sort();
  const actualSha=sha(tuples.join("\n"));demand(actualSha===published.factsSha,"history_test_browser_fact_mismatch");
  demand(Number(result.body.result.totals.matched_count)===published.count,"history_test_browser_total_mismatch");
  receipt.cases.push({id:"pos-a-server-open-admin-pos-b-pos-a",status:"PASS",count:published.count,factsSha256:actualSha});
  save("client-control.private.json",{nonce,phase:"admin_observed"});
- for(const name of ["duplicate","undo"]){
+ for(const name of ["duplicate","undo","correction"]){
+  if(name==="correction"){
+   phase="correction_source_ready";const prepared=await state(phase);demand(prepared.sourceSha!==source.sourceSha,"history_test_correction_source_reused");approveSource(prepared.sourceSha);save("client-control.private.json",{nonce,phase:"allow_correction_apply"});
+  }
   phase=name;const current=await state(name);demand(current.status==="PASS_CORE_DATA_CASE","history_test_extended_client_status");
-  const count=name==="duplicate"?published.count:source.baselineCount;demand(current.count===count,"history_test_extended_count");
+  const count=name==="undo"?source.baselineCount:published.count;demand(current.count===count,"history_test_extended_count");
   if(name==="undo")await until(async()=>{const text=await page.locator("body").innerText();return published.newIds.every(id=>!text.includes(id));},65000);
+  if(name==="correction")await until(async()=>{const text=await page.locator("body").innerText();return published.newIds.every(id=>text.includes(id));},65000);
   const view=await call("movements",{from_date:null,to_date:null,include_inactive:false,page_size:50,after:null});
   demand(view.status===200&&view.body.ok===true&&view.body.result.rows.length===count,"history_test_extended_browser_count");
-  const tuples=view.body.result.rows.map(r=>[r.external_namespace,r.external_id,r.business_ticks,r.gross_clp].join("|")).sort();
+  const tuples=view.body.result.rows.map(rowKey).sort();
   const factsSha256=sha(tuples.join("\n"));demand(factsSha256===current.factsSha,"history_test_extended_browser_facts");
+  if(name==="correction"){
+   const audit=await call("movements",{from_date:null,to_date:null,include_inactive:true,page_size:50,after:null});
+   demand(audit.status===200&&audit.body.ok===true,"history_test_correction_audit_unavailable");
+   const versions=audit.body.result.rows.filter(row=>published.newIds.includes(row.external_id));
+   demand(versions.length===2&&versions.filter(row=>row.active).length===1&&versions.filter(row=>!row.active).length===1,"history_test_correction_audit_versions");
+  }
   receipt.cases.push({id:name,status:"PASS",count,factsSha256});save("client-control.private.json",{nonce,phase:name+"_observed"});
  }
  phase="native_invariants";
@@ -150,7 +165,7 @@ try{
  demand(native==="0","history_test_native_mutation");
  const clientExit=await Promise.race([client.closed,delay(10000).then(()=>null)]);demand(clientExit?.code===0,"history_test_client_exit");
  await browser.close();browser=undefined;demand(await stopChildren(),"history_test_cleanup_forced");
- receipt.status="PASS_CORE_DATA_ADMIN_ROUNDTRIP_DUPLICATE_UNDO";receipt.stage="complete";save("authenticated-history.json",receipt);
+ receipt.status="PASS_CORE_DATA_ADMIN_ROUNDTRIP_DUPLICATE_UNDO_CORRECTION";receipt.stage="complete";save("authenticated-history.json",receipt);
  console.log("authenticated_history_roundtrip_pass");
 }catch(error){
  if(browser)try{await browser.close();}catch{}

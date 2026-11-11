@@ -3,7 +3,7 @@ import {projectBaselineSqlResult} from "./local-baseline-contract";
 import {closedHistoryObject as closed,historyObject} from "./replica-contract";
 
 export type BaselineSourceStorage={
- info(path:string):Promise<{data:unknown;error:{status?:number}|null}>;
+ info(path:string):Promise<{data:unknown;error:{status?:number;statusCode?:string;name?:string}|null}>;
  createSignedUploadUrl(path:string,options:{upsert:boolean}):Promise<{data:{signedUrl:string}|null;error:unknown}>;
 };
 const fail=():never=>{throw Error("history_baseline_upload_target_invalid");};
@@ -31,7 +31,11 @@ export async function baselineSourceExists(value:unknown,scope:{shopId:string;de
  // Presence recovers a lost PUT ACK, never source validity. The unchanged
  // verification worker must still download and hash the original object.
  if(info.error===null&&historyObject(info.data))return true;
- if(info.data!==null||info.error?.status!==404)return fail();
+ // Storage's actual object-info endpoint can wrap its machine-readable404
+ // in HTTP400. Admit that specific SDK error; other400/auth/network failures
+ // remain failures rather than being reinterpreted as a missing source.
+ const missing=info.error?.status===404||info.error?.status===400&&info.error.statusCode==="404"&&info.error.name==="StorageApiError";
+ if(info.data!==null||!missing)return fail();
  return false;
 }
 export async function baselineUploadTarget(value:unknown,scope:{shopId:string;deviceId:string},storage:BaselineSourceStorage,storageOrigin:string){
