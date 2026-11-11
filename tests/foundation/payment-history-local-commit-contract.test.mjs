@@ -38,7 +38,8 @@ test("prepare binds operation kind, digest, dataset, restore and writer epoch be
   assert.throws(()=>c.validateLocalCommitRequest("local_prepare",changed));
 });
 test("delivery and receipt lookup do not mint another mutation grant",()=>{
- const p={operation_id:operation,grant_id:id,content_digest:content,local_revision:"13",local_sequence:"1",local_receipt_json:'{"SignedAmountClp":9223372036854775807}'};
+ const receipt='{"OperationId":"'+operation.replaceAll('-','')+'","OperationKind":"Undo","BatchId":"retained-local-batch","InsertedCount":1,"DuplicateCount":0,"RejectedCount":0,"SignedAmountClp":9223372036854775807,"CorrectionCount":0,"CorrectionApprovals":[]}';
+ const p={operation_id:operation,grant_id:id,content_digest:content,local_revision:"13",local_sequence:"1",local_receipt_json:receipt};
  assert.equal(c.validateLocalCommitRequest("local_deliver",p).local_receipt_json,p.local_receipt_json);
  assert.equal(c.validateLocalCommitRequest("local_receipt",{operation_id:operation,content_digest:content}).operation_id,operation);
  assert.throws(()=>c.validateLocalCommitRequest("local_receipt",{operation_id:operation,content_digest:content,grant_id:id}));
