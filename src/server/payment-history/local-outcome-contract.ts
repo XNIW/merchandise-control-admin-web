@@ -35,7 +35,7 @@ export function validateLocalOutcomeWitness(raw:unknown,scope:LocalOutcomeScope=
  if(typeof raw!=="string"||Buffer.byteLength(raw,"utf8")<1||Buffer.byteLength(raw,"utf8")>LOCAL_OUTCOME_MAX_BYTES)throw Error("history_local_witness_limit");
  const w=object(parseReceiptJson(raw));integer(w.schema_version,BigInt("1"),BigInt("1"));
  if(!["committed","aborted"].includes(String(w.outcome))||!["Apply","Undo"].includes(String(w.operation_kind)))return fail();
- if(typeof w.local_dataset_id!=="string"||w.local_dataset_id.length<1||w.local_dataset_id.length>256)return fail();
+ if(typeof w.local_dataset_id!=="string"||w.local_dataset_id.length<1||w.local_dataset_id.length>256||w.local_dataset_id.includes("\0"))return fail();
  for(const k of ["local_nonce","operation_id","shop_id","device_id","server_dataset_id","restore_lineage_id"])uuid(w[k]);
  for(const k of ["content_digest","request_fingerprint"])digest(w[k]);
  for(const k of ["restore_epoch","base_revision","local_revision","local_sequence"])revision(w[k]);
