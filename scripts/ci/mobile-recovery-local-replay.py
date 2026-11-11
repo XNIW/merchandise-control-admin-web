@@ -18,6 +18,7 @@ NATIVE_EMPTY = '20261108051044_asus_019_native_empty_catalog_scope.sql'
 NATIVE_EMPTY_SHA = 'af69667d6e8e9988a833c4cb2b818c4378061cbc6869c4821b29aa5e64e379ce'
 NATIVE_EMPTY_BODY_MD5 = '9622c4d3a4c793a7803d730b8a8c51d4'
 REVIEWED_EXTENSIONS = {
+    '20261111014055_payment_history_device_baseline_pipeline_v2.sql': {'sha256':'5ba873dace7d9b76b75c47fb37c8783222043d12823c21f41085186c1e01973c','additionalAssertions':32,'testFile':'supabase/tests/asus019_payment_history_device_baseline_pipeline.sql'},
     '20261111013002_payment_history_local_baseline_context_v2.sql': {'sha256':'c2232e4771829c202c37b06c0b64d3279ce8c733a59be44da591a938e0365d31','additionalAssertions':20,'testFile':'supabase/tests/asus019_payment_history_local_baseline_context.sql'},
     '20261110234619_payment_history_local_owner_resolution_v2.sql': {'sha256':'506ea6f6cd04650e9a6e5d53e735c33f2c7561eede5a4165b7a06ac7ab61e683','additionalAssertions':20,'testFile':'supabase/tests/asus019_payment_history_owner_resolution.sql'},
     '20261110225640_staff_web_sync_marker_permission_domains.sql': {'sha256':'e9af34c253824e34faa17c73e83d8f7461bae487b15a9754febe4eab5773bf9c','additionalAssertions':20,'testFile':'supabase/tests/asus019_staff_marker_domains.sql'},
