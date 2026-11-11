@@ -23,6 +23,14 @@ const rowKey=r=>[r.external_namespace,r.external_id,r.business_ticks,r.gross_clp
 const save=(file,value)=>{const path=join(evidence,file),temporary=path+".tmp";writeFileSync(temporary,JSON.stringify(value),{mode:0o600});renameSync(temporary,path);};
 let phase="ownership",browser,inspectFailure;const children=[];
 const receipt={status:"FAIL",syntheticOnly:true,loopbackOnly:true,coverage:"authenticated Core/Data HTTP services and real Admin browser; WPF hardware not claimed",cases:[]};
+function logClosedReport(){
+ // Same redacted report as the artifact, never the private context or logs.
+ // Keep the original test outcome when the secondary export is unavailable.
+ const bytes=JSON.stringify(receipt);
+ if(Buffer.byteLength(bytes,"utf8")>65536){console.error("authenticated_history_closed_report_capacity");return;}
+ console.log("ASUS019_CLOSED_REPORT:"+bytes);
+ console.log("ASUS019_CLOSED_REPORT_SHA256:"+sha(bytes));
+}
 function command(program,argv,cwd=root,env=process.env,timeout=120000){
  const result=spawnSync(program,argv,{cwd,env,encoding:"utf8",timeout,maxBuffer:8*1024*1024});
  demand(result.status===0&&!result.error,"history_test_command_failed");return result.stdout;
@@ -283,10 +291,12 @@ try{
  const clientExit=await Promise.race([client.closed,delay(10000).then(()=>null)]);demand(clientExit?.code===0,"history_test_client_exit");
  await browser.close();browser=undefined;demand(await stopChildren(),"history_test_cleanup_forced");
  receipt.status="PASS_CORE_DATA_BILATERAL_ADMIN_ORIGIN_RESTART_REVOCATION_CONFLICT_RECOVERY_LOCKS";receipt.stage="complete";save("authenticated-history.json",receipt);
+ logClosedReport();
  console.log("authenticated_history_roundtrip_pass");
 }catch(error){
  if(inspectFailure)try{receipt.protocolState=inspectFailure();}catch{receipt.protocolStateProbe="unavailable";}
  if(browser)try{await browser.close();}catch{}
  await stopChildren();receipt.stage=phase;receipt.code=/^history_test_[a-z_]+$/.test(error?.message??"")?error.message:"history_test_unexpected";save("authenticated-history.json",receipt);
+ logClosedReport();
  console.error("authenticated_history_failed:"+phase+":"+receipt.code);process.exitCode=1;
 }
