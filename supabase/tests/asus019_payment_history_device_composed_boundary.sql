@@ -37,7 +37,7 @@ $$;
 create function pg_temp.upload_payload() returns jsonb language sql as $$
  select jsonb_build_object('request_key','a0000000-0000-4000-8000-000000403019','file_name','synthetic.w7history.zip','sha256',repeat('a',64),'byte_length','1234');
 $$;
-select ok(not has_function_privilege('service_role','public.payment_history_device_v2(uuid,uuid,uuid,uuid,text,text,integer,text,jsonb)','EXECUTE'),'incomplete composition has no public grant');
+select ok(not has_function_privilege('service_role','app_private.payment_history_local_baseline_transfer_v2(uuid,uuid,uuid,uuid,text,text,integer,text,jsonb)','EXECUTE'),'private transfer helper cannot bypass the authenticated public boundary');
 select ok((select relrowsecurity from pg_class where oid='app_private.payment_history_baseline_upload_intents'::regclass),'private mapping also has RLS');
 select lives_ok($$insert into state values('first',pg_temp.baseline_request(1,'upload_create',pg_temp.upload_payload()))$$,'first upload admission uses the existing engine');
 select is(pg_temp.baseline_request(1,'upload_create',pg_temp.upload_payload()),(select value from state where key='first'),'lost response returns the original owned upload');
@@ -140,6 +140,19 @@ select throws_ok($$select pg_temp.composed('a-new','local_deliver','{}')$$,'2202
 select lives_ok($$insert into state values('public-baseline-a',pg_temp.admit_baseline(1))$$,'device A baseline uses actual upload intent, worker, review and Apply');
 select lives_ok($$insert into state values('public-baseline-b',pg_temp.admit_baseline(2))$$,'device B has its independently verified original baseline');
 select is((select count(*) from public.payment_history_local_writer_contexts where source_snapshot_id is not null),2::bigint,'both actual baseline contexts are bound');
+-- The publication corpus explicitly approves these synthetic source files.
+-- Baseline merchant evidence is carried by the real baseline engine; the
+-- independent new import still requires its own existing policy evidence.
+do $$declare hashes jsonb;begin
+ select jsonb_agg(distinct rec#>>'{fields,sha256}') into hashes from corpus c,jsonb_array_elements(c.value->'cases') x,
+  jsonb_array_elements(x->'pages') page,jsonb_array_elements((page->>'page_json')::jsonb) rec where rec->>'kind'='file';
+ insert into public.payment_history_evidence(evidence_id,shop_id,kind,verification_level,status,policy_version,reference,scope,actor_kind,actor_id,verified_at)
+ select gen_random_uuid(),m.shop_id,k.kind,'operator_attested','verified','synthetic-v1','Synthetic verified corpus policy',
+  jsonb_build_object('merchant_id',m.merchant_id,'file_sha256',hashes,'from_ticks','0','to_ticks','3155378975999999999','native_start_ticks','638712864000000000'),
+  'pos_staff_manager','30000000-0000-4000-8000-000000403019',clock_timestamp()
+ from public.payment_history_merchants m cross join(values('native_start'),('legacy_currency')) k(kind)
+ where m.shop_id='10000000-0000-4000-8000-000000403019';
+end;$$;
 select lives_ok($$select pg_temp.stage_public('a-new')$$,'authenticated boundary prepares and stages CLR content with immutable nonce');
 select lives_ok($$insert into state values('public-review',pg_temp.review_public('a-new'))$$,'public review delegates to actual bounded economic review');
 select lives_ok($$insert into state select 'public-grant',pg_temp.composed('a-new','local_authorize',jsonb_build_object('operation_id',x->>'operation_id','content_digest',x->>'content_digest','review_token',(select value->>'review_token' from state where key='public-review'))) from pg_temp.case_input('a-new') x$$,'public authorization binds exact reviewed root');
