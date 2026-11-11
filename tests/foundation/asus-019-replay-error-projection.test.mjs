@@ -51,7 +51,7 @@ assert value['categories']==['AMBIGUOUS_IDENTIFIER','UNASSIGNED_RECORD']
 assert 'PRIVATE_SENTINEL' not in json.dumps(value) and 'payment_history_private_sentinel' not in json.dumps(value)
 for code in ['payment_history_local_correction_unverified','payment_history_local_receipt_mismatch','payment_history_local_delivery_reconciliation_required',
  'payment_history_local_witness_invalid','payment_history_local_witness_required','payment_history_local_witness_conflict','payment_history_local_witness_context_changed',
- 'payment_history_local_intent_conflict','payment_history_local_intent_unregistered','payment_history_local_intent_immutable','payment_history_local_commit_exists','payment_history_local_baseline_alias_conflict','payment_history_baseline_upload_immutable']:
+ 'payment_history_local_intent_conflict','payment_history_local_intent_unregistered','payment_history_local_intent_immutable','payment_history_local_commit_exists','payment_history_local_baseline_alias_conflict','payment_history_baseline_upload_immutable','payment_history_baseline_recovery_invalid','payment_history_baseline_recovery_conflict','payment_history_baseline_recovery_immutable']:
  value=m.closed_pgtap_diagnostics(('ERROR: '+code+' password=PRIVATE_SENTINEL').encode(),b'',{'fixture.sql'})
  assert value['domainCodes']==[code] and 'PRIVATE_SENTINEL' not in json.dumps(value)
 print('closed-pgtap-projection PASS')
