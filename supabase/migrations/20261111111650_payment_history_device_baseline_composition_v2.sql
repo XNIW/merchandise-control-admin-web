@@ -118,7 +118,9 @@ create function app_private.payment_history_local_baseline_flow_v2(p_shop uuid,p
 language plpgsql volatile set search_path='' as $$
 declare actor jsonb;begin
  if p_operation='context' then
-  return app_private.payment_history_local_baseline_context_v2(p_shop,p_device,p_staff,p_session,p_device_hash,p_session_hash,p_version,p_payload);
+  return jsonb_build_object('ok',true,'shop_id',p_shop,'actor',jsonb_build_object('kind','pos_staff_manager','id',p_staff,
+   'session_id',p_session,'credential_version',p_version),'result',
+   app_private.payment_history_local_baseline_context_v2(p_shop,p_device,p_staff,p_session,p_device_hash,p_session_hash,p_version,p_payload));
  end if;
  if p_operation='review' then
   actor:=app_private.payment_history_local_device_actor_v2(p_shop,p_device,p_staff,p_session,p_device_hash,p_session_hash,p_version,'migrate');
