@@ -83,7 +83,7 @@ select ok(not has_function_privilege('service_role','app_private.payment_history
 select ok(not has_function_privilege('authenticated','app_private.payment_history_local_review_movement_v2(uuid,integer,integer)','EXECUTE'),'browser cannot classify a caller-supplied movement');
 select ok(not has_table_privilege('service_role','public.payment_history_local_reviews','INSERT'),'review cache cannot be fabricated through table access');
 select ok((select relrowsecurity from pg_class where oid='public.payment_history_local_reviews'::regclass),'review cache has RLS');
-select lives_ok($$select pg_temp.stage_case('a-duplicate')$$,'real CLR duplicate bytes stage successfully');
+select is(pg_temp.stage_case('a-duplicate'),(select (x->>'operation_id')::uuid from corpus c,jsonb_array_elements(c.value->'cases') x where x->>'name'='a-duplicate'),'real CLR duplicate bytes stage successfully');
 insert into state values('a-duplicate',pg_temp.review_case('a-duplicate'));
 select is((select value->>'state' from state where key='a-duplicate'),'reviewed','one bounded page reaches reviewed without a grant');
 select is((select local_duplicates from public.payment_history_local_reviews where operation_id=(select (value->>'operation_id')::uuid from state where key='a-duplicate')),1,'local duplicate classified from actual baseline');
