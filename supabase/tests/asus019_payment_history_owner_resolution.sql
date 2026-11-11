@@ -57,11 +57,13 @@ select throws_ok($$select pg_temp.target('{"previous_local_batch_id":"baseline",
 update public.payment_history_local_writer_contexts set restore_lineage_id='50000000-0000-4000-8000-000000103020' where shop_id='10000000-0000-4000-8000-000000103019';
 select throws_ok($$select pg_temp.target()$$,'40001','payment_history_local_context_unverified','an old preparation cannot borrow a restored context');
 update public.payment_history_local_writer_contexts set restore_lineage_id='50000000-0000-4000-8000-000000103019' where shop_id='10000000-0000-4000-8000-000000103019';
-update public.payment_history_movement_versions set active=true where movement_version_id='e0000000-0000-4000-8000-000000103019';
-select throws_ok($$select pg_temp.target()$$,'40001','payment_history_local_correction_owner_unverified','an active financial version cannot be corrected through inactive recovery');
-update public.payment_history_movement_versions set active=false where movement_version_id='e0000000-0000-4000-8000-000000103019';
+insert into public.payment_history_batches(batch_id,shop_id,origin,apply_operation_id,created_revision)
+ values('d4000000-0000-4000-8000-000000103019','10000000-0000-4000-8000-000000103019','local_migration','d5000000-0000-4000-8000-000000103019',2);
 insert into public.payment_history_movement_versions(movement_version_id,shop_id,merchant_id,external_namespace,external_id,identity_key,economic_digest,business_ticks,business_date,gross_clp,movement_kind,transaction_state,transaction,owner_batch_id,created_revision,active,supersedes_version_id)
- select 'e2000000-0000-4000-8000-000000103019',shop_id,merchant_id,external_namespace,external_id,identity_key,economic_digest,business_ticks,business_date,gross_clp,movement_kind,transaction_state,transaction,owner_batch_id,2,false,movement_version_id from public.payment_history_movement_versions where movement_version_id='e0000000-0000-4000-8000-000000103019';
+ select 'e2000000-0000-4000-8000-000000103019',shop_id,merchant_id,external_namespace,external_id,identity_key,economic_digest,business_ticks,business_date,gross_clp,movement_kind,transaction_state,transaction,'d4000000-0000-4000-8000-000000103019',2,true,movement_version_id from public.payment_history_movement_versions where movement_version_id='e0000000-0000-4000-8000-000000103019';
+select throws_ok($$select pg_temp.target()$$,'40001','payment_history_local_correction_owner_unverified','an active financial version cannot be corrected through inactive recovery');
+update public.payment_history_movement_versions set active=false where movement_version_id='e2000000-0000-4000-8000-000000103019';
+update public.payment_history_batches set state='cancelled',cancelled_revision=3,cancelled_at=clock_timestamp() where batch_id='d4000000-0000-4000-8000-000000103019';
 select throws_ok($$select pg_temp.target()$$,'40001','payment_history_local_correction_owner_unverified','a newer inactive correction prevents superseding an older version');
 select throws_ok($$select pg_temp.target('{"previous_transaction_id":"2"}')$$,'40001','payment_history_local_correction_owner_unverified','newer versions never turn a duplicate observation into ownership');
 select is((select count(*) from public.payment_history_receipts where shop_id='10000000-0000-4000-8000-000000103019'),0::bigint,'ownership lookup creates no economic receipt');
