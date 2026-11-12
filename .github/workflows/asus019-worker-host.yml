@@ -2,6 +2,9 @@ name: ASUS019 Windows history worker host
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - codex/asus019-history-worker-host
 
 permissions:
   contents: read
