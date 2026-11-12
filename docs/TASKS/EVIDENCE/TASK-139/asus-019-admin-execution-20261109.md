@@ -168,3 +168,80 @@ Le prime failure dei run42741667088/42742080558/42743059586/42744052484/
 Questo PASS riguarda B; non viene trasferito al futuro codice C o alla prova live.
 
 Artifact13732536171 complete.json: 70 file pgTAP, 4462 assertion PASS; replay byte esatto true.
+
+## C1–C5 in ramo successivo
+
+B/C0 congelati per review in PR149, head4a8d77a. La continuazione C1–C5 usa il
+ramo codex/asus019-cloud-payment-history dallo stesso checkout isolato, senza
+aggiungere modifiche al pacchetto Windows5d8e704. Base della futura PR:
+codex/asus019-admin-operations-history-physical. Unico task ASUS019 in Execution.
+Il nuovo ramo non dichiara gate propri prima dei comandi effettivi.
+
+
+## C1 — ledger e transazioni, candidata da verificare
+
+C0 head4a8d77a: CI42748533266 e Cloudflare42748533370 SUCCESS, nessun deploy.
+Nuovo ledger additivo separato da vendite native/stock/outbox: upload immutabili,
+prove versionate, alias/canonical merchant, staging fenced, batch/versioni,
+osservazioni duplicate senza trasferimento ownership, ricevute e revisioni.
+Runtime nasce con writer local; nessuna attivazione web automatica. RPC chiuse
+con sessione personale corrente oppure lease staff ricontrollata nella transazione
+e deadline prima del publish. Configurazione grant/prove riservata al legal owner;
+full_access staff non promuove prove provider né cambia i grant del ruolo.
+Commit idempotente vincolato a shop/actor/key/digest e review revision/epoch;
+undo produce solo tombstone dei movimenti posseduti dal batch. Nessuna Apply reale.
+
+22 prove planner PASS. Nuovo oracolo CLR eseguito dagli assembly qualificati5d:
+identità alias, tick100ns e fingerprint economici dei cinque movimenti sintetici
+uguali al web. Prima failure ha evidenziato digest non legato alla posizione
+sorgente: corretto includendo payload completo, binding e correzioni. Failure
+fixture cross-realm corretta normalizzando l'array, valori attesi invariati.
+Typecheck PASS.46 pgTAP aggiunti al replay byte-esatto; SQL non ancora qualificato.
+Worker/UI/migrazione/replica/cutover rimangono in implementazione nella stessa
+Execution; tutte le verifiche desktop rimandate alla presenza dell'utente.
+
+C1 CI42752287697: Verify PASS, SQL migration applicata ma pgTAP FAIL; prima
+receipt conservata. Il controllo RLS considerava anche gli indici, che non sono
+tabelle: corretto filtrando relkind=r, senza cambiare policy. Diagnostica estesa
+alle sole assertion number del reporter compatto pg_prove. Nuovo upload in due
+fasi: browser uploaded non significa verified; checksum in worker con lease/fence.
+Operatore import può attestare mapping/CLP/primo uso; grant ruolo e verifica
+provider documentata rimangono protetti owner-only. Nessuna promozione automatica.
+
+
+## C2 — UI e worker dedicato, nuova candidata
+
+C1 head63671a6: CI42753236951 Database/Verify PASS, Cloudflare42753236956
+SUCCESS.47 nuove assertion SQL oltre ai test precedenti, nessuna azione live.
+La nuova candidata amplia a66 le prove SQL: doppio export nuovi=0, ownership
+invariata, undo duplicate-only=0, sessione personale/RLS/scadenza/profilo
+disabilitato, ripresa sotto login fresco con invalidazione review precedente.
+Digest review ora include actor/session/version; replay da rieseguire su questo head.
+
+Workbench tre passaggi /shop/payment-history, menu derivato dalla capability
+finanziaria effettiva, IT/ES/EN/ZH, tastiera e focus. Upload firmato privato,
+checksum in worker Node separato, job fenced, status, preview prove persistite,
+commit singolo e lookup receipt dopo incertezza. Moderni irrisolti conservano
+entrambi gli intervalli e merchant metadata, zero candidati finanziari staged.
+Nomi simili non fondono canonical merchant; grant e verifica provider protetti.
+Reader paginato e download della sola pagina; undo solo esplicito del batch.
+
+21 test boundary/API e10 worker PASS;95 mirati complessivi PASS includono parser,
+planner e contratti security/i18n.8 Playwright component PASS con React DOM/HTTP
+intercettato e dati sintetici: non una sessione Admin autenticata E2E. Primo test
+reload fallito perché la fixture sovrascriveva lo stato ad ogni apertura: fix della
+fixture, receipt originale riusata senza secondo Apply. Successivo recupero URL
+PASS, nessun uso di persistenza browser. Copie e label IT/ES/ZH e axe critical PASS.
+
+Security prima FAIL per import client da percorso server: regole temporali pure
+spostate nel modulo lib condiviso, server reexport e corpus immutati. Security
+PASS successivo. Foundation completa iniziale1401:1391 PASS/3 FAIL/7 SKIP: guard
+server-boundary già corretto, storage browser eliminato senza eccezioni al guard,
+metadata localizzata aggiunta.95 mirati PASS successivi; completa da rieseguire
+sul tree congelato. Typecheck e lint PASS; build precedente PASS, nuova build
+dopo recupero URL ancora da eseguire. Worker bundle costruito con toolchain
+locked993223byte; nessuna nuova dipendenza/provisioning/deploy/SQL live.
+
+C3–C5 restano in implementazione. Creato worktree Windows isolato dal commit
+0378e17; nessuna modifica al candidato5d8e704, all'installato a8286c6 o al profilo.
+Nessuna installazione/UAC/accesso operatore questa notte.

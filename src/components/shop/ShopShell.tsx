@@ -146,6 +146,7 @@ function ShopNavigationIcon({ itemKey }: { itemKey: ShopSectionKey }) {
     viewBox: "0 0 24 24",
   };
   const paths: Record<ShopSectionKey, ReactNode> = {
+    paymentHistory: <><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h4"/></>,
     afterSales: (
       <>
         <path d="M6 4h12v16H6z" />

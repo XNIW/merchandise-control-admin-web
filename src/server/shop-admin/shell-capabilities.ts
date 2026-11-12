@@ -12,7 +12,7 @@ const pagePermissions: Record<ShopSectionKey, readonly ShopAdminPermission[]> = 
   suppliers: ["suppliers.read"], storefront: ["storefront.view"], orders: ["orders.view"],
   afterSales: ["orders.manage"], reviews: ["storefront.audit.view"], courier: ["orders.delivery.track"],
   importExport: ["catalog.import", "catalog.export"], sync: ["history.read", "sync.manage"],
-  history: ["history.read"], members: ["members.view"], roles: ["staff.view"],
+  history: ["history.read"], paymentHistory: [], members: ["members.view"], roles: ["staff.view"],
   staff: ["staff.view"], pos: ["pos.dashboard.read"], devices: ["devices.read"],
   settings: ["settings.read"], audit: ["audit.read"],
 };

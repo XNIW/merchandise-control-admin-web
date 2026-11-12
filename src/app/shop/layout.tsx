@@ -13,6 +13,8 @@ import {
 } from "@/i18n/translate-sections";
 import { resolveShopAdminDataAccess } from "@/server/shop-admin/data-access";
 import { shopShellIdentity, visibleShopNavigation } from "@/server/shop-admin/shell-capabilities";
+import {historyRequest} from "@/server/payment-history/request-boundary";
+import {paymentHistoryCopy} from "@/i18n/payment-history";
 
 export const dynamic = "force-dynamic";
 
@@ -69,6 +71,19 @@ export default async function ShopLayout({ children }: { children: ReactNode }) 
     "Mobile history sessions and sync-related catalog activity.",
   );
   const visibleNavigationSections = visibleShopNavigation(access, shopNavigationSections);
+  const historyCopy=paymentHistoryCopy(locale);
+  if(!(principal.kind==="pos_staff_manager"&&principal.roleKey==="courier")){
+    try{
+      const result=await historyRequest(access,"capabilities");
+      if(result.capabilities&&typeof result.capabilities==="object"&&(result.capabilities as {read?:unknown}).read===true){
+        const group=visibleNavigationSections.find(section=>section.key==="pos_staff");
+        const item={key:"paymentHistory" as const,label:historyCopy.title,href:"/shop/payment-history"};
+        if(group)group.items.push(item);else visibleNavigationSections.push({key:"payment_history",label:historyCopy.title,items:[item]});
+      }
+    }catch{/* A genuinely unavailable financial reader does not block other pages. */}
+  }
+  sectionTitles.paymentHistory=historyCopy.title;
+  sectionDescriptions.paymentHistory=historyCopy.description;
   const identity = shopShellIdentity(access);
   const courierOnly =
     principal.kind === "pos_staff_manager" && principal.roleKey === "courier";

@@ -18,6 +18,7 @@ NATIVE_EMPTY = '20261108051044_asus_019_native_empty_catalog_scope.sql'
 NATIVE_EMPTY_SHA = 'af69667d6e8e9988a833c4cb2b818c4378061cbc6869c4821b29aa5e64e379ce'
 NATIVE_EMPTY_BODY_MD5 = '9622c4d3a4c793a7803d730b8a8c51d4'
 REVIEWED_EXTENSIONS = {
+    '20261110032142_payment_history_cloud_ledger_v1.sql': {'sha256':'0fb57fc06dda53c404647373322291ac85a1ab55aec1046b802ce4eb63973f83','additionalAssertions':66,'testFile':'supabase/tests/asus019_payment_history_ledger.sql'},
     '20261110022056_asus019_staff_mobile_device_reads.sql': {'sha256':'336bb7611b21235ea3a6cde9e7c8283e8b94c5c2edfadfee6eca5f3e9cb8891e','additionalAssertions':25,'testFile':'supabase/tests/asus019_staff_mobile_operations_read.sql'},
     '20261110020325_asus019_staff_operations_read.sql': {'sha256':'2b4c17b47f5f27e767224204f4d3fd694afb835903bdb09baa9ad8968b909e86','additionalAssertions':31,'testFile':'supabase/tests/asus019_staff_operations_read.sql'},
     '20261110012505_asus019_staff_operational_reads.sql': {
@@ -104,13 +105,24 @@ def closed_pgtap_diagnostics(stdout, stderr, known):
     for match in re.finditer(r'psql:[^\r\n]*?([A-Za-z0-9_-]+\.sql):(\d+):\s+ERROR:', source):
         if match[1] in known:
             locations.add((match[1], int(match[2])))
-    failures = sorted({int(m[1]) for m in re.finditer(r'(?m)^\s*(?:#\s*)?not ok\s+(\d+)\b', source)})
+    failure_numbers = {int(m[1]) for m in re.finditer(r'(?m)^\s*(?:#\s*)?not ok\s+(\d+)\b', source)}
+    # pg_prove's compact reporter omits TAP assertion bodies on normal failures.
+    # Keep only finite assertion numbers from its summary; never assertion text.
+    for match in re.finditer(r'Failed tests?:\s*([0-9, \t-]+)', source):
+        for token in re.findall(r'\d+(?:-\d+)?', match[1]):
+            ends = [int(value) for value in token.split('-')]
+            if len(ends) == 1 and 0 < ends[0] <= 10000:
+                failure_numbers.add(ends[0])
+            elif len(ends) == 2 and 0 < ends[0] <= ends[1] <= 10000 and ends[1] - ends[0] <= 100:
+                failure_numbers.update(range(ends[0], ends[1] + 1))
+    failures = sorted(failure_numbers)
     files = sorted({name for name in known if re.search(r'\b' + re.escape(name) + r'\b', source)})
     categories = [category for pattern, category in (
         (r'violates check constraint', 'CHECK_CONSTRAINT'), (r'violates not-null constraint', 'NOT_NULL_CONSTRAINT'),
         (r'duplicate key value', 'UNIQUE_CONSTRAINT'), (r'column .+ does not exist', 'MISSING_COLUMN'),
         (r'function .+ does not exist', 'MISSING_FUNCTION'), (r'permission denied', 'PERMISSION_DENIED'),
         (r'syntax error', 'SYNTAX_ERROR'), (r'Bad plan|planned \d+ tests but ran', 'TEST_PLAN_MISMATCH'),
+        (r'Failed tests?:', 'ASSERTION_FAILURE'),
     ) if re.search(pattern, source, re.I)]
     return {'status':'FAIL', 'testFiles':files, 'sqlLocations':[{'file':name,'line':line} for name,line in sorted(locations)],
             'failedAssertionNumbers':failures, 'categories':categories or ['UNCLASSIFIED_PGTAP_FAILURE']}
