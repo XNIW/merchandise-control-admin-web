@@ -46,28 +46,11 @@ Advisors dopo DDL conservati come inventario: [RLS senza policy](https://supabas
 
 ## Diagnostica del trasferimento — stessa Execution, 12 novembre
 
-Il client248 resta installato e qualificato. La baseline reale è ferma prima del
-PUT Storage: archivio/backup verificati, upload pending e zero movimenti cloud.
-La dashboard aggiornata mostra Healthy; nel rapporto Storage si osservano
-controlli object-info400 e creazioni signed-upload200, nessun PUT nella finestra
-17:02–18:02 Santiago. Questi dati non dimostrano ancora la causa.
+Il client248 resta installato e qualificato. Baseline reale upload_created: archivio/backup verificati, oggetto Storage assente, zero movimenti cloud. Dashboard aggiornata Healthy; nella finestra17:02–18:02 Santiago Storage mostra object-info400 e signed-upload200, nessun PUT. Causa ancora non dimostrata.
 
-Successore server basato su5ff8577: registra soltanto fase, codice chiuso, durata
-e request ID server in caso di errore source. Il callback di osservazione non
-può cambiare l’esito; nessun header, URL firmato, credenziale, archivio o identità
-attore entra nel log. Risposte HTTP, timeout15s, doppia autenticazione, hash,
-vincoli origine/oggetto, non-overwrite e verifica Worker restano invariati.
+Il successore server registra nei soli errori source fase, codice chiuso e durata nel campo stage del logger route-rejection esistente, che conserva envelope e request ID generato dal server. La sua implementazione e la sua guardia rimangono esatte rispetto5ff8577; nessuna nuova emissione console o allowlist. Callback e guasti del logger non cambiano l’esito. Nessun header, URL firmato, credenziale, contenuto o identità economica entra nel log. Risposte HTTP, timeout15s, doppia autenticazione, hash, origine/oggetto, non-overwrite e verifica Worker invariati.
 
-Test mirati27/27 (trasferimento e guardia sicurezza), typecheck e lint mirato
-PASS. Primo foundation1651PASS/1FAIL/7SKIP conservato: emissione console fuori
-dal canale centralizzato. Spostata nel helper route già previsto, senza cambiare
-la allowlist o il test. Nuovo foundation completo in corso; CI/Cloudflare e
-pubblicazione del successore NOT_RUN. Nessun nuovo
-installer Windows o DDL richiesto da questo delta. FAIL locali iniziali del
-nuovo test conservati: confronto oggetti fra realm VM, poi TypeError fra realm;
-normalizzati gli oggetti nel test e classificato il nome standard dell’errore,
-senza interpretare testo arbitrario come codice noto. Nessun DONE.
-
+Validazione finale locale: foundation1653PASS/0FAIL/7SKIP (1660totali),41/41mirati inclusi i controlli sicurezza, scanner sicurezza/typecheck/lint mirato PASS. FAIL intermedi conservati: due confronti VM, poi TypeError fra realm; primo foundation1651/1/7 per console fuori canale e secondo1632/21/7 per nuova dipendenza del logger condiviso e corpo non identico. Risolto riusando il sink originale senza modificarlo né cambiare assert/allowlist. La prima CI43308989789/Cloudflare43308989713 di eb26 conserva il relativo FAIL; nuovo sorgente congelato e gate propri necessari prima del deploy. Nessun DDL o installer Windows per questo delta, nessun DONE.
 
 <details>
 <summary>Checkpoint precedente171130Z conservato come storia</summary>

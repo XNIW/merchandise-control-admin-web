@@ -4,7 +4,6 @@ import {createHash} from 'node:crypto';
 import {load} from './helpers/payment-history-harness.mjs';
 const c=load('src/server/payment-history/baseline-source-transfer.ts');
 const diagnostic=load('src/server/payment-history/baseline-source-diagnostic.ts');
-const routeAudit=load('src/app/api/pos/_shared/pos-route-security.ts');
 const id=n=>`${n}0000000-0000-4000-8000-000000000019`;
 const bytes=Buffer.from('synthetic transport bytes; archive validity remains a worker check');
 const sha=createHash('sha256').update(bytes).digest('hex');
@@ -103,11 +102,8 @@ test('failure metadata retains only closed codes and phases, never arbitrary exc
  assert.equal(diagnostic.historySourceFailureAudit(new TypeError('synthetic-secret-019'),'put_storage_source',2).code,'history_source_network_or_runtime');
  assert.equal(diagnostic.historySourceFailureAudit(Error('auth_denied'),'synthetic-secret-019',2).phase,'unknown');
 });
-test('the server emitter accepts only its generated correlation ID and a broken log sink cannot replace a response',()=>{
- const rows=[],requestId='posreq_10000000-0000-4000-8000-000000000019';
- routeAudit.emitPosHistorySourceFailureAudit({serverRequestId:requestId},Error('history_baseline_upload_target_invalid'),'prepare_storage_target',5,row=>rows.push(JSON.parse(row)));
- assert.deepEqual(rows,[{event:'history.source.failure',phase:'prepare_storage_target',code:'history_baseline_upload_target_invalid',elapsed_ms:5,requestId}]);
- routeAudit.emitPosHistorySourceFailureAudit({serverRequestId:'synthetic-secret-019'},Error('synthetic-secret-019'),'read_source',1,row=>rows.push(JSON.parse(row)));
- assert.equal(Object.hasOwn(rows[1],'requestId'),false);assert.equal(JSON.stringify(rows).includes('synthetic'),false);
- assert.doesNotThrow(()=>routeAudit.emitPosHistorySourceFailureAudit({serverRequestId:requestId},Error('auth_denied'),'authorize_source',0,()=>{throw Error('synthetic sink error');}));
+test('the existing audit stage contains only closed phase/code and elapsed time, without arbitrary details',()=>{
+ assert.equal(diagnostic.historySourceFailureStage(Error('history_baseline_upload_target_invalid'),'prepare_storage_target',123.9),'history_source.prepare_storage_target.history_baseline_upload_target_invalid.123ms');
+ const stage=diagnostic.historySourceFailureStage(Error('synthetic-secret-019'),'synthetic-secret-019',Number.NaN);
+ assert.equal(stage,'history_source.unknown.history_source_unexpected_failure.0ms');assert.equal(stage.includes('synthetic'),false);
 });

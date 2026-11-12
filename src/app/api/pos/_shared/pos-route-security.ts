@@ -1,7 +1,6 @@
 import "server-only";
 
 import { createHash, randomUUID } from "node:crypto";
-import { historySourceFailureAudit, type HistorySourcePhase } from "../../../../server/payment-history/baseline-source-diagnostic";
 
 export const MAX_POS_JSON_BODY_BYTES = 16 * 1024;
 
@@ -197,17 +196,6 @@ export function emitPosRouteRejectionAudit(
       stage,
     }),
   );
-}
-
-export function emitPosHistorySourceFailureAudit(context: PosRouteRequestContext, error: unknown,
-  phase: HistorySourcePhase, elapsedMilliseconds: number,
-  sink: (message: string) => void = message => console.warn(message)) {
-  try {
-    const requestId = context.serverRequestId;
-    const correlation = typeof requestId === "string" && /^posreq_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(requestId)
-      ? {requestId} : {};
-    sink(JSON.stringify({...historySourceFailureAudit(error,phase,elapsedMilliseconds),...correlation}));
-  } catch { /* Logging must preserve the original response, including when the sink fails. */ }
 }
 
 export function posMethodNotAllowedResponse(

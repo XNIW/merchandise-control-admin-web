@@ -26,6 +26,12 @@ export function historySourceFailureAudit(error: unknown, phase: HistorySourcePh
     elapsed_ms: Number.isFinite(elapsedMilliseconds) ? Math.max(0, Math.floor(elapsedMilliseconds)) : 0,
   };
 }
+
+/** The existing route-rejection sink owns the log envelope and correlation ID. */
+export function historySourceFailureStage(error: unknown, phase: HistorySourcePhase, elapsedMilliseconds: number) {
+  const safe = historySourceFailureAudit(error,phase,elapsedMilliseconds);
+  return `history_source.${safe.phase}.${safe.code}.${safe.elapsed_ms}ms`;
+}
 import "server-only";
 
 
