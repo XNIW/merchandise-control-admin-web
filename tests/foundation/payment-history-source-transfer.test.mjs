@@ -3,6 +3,8 @@ import test from 'node:test';
 import {createHash} from 'node:crypto';
 import {load} from './helpers/payment-history-harness.mjs';
 const c=load('src/server/payment-history/baseline-source-transfer.ts');
+const diagnostic=load('src/server/payment-history/baseline-source-diagnostic.ts');
+const routeAudit=load('src/app/api/pos/_shared/pos-route-security.ts');
 const id=n=>`${n}0000000-0000-4000-8000-000000000019`;
 const bytes=Buffer.from('synthetic transport bytes; archive validity remains a worker check');
 const sha=createHash('sha256').update(bytes).digest('hex');
@@ -72,4 +74,40 @@ test('a failed server PUT is not an upload acknowledgement',async()=>{
 test('a cancelled incoming transfer cannot send its source to Storage',async()=>{
  const f=fixture(),controller=new AbortController();controller.abort();
  await assert.rejects(()=>c.transferHistorySource(f.request({signal:controller.signal}),f.port));assert.equal(f.state.put,0);
+});
+
+test('phase observation preserves the same authenticated transfer and cannot fail it',async()=>{
+ const f=fixture(),phases=[];f.port.observePhase=value=>phases.push(value);
+ const result=await c.transferHistorySource(f.request(),f.port);
+ assert.equal(result.status,200);assert.equal(f.state.auth,2);assert.equal(f.state.put,1);
+ assert.deepEqual(phases,['validation','authorize_source','read_source','hash_source','reauthorize_source','prepare_storage_target','put_storage_source']);
+ const broken=fixture();broken.port.observePhase=()=>{throw Error('synthetic diagnostic sink failure');};
+ assert.equal((await c.transferHistorySource(broken.request(),broken.port)).status,200);assert.equal(broken.state.put,1);
+});
+test('a target refusal identifies its phase without leaking a signed URL or replacing the refusal',async()=>{
+ const f=fixture();let phase;f.port.observePhase=value=>{phase=value;};f.state.targetHost='other.invalid';
+ await assert.rejects(()=>c.transferHistorySource(f.request(),f.port),error=>{
+  assert.equal(error.message,'history_baseline_upload_target_invalid');
+  assert.deepEqual({...diagnostic.historySourceFailureAudit(error,phase,123.9)},{event:'history.source.failure',phase:'prepare_storage_target',code:'history_baseline_upload_target_invalid',elapsed_ms:123});return true;
+ });assert.equal(f.state.put,0);
+});
+test('failure metadata retains only closed codes and phases, never arbitrary exception or credential content',()=>{
+ for(const error of [Error('synthetic-secret-019 https://other.invalid/?token=synthetic'),Object.assign(Error('synthetic-secret-019'),{code:'auth_denied'}),{message:'auth_denied',token:'synthetic-secret-019'}]){
+  const result=diagnostic.historySourceFailureAudit(error,'put_storage_source',Number.NaN);
+  assert.deepEqual({...result},{event:'history.source.failure',phase:'put_storage_source',code:'history_source_unexpected_failure',elapsed_ms:0});
+  assert.equal(JSON.stringify(result).includes('synthetic'),false);
+ }
+ assert.equal(diagnostic.historySourceFailureAudit(Error('auth_denied'),'authorize_source',0).code,'auth_denied');
+ assert.equal(diagnostic.historySourceFailureAudit(new DOMException('synthetic-secret-019','AbortError'),'read_source',2).code,'history_source_aborted');
+ assert.equal(diagnostic.historySourceFailureAudit(new DOMException('synthetic-secret-019','TimeoutError'),'prepare_storage_target',2).code,'history_source_timeout');
+ assert.equal(diagnostic.historySourceFailureAudit(new TypeError('synthetic-secret-019'),'put_storage_source',2).code,'history_source_network_or_runtime');
+ assert.equal(diagnostic.historySourceFailureAudit(Error('auth_denied'),'synthetic-secret-019',2).phase,'unknown');
+});
+test('the server emitter accepts only its generated correlation ID and a broken log sink cannot replace a response',()=>{
+ const rows=[],requestId='posreq_10000000-0000-4000-8000-000000000019';
+ routeAudit.emitPosHistorySourceFailureAudit({serverRequestId:requestId},Error('history_baseline_upload_target_invalid'),'prepare_storage_target',5,row=>rows.push(JSON.parse(row)));
+ assert.deepEqual(rows,[{event:'history.source.failure',phase:'prepare_storage_target',code:'history_baseline_upload_target_invalid',elapsed_ms:5,requestId}]);
+ routeAudit.emitPosHistorySourceFailureAudit({serverRequestId:'synthetic-secret-019'},Error('synthetic-secret-019'),'read_source',1,row=>rows.push(JSON.parse(row)));
+ assert.equal(Object.hasOwn(rows[1],'requestId'),false);assert.equal(JSON.stringify(rows).includes('synthetic'),false);
+ assert.doesNotThrow(()=>routeAudit.emitPosHistorySourceFailureAudit({serverRequestId:requestId},Error('auth_denied'),'authorize_source',0,()=>{throw Error('synthetic sink error');}));
 });
