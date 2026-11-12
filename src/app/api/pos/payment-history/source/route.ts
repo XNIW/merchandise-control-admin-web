@@ -2,6 +2,7 @@ import {createSupabaseAdminClient,resolveSupabaseAdminConfig} from "@/lib/supaba
 import {deviceHistoryRequest,PosHistoryError} from "@/server/payment-history/device-boundary";
 import {transferHistorySource,HistorySourceError} from "@/server/payment-history/baseline-source-transfer";
 import {historySourceFailureStage,type HistorySourcePhase} from "@/server/payment-history/baseline-source-diagnostic";
+import {putHistorySource} from "@/server/payment-history/baseline-source-put";
 import {createPosRouteRequestContext,emitPosRouteRejectionAudit,posJsonResponse} from "../../_shared/pos-route-security";
 export const dynamic="force-dynamic";
 export async function POST(request:Request){
@@ -11,7 +12,7 @@ export async function POST(request:Request){
   const db=createSupabaseAdminClient(),config=resolveSupabaseAdminConfig();
   if(!db||config.status!=="configured")throw new HistorySourceError("history_cloud_unavailable",503);
   const result=await transferHistorySource(request,{request:deviceHistoryRequest,storage:db.storage.from("payment-history-sources"),storageOrigin:config.url,observePhase:value=>{phase=value;},
-   put:async(url,bytes,signal)=>fetch(url,{method:"PUT",redirect:"error",signal,headers:{"Content-Type":"application/zip","x-upsert":"false"},body:Buffer.from(bytes)})});
+   put:putHistorySource});
   return posJsonResponse(result.body,result.status,context);
  }catch(error){
   try{emitPosRouteRejectionAudit(context,historySourceFailureStage(error,phase,performance.now()-started));}catch{/* Preserve the original response if logging fails. */}
