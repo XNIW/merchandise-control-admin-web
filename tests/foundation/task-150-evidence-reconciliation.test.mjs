@@ -1,3 +1,4 @@
+import { assertCurrentRootTracked } from "./helpers/master-plan-governance.mjs";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
@@ -6,12 +7,12 @@ const masterPlan = readFileSync("docs/MASTER-PLAN.md", "utf8");
 const task = readFileSync(
   "docs/TASKS/TASK-150-win7pos-product-image-phase-b-physical-acceptance.md",
   "utf8",
-);
-const evidence = readFileSync("docs/TASKS/EVIDENCE/TASK-150/README.md", "utf8");
+).replace(/\r\n/g, "\n");
+const evidence = readFileSync("docs/TASKS/EVIDENCE/TASK-150/README.md", "utf8").replace(/\r\n/g, "\n");
 const reconciliation = readFileSync(
   "docs/TASKS/EVIDENCE/TASK-150/2026-08-08-REMOTE-RESIDUAL-RECONCILIATION.md",
   "utf8",
-);
+).replace(/\r\n/g, "\n");
 
 test("TASK-150 resta incompleto dopo il closeout commerce", () => {
   assert.match(
@@ -30,9 +31,8 @@ test("TASK-150 resta incompleto dopo il closeout commerce", () => {
   assert.match(masterPlan, /- Stato TASK-152: `DONE`/);
   assert.match(masterPlan, /- Stato TASK-153: `DONE`/);
   assert.match(masterPlan, /- Stato TASK-157: `DONE`/);
-  assert.match(masterPlan, /- Stato globale attuale: `IDLE`/);
-  assert.match(masterPlan, /- Task attivo: `NESSUNO`/);
-  assert.match(task, /- Stato: `PAUSED_FOR_WECHAT_006_STAGING_HANDOFF`/);
+  assertCurrentRootTracked(masterPlan);
+assert.match(task, /- Stato: `PAUSED_FOR_WECHAT_006_STAGING_HANDOFF`/);
   assert.match(task, /- Fase attuale: `EXECUTION \/ PAUSED`/);
   assert.match(task, /Stato precedente preservato: `ACTIVE \/ EXECUTION`/);
   assert.match(task, /La ripresa TASK-150 richiede una decisione successiva esplicita/);

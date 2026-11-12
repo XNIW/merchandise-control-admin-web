@@ -402,6 +402,13 @@ function parseEnvelope(
   };
 }
 
+// The staff RPC acquires its own lease and calls the same SQL boundary. Parse its
+// nested result here as well, rather than duplicating or relaxing its contract.
+export function parseShopSyncEventRead(value:unknown, shopId:string, limit:number,
+  eventId:string|null = null, domains:NormalizedReadInput["domains"] = null) {
+  return parseEnvelope(value,{shopId,limit,eventId,domains,ownerUserId:null});
+}
+
 export async function readSafeSyncEvents(
   supabase: SupabaseServerClient,
   input: {

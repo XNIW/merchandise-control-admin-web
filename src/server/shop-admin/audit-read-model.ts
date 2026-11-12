@@ -1,4 +1,5 @@
 import "server-only";
+import { readStaffOperations, type StaffOperationsAccess } from "./staff-operations-read";
 
 import type { SupabaseServerClient } from "@/lib/supabase/server";
 import type { Json, Tables } from "@/lib/supabase/database.types";
@@ -190,6 +191,7 @@ async function resolveAuditAccess(
       selectedShop: ShopAdminShellShop;
       supabase: ShopAdminDataClient;
     }
+  | { selectedShop: ShopAdminShellShop; staffAccess: StaffOperationsAccess }
   | ShopAuditReadModel
 > {
   const access = await resolveShopAdminDataAccess({
@@ -212,15 +214,7 @@ async function resolveAuditAccess(
   }
 
   if (access.principalKind !== "personal_account") {
-    return {
-      status: "unauthorized",
-      ...emptyRows,
-      filters: {},
-      readOnly: true,
-      source: "supabase_server",
-      reason:
-        "Audit reads require a lease-bound staff read operation that is not available for this surface.",
-    };
+    return { selectedShop: access.selectedShop, staffAccess: access };
   }
 
   return {
@@ -254,6 +248,13 @@ export async function getShopAuditReadModel(
     ]),
     targetId: options.targetId?.trim() || undefined,
   };
+  if ("staffAccess" in access) {
+    const result = await readStaffOperations(access.staffAccess,"audit_list",{
+      eventQuery:filters.eventQuery ?? "", result:filters.result ?? "",
+      severity:filters.severity ?? "", targetId:filters.targetId ?? "",
+    });
+    return { status:result.status,selectedShop,events:result.rows ? (result.rows.events as unknown as AuditLogRow[]).map(row=>mapAuditEvent(row)) : [],filters,readOnly:true,source:"supabase_server",reason:result.reason };
+  }
   let query = access.supabase
     .from("audit_logs")
     .select(
@@ -354,6 +355,12 @@ export async function getShopAuditDetailReadModel(
   }
 
   const selectedShop = access.selectedShop;
+  if ("staffAccess" in access) {
+    const result = await readStaffOperations(access.staffAccess,"audit_detail",{eventId:normalizedEventId});
+    const row = result.rows?.events[0] as unknown as AuditLogRow | undefined;
+    if (row && row.audit_log_id !== normalizedEventId) return {status:"error",selectedShop,event:null,readOnly:true,source:"supabase_server",reason:"Audit detail identity did not match."};
+    return { status:result.status === "ready" && !row ? "not_found" : result.status,selectedShop,event:row ? mapAuditEvent(row) : null,readOnly:true,source:"supabase_server",reason:result.reason };
+  }
   const auditResult = await access.supabase
     .from("audit_logs")
     .select(

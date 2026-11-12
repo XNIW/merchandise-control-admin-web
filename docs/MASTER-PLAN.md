@@ -1,5 +1,15 @@
 # MerchandiseControl Admin Web - Master Plan
 
+## ASUS019 — Execution B/C attivata dall'utente, senza operatore
+
+Il nuovo mandato del9novembre attiva l'implementazione del piano B/C in worktree
+isolato; non attiva deploy o modifiche live. Unica continuazione ASUS019,
+TASK139/140 chiuse invariate. Stato EXECUTION / ACTIVE; test automatici ora,
+UAC/login/DPI e verifiche sul profilo reale insieme all'utente domani.
+[Execution corrente](TASKS/EVIDENCE/TASK-139/asus-019-admin-execution-20261109.md).
+Il piano sotto resta la baseline decisionale; nessun requisito B/C aggiunto al
+pacchetto Windows5d8e704 già qualificato. Nessun DONE.
+
 ## ASUS019 — Planning Admin persistente, Windows separatamente in qualifica
 
 Unica continuazione coordinata ASUS-W7POS-019. B/C sono soltanto PLANNING,
@@ -3961,8 +3971,8 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
 - Task TASK-157: `TASK-157 - Client Commerce Staging E2E and Closeout`
 - Stato TASK-157: `DONE`
 - Fase TASK-157: `REVIEW`
-- Stato globale attuale: `PLANNING / ASUS019_ADMIN_FOLLOWUP`
-- Task attivo: `ASUS-W7POS-019 — continuazione coordinata, B/C Planning`
+- Stato globale attuale: `EXECUTION`
+- Task attivo: `ASUS-W7POS-019 — continuazione coordinata, B/C Execution`
 - Task precedente:
   `TASK-152 - Mobile Storefront Authoring Boundary` (`DONE / REVIEW`)
 - Prossimo lavoro pianificato: tranche B/C del piano ASUS019, senza nuova
@@ -3975,11 +3985,11 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
 - File task corrente: `docs/ARCHITECTURE/ASUS019-ADMIN-OPERATIONS-HISTORY-PLAN.md`
 - Ultimo file task:
   `docs/TASKS/TASK-149-admin-trusted-pos-product-image-v1.md`
-- Evidence task corrente: `docs/TASKS/EVIDENCE/TASK-139/asus-019-staff-overview-20261108.md`
+- Evidence task corrente: `docs/TASKS/EVIDENCE/TASK-139/asus-019-admin-execution-20261109.md`
 - Ultima evidence task: `docs/TASKS/EVIDENCE/TASK-149/README.md`
-- Stato task: `READY_FOR_REVIEW / PLANNING_ONLY`
+- Stato task: `ACTIVE`
 - Stato task precedente: `DONE`
-- Fase: `PLANNING / REVIEW_DOCUMENTALE`
+- Fase: `EXECUTION`
 - Milestone interna:
   `ASUS019_ADMIN_BC_PLAN_READY_FOR_REVIEW`
 - Correzione P2 riproducibile approvata sul secondo e ultimo PR Admin:

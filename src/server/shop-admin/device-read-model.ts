@@ -1,4 +1,5 @@
 import "server-only";
+import { readStaffMobileOperations } from "./staff-mobile-operations-read";
 
 import type { SupabaseServerClient } from "@/lib/supabase/server";
 import type { Tables } from "@/lib/supabase/database.types";
@@ -255,15 +256,16 @@ export async function getShopDeviceReadModel(
     };
   }
 
-  if (access.principalKind !== "personal_account") {
-    return {
-      status: "unauthorized",
-      ...emptyRows,
-      readOnly: true,
-      source: "supabase_server",
-      reason:
-        "Device reads require a lease-bound staff read operation that is not available for this surface.",
-    };
+  if (access.principalKind === "pos_staff_manager") {
+    const result=await readStaffMobileOperations(access,"devices");
+    if (!result.data) return {status:result.status === "unmapped"?"error":result.status,...emptyRows,selectedShop:access.selectedShop,readOnly:true,source:"supabase_server",reason:result.reason};
+    const {rows,sync}=result.data;
+    const devices=rows.devices as unknown as ShopDeviceRow[];
+    const profiles=new Map((rows.profiles as unknown as ProfileDisplayRow[]).map(row=>[row.profile_id,row]));
+    const staff=new Map((rows.staff as unknown as StaffDisplayRow[]).filter(row=>row.staff_id).map(row=>[row.staff_id!,row]));
+    const activities=mapDeviceActivities(sync.rows);
+    const m=result.data.mapping;
+    return {status:"ready",selectedShop:access.selectedShop,mapping:m?mapMapping(m):null,devices:devices.map(row=>mapDeviceRow(row,activities,profiles,staff)),detectedSyncClients:mapDetectedSyncClients(activities,new Set(devices.map(row=>`registered:${row.shop_device_id}`))),readOnly:true,source:"supabase_server",reason:result.reason};
   }
 
   const { selectedShop, supabase } = access;

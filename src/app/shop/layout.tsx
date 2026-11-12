@@ -12,6 +12,7 @@ import {
   translateText,
 } from "@/i18n/translate-sections";
 import { resolveShopAdminDataAccess } from "@/server/shop-admin/data-access";
+import { shopShellIdentity, visibleShopNavigation } from "@/server/shop-admin/shell-capabilities";
 
 export const dynamic = "force-dynamic";
 
@@ -67,15 +68,8 @@ export default async function ShopLayout({ children }: { children: ReactNode }) 
     dictionary,
     "Mobile history sessions and sync-related catalog activity.",
   );
-  const visibleNavigationSections =
-    principal.kind === "pos_staff_manager" && principal.roleKey === "courier"
-      ? shopNavigationSections
-          .map((section) => ({
-            ...section,
-            items: section.items.filter((item) => item.key === "courier"),
-          }))
-          .filter((section) => section.items.length > 0)
-      : shopNavigationSections;
+  const visibleNavigationSections = visibleShopNavigation(access, shopNavigationSections);
+  const identity = shopShellIdentity(access);
   const courierOnly =
     principal.kind === "pos_staff_manager" && principal.roleKey === "courier";
 
@@ -93,9 +87,8 @@ export default async function ShopLayout({ children }: { children: ReactNode }) 
         visibleNavigationSections,
       )}
       principalKind={principal.kind}
-      principalRoleLabel={
-        courierOnly ? sectionTitles.courier ?? "Courier Mode" : undefined
-      }
+      principalRoleLabel={translateText(dictionary, identity.roleLabel)}
+      signInMethodLabel={translateText(dictionary, identity.methodLabel)}
       sectionDescriptions={sectionDescriptions}
       sectionEyebrows={sectionEyebrows}
       sectionTitles={sectionTitles}

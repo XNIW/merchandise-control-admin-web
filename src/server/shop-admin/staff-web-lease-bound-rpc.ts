@@ -41,6 +41,45 @@ function staffLeaseBoundAdminClient() {
 }
 
 // Preserves the TASK140F operation already served by the staging Worker.
+export function callStaffWebShopProfileRead(context: StaffWebLeaseBoundContext, operation: "overview" | "members" | "settings") {
+  const supabase = staffLeaseBoundAdminClient();
+  if (!supabase) return unavailableRpcResult();
+  return supabase.rpc("staff_web_shop_profile_read_v1", {
+    p_expected_credential_version: context.staffWebSession.credentialVersion,
+    p_session_token_hash: context.staffWebSession.sessionTokenHash,
+    p_shop_id: context.selectedShop.shopId,
+    p_staff_id: context.actorStaffId,
+    p_staff_web_session_id: context.staffWebSession.sessionId,
+    p_operation: operation,
+  });
+}
+
+export function callStaffWebOperationsRead(context: StaffWebLeaseBoundContext,
+  operation: "audit_list" | "audit_detail" | "pos_live" | "pos_revenue", payload: JsonRecord) {
+  const supabase = staffLeaseBoundAdminClient();
+  if (!supabase) return unavailableRpcResult();
+  return supabase.rpc("staff_web_operations_read_v1", {
+    p_shop_id: context.selectedShop.shopId, p_staff_id: context.actorStaffId,
+    p_staff_web_session_id: context.staffWebSession.sessionId,
+    p_session_token_hash: context.staffWebSession.sessionTokenHash,
+    p_expected_credential_version: context.staffWebSession.credentialVersion,
+    p_operation: operation, p_payload: payload,
+  });
+}
+
+export function callStaffWebMobileOperationsRead(context:StaffWebLeaseBoundContext,
+  operation:"devices"|"history_list"|"history_detail"|"sync",payload:JsonRecord) {
+  const supabase=staffLeaseBoundAdminClient();
+  if (!supabase) return unavailableRpcResult();
+  return supabase.rpc("staff_web_mobile_operations_read_v1",{
+    p_shop_id:context.selectedShop.shopId,p_staff_id:context.actorStaffId,
+    p_staff_web_session_id:context.staffWebSession.sessionId,
+    p_session_token_hash:context.staffWebSession.sessionTokenHash,
+    p_expected_credential_version:context.staffWebSession.credentialVersion,
+    p_operation:operation,p_payload:payload,
+  });
+}
+
 export function callStaffWebStaffRead(context: StaffWebLeaseBoundContext) {
   const supabase = staffLeaseBoundAdminClient();
   if (!supabase) return unavailableRpcResult();

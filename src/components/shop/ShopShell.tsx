@@ -41,6 +41,7 @@ type ShopShellProps = {
   navigationSections: readonly ShopNavigationSection[];
   principalKind: "personal_account" | "pos_staff_manager";
   principalRoleLabel?: string;
+  signInMethodLabel?: string;
   sectionDescriptions: Readonly<Partial<Record<ShopSectionKey, string>>>;
   sectionEyebrows: Readonly<Partial<Record<ShopSectionKey, string>>>;
   sectionTitles: Readonly<Partial<Record<ShopSectionKey, string>>>;
@@ -488,6 +489,7 @@ export function ShopShell({
   logoutLabel,
   navigationSections,
   principalKind,
+  signInMethodLabel,
   principalRoleLabel,
   sectionDescriptions,
   sectionEyebrows,
@@ -916,6 +918,7 @@ export function ShopShell({
                     ? formatRole(selectedShop.role, labels)
                     : labels.adminConsole)}
                 </span>
+                {signInMethodLabel ? <span className="rounded-md border border-zinc-200 px-2.5 py-1 text-xs font-medium text-zinc-700">{signInMethodLabel}</span> : null}
                 <span className="rounded-md border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-800">
                   {labels.serverVerified}
                 </span>

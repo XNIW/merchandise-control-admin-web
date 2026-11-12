@@ -17,6 +17,15 @@ MOBILE_SALES_SHA = '4111c78b85dd7e16160eaef8d73d2d9ae872c1caa14770e4864e06c25c09
 NATIVE_EMPTY = '20261108051044_asus_019_native_empty_catalog_scope.sql'
 NATIVE_EMPTY_SHA = 'af69667d6e8e9988a833c4cb2b818c4378061cbc6869c4821b29aa5e64e379ce'
 NATIVE_EMPTY_BODY_MD5 = '9622c4d3a4c793a7803d730b8a8c51d4'
+REVIEWED_EXTENSIONS = {
+    '20261110022056_asus019_staff_mobile_device_reads.sql': {'sha256':'336bb7611b21235ea3a6cde9e7c8283e8b94c5c2edfadfee6eca5f3e9cb8891e','additionalAssertions':25,'testFile':'supabase/tests/asus019_staff_mobile_operations_read.sql'},
+    '20261110020325_asus019_staff_operations_read.sql': {'sha256':'2b4c17b47f5f27e767224204f4d3fd694afb835903bdb09baa9ad8968b909e86','additionalAssertions':31,'testFile':'supabase/tests/asus019_staff_operations_read.sql'},
+    '20261110012505_asus019_staff_operational_reads.sql': {
+        'sha256': '571ea7d0a7628e8f9b10e0b6fd8ec9005fb6974ce1e5538456eee954e24217ab',
+        'additionalAssertions': 31,
+        'testFile': 'supabase/tests/asus019_staff_profile_read.sql',
+    },
+}
 MOBILE_SALES_BODY_MD5 = '42bb90a0d49faa42e78558f9c610944c'
 SHARED_SHA = '6c6555304418c337da74c5be7549677d5604ea3d5e4e4ed7ba7d8941c6b29134'
 SHARED_BODY_MD5 = "7a1e3ec3050743656759432ad448a37b"
@@ -80,8 +89,31 @@ def run(argv):
             (directory / (name + ".stdout")).write_bytes(r.stdout)
             (directory / (name + ".stderr")).write_bytes(r.stderr)
             (directory / (name + ".json")).write_text(json.dumps({"argv": argv, "exit": r.returncode}))
+        if REPLAY_STAGE == "pgTAP" and EVIDENCE_ROOT is not None and ERROR_ROOT is not None:
+            known = {p.name for p in (ERROR_ROOT / "supabase/tests").glob("*.sql")}
+            dump(EVIDENCE_ROOT / "pgtap-diagnostics.json", closed_pgtap_diagnostics(r.stdout, r.stderr, known))
         raise ValueError("command failed; private evidence retained; no retry")
     return r.stdout
+
+
+def closed_pgtap_diagnostics(stdout, stderr, known):
+    # Only repository test basenames, line/assertion numbers and closed categories.
+    # No exception text, SQL, expected/actual values, paths or CLI output is exported.
+    source = (stdout + b'\n' + stderr).decode('utf-8', errors='replace')
+    locations = set()
+    for match in re.finditer(r'psql:[^\r\n]*?([A-Za-z0-9_-]+\.sql):(\d+):\s+ERROR:', source):
+        if match[1] in known:
+            locations.add((match[1], int(match[2])))
+    failures = sorted({int(m[1]) for m in re.finditer(r'(?m)^\s*(?:#\s*)?not ok\s+(\d+)\b', source)})
+    files = sorted({name for name in known if re.search(r'\b' + re.escape(name) + r'\b', source)})
+    categories = [category for pattern, category in (
+        (r'violates check constraint', 'CHECK_CONSTRAINT'), (r'violates not-null constraint', 'NOT_NULL_CONSTRAINT'),
+        (r'duplicate key value', 'UNIQUE_CONSTRAINT'), (r'column .+ does not exist', 'MISSING_COLUMN'),
+        (r'function .+ does not exist', 'MISSING_FUNCTION'), (r'permission denied', 'PERMISSION_DENIED'),
+        (r'syntax error', 'SYNTAX_ERROR'), (r'Bad plan|planned \d+ tests but ran', 'TEST_PLAN_MISMATCH'),
+    ) if re.search(pattern, source, re.I)]
+    return {'status':'FAIL', 'testFiles':files, 'sqlLocations':[{'file':name,'line':line} for name,line in sorted(locations)],
+            'failedAssertionNumbers':failures, 'categories':categories or ['UNCLASSIFIED_PGTAP_FAILURE']}
 
 def put(path, data):
     require(not path.exists() and not path.is_symlink(), "output already exists")
@@ -191,6 +223,15 @@ def prefix_manifest(root):
         require(sha(native.read_bytes()) == binding["derivedLOCALSHA256"] == NATIVE_EMPTY_SHA,
                 "bound native empty scope target drift")
         declared.add("supabase/migrations/" + NATIVE_EMPTY)
+    for name, spec in REVIEWED_EXTENSIONS.items():
+        canonical = root / ".replay" / name
+        require(not canonical.is_symlink() and sha(canonical.read_bytes()) == spec['sha256'],
+                "reviewed extension source drift")
+        applied = root / "supabase/migrations" / name
+        if applied.exists() or applied.is_symlink():
+            require(not applied.is_symlink() and applied.is_file() and applied.resolve().is_relative_to(root)
+                    and sha(applied.read_bytes()) == spec['sha256'], "reviewed extension target drift")
+            declared.add("supabase/migrations/" + name)
     observed = {str(p.relative_to(root)) for p in (root / "supabase/migrations").rglob("*")
                 if p.is_file() or p.is_symlink()}
     require(observed == declared, "extra or missing migration input")
@@ -245,6 +286,14 @@ def prepare(repo, workdir):
     shared = (repo / "supabase/migrations" / SHARED).read_bytes()
     mobile = (repo / "supabase/migrations" / MOBILE_SALES).read_bytes()
     native = (repo / "supabase/migrations" / NATIVE_EMPTY).read_bytes()
+    extensions = {}
+    previous = NATIVE_EMPTY[:14]
+    for name, spec in sorted(REVIEWED_EXTENSIONS.items()):
+        data = (repo / 'supabase/migrations' / name).read_bytes()
+        require(migration_version(name) > previous and sha(data) == spec['sha256'],
+                'reviewed extension source/order drift')
+        previous = name[:14]
+        extensions[name] = data
     require(sha(native) == NATIVE_EMPTY_SHA and MOBILE_SALES[:14] < NATIVE_EMPTY[:14],
             "native empty scope source/order drift")
     require(sha(mobile) == MOBILE_SALES_SHA and SHARED[:14] < MOBILE_SALES[:14],
@@ -282,6 +331,10 @@ def prepare(repo, workdir):
         if target.exists():
             require(target.read_bytes() == data, "withheld file drift")
             target.unlink()  # New owned copy only; source/ledger are never modified.
+    for name, data in extensions.items():
+        target = migration_dir / name
+        require(target.is_file() and target.read_bytes() == data, 'extension must be committed byte-exact')
+        target.unlink()  # Only this new owned replay copy; preserve the checked-out migration.
     versions = []
     for p in sorted(migration_dir.glob("*.sql")):
         version = migration_version(p.name)
@@ -306,6 +359,8 @@ def prepare(repo, workdir):
     put(out / ".replay/shared-reader-operator.sql", shared)
     put(out / ".replay/mobile-sales-operator.sql", mobile)
     put(out / ".replay/native-empty-operator.sql", native)
+    for name, data in extensions.items():
+        put(out / '.replay' / name, data)
 
 def local_docker():
     docker_host = os.environ.get("DOCKER_HOST", "")
@@ -989,6 +1044,27 @@ def raw_apply(root, name, operator_name, binding_name, stage):
     prefix_manifest(root)
 
 
+def apply_reviewed_extension(root, name, spec):
+    prefix_manifest(root)
+    local_endpoint(root)
+    before = snapshot(root)
+    canonical = (root / '.replay' / name).read_bytes()
+    require(sha(canonical) == spec['sha256'] and name[:14] not in before['versions'], 'extension apply precondition')
+    put(root / 'supabase/migrations' / name, canonical)
+    claim_apply_attempt(root / ('.replay/' + name + '.attempt.json'),
+                        {'migration':name,'SHA256':spec['sha256'],'oneAttemptOnly':True})
+    output = run(['supabase','--workdir',str(root),'migration','up','--local'])
+    put(root / ('.replay/' + name + '.stdout'), output)
+    after = snapshot(root)
+    require(after['versions'] == before['versions'] + [name[:14]], 'extension ledger drift')
+    require({k:v for k,v in before.items() if k != 'versions'} ==
+            {k:v for k,v in after.items() if k != 'versions'}, 'extension changed an existing runtime contract')
+    dump(root / ('.replay/' + name + '.verified.json'),
+         {'status':'PASS_CANONICAL_BYTE_EXACT','migration':name,'SHA256':spec['sha256'],
+          'existingRuntimeContractsPreserved':True})
+    prefix_manifest(root)
+
+
 def replay(repo, workdir, bootstrap_only=False):
     global ERROR_ROOT, REPLAY_STAGE
     os.umask(0o077)
@@ -997,13 +1073,15 @@ def replay(repo, workdir, bootstrap_only=False):
     root = root_path(workdir); ERROR_ROOT = root
     inputs = prefix_manifest(root)
     tests = sorted(name for name in inputs["files"] if name.startswith("supabase/tests/") and name.endswith(".sql"))
-    require(len(tests) == 67 and "supabase/tests/asus_019_native_empty_catalog_scope.sql" in tests,
+    extension_tests = {spec["testFile"] for spec in REVIEWED_EXTENSIONS.values()}
+    require(len(extension_tests) == len(REVIEWED_EXTENSIONS) and extension_tests.issubset(tests)
+            and len(tests) == 67 + len(extension_tests) and "supabase/tests/asus_019_native_empty_catalog_scope.sql" in tests,
             "reviewed HEAD database test membership changed")
     for name, action in (("fresh local gate", empty_local), ("prefix bootstrap", start_prefix),
                          ("observed local ownership", observe_owned_creation)):
         REPLAY_STAGE = name; print("Database replay: " + name, flush=True); action(root)
     if bootstrap_only:
-        dump(root / ".replay/bootstrap-complete.json", {"status":"PASS_OWNED_PREFIX_ONLY", "head":inputs["head"], "profile":LOCAL_PROFILE, "runnerSHA256":inputs["runnerSHA256"], "pendingPortableMigrations":[TARGET,PRODUCT,SHARED,MOBILE_SALES,NATIVE_EMPTY]})
+        dump(root / ".replay/bootstrap-complete.json", {"status":"PASS_OWNED_PREFIX_ONLY", "head":inputs["head"], "profile":LOCAL_PROFILE, "runnerSHA256":inputs["runnerSHA256"], "pendingPortableMigrations":[TARGET,PRODUCT,SHARED,MOBILE_SALES,NATIVE_EMPTY,*sorted(REVIEWED_EXTENSIONS)]})
         print("Database replay: owned prefix complete; portable overlays NOT_APPLIED",flush=True)
         return
     for name, operator, binding, stage in ((TARGET,"operator.sql","binding.json","metadata"),
@@ -1021,11 +1099,16 @@ def replay(repo, workdir, bootstrap_only=False):
     REPLAY_STAGE = "canonical raw native empty scope"
     print("Database replay: " + REPLAY_STAGE, flush=True)
     raw_apply(root, NATIVE_EMPTY, "native-empty-operator.sql", "native-empty-binding.json", "native-empty")
+    for name, spec in sorted(REVIEWED_EXTENSIONS.items()):
+        REPLAY_STAGE = 'reviewed extension ' + name
+        print('Database replay: ' + REPLAY_STAGE, flush=True)
+        apply_reviewed_extension(root, name, spec)
     REPLAY_STAGE = "pgTAP"; print("Database replay: pgTAP", flush=True)
     output = run([str(cli_binary()[0]), "--workdir", str(root), "test", "db", "--local"])
     put(root / ".replay/pgtap.stdout", output)
     summary = re.search(rb"(?m)^Files=(\d+), Tests=(\d+),", output)
-    require(summary is not None and int(summary[1]) == len(tests) and int(summary[2]) == 4375
+    expected_assertions = 4375 + sum(spec['additionalAssertions'] for spec in REVIEWED_EXTENSIONS.values())
+    require(summary is not None and int(summary[1]) == len(tests) and int(summary[2]) == expected_assertions
             and re.search(rb"(?m)^Result: PASS\s*$", output) is not None, "database test summary mismatch")
     prefix_manifest(root)
     complete = {"status": "LOCAL_CANONICAL_BYTE_EXACT_AND_PGTAP_PASS", "head": inputs["head"],

@@ -88,6 +88,20 @@ const backupResultKeys = [
   "network_unavailable", "cancelled", "backup_failed", "configuration_invalid",
   "published_identity_invalid", "backup_finalize_pending", "live_database_missing", "busy",
 ];
+const coverageKeys = ["PolicyRequired", "PendingOwnershipVerification", "VerifiedSubset", "VerifiedForScope", "VerifiedEmpty"];
+allowedPosDynamicKeyUsages.set("historyReport.coverage.", {
+  requiredKeys: coverageKeys.map(key => `historyReport.coverage.${key}`),
+  usages: [
+    { path: "src/Win7POS.Wpf/Pos/Dialogs/DailyReportViewModel.Analytical.cs", suffix: /^\s*\+\s*snapshot\.Coverage\.Status\s*\)/, count: 1 },
+    { path: "src/Win7POS.Wpf/Pos/Dialogs/DailyReportViewModel.Analytical.cs", suffix: /^\s*\+\s*_reportContext\.Snapshot\.Coverage\.Status\s*\)/, count: 1 },
+    { path: "src/Win7POS.Wpf/Pos/Dialogs/SalesRegisterViewModel.Analytical.cs", suffix: /^\s*\+\s*(?:_registerContext\.Snapshot|context\.Snapshot)\.Coverage\.Status\s*\)/, count: 2 },
+  ],
+});
+for (const [prefix, file] of [["history.", "HistoricalSalesImportViewModel.cs"], ["reportTimePolicy.", "SalesReportTimePolicyViewModel.cs"]]) {
+  allowedPosDynamicKeyUsages.set(prefix, {
+    requiredKeys: [], usages: [{ path: `src/Win7POS.Wpf/Pos/Dialogs/${file}`, suffix: /^\s*\+\s*key\s*\)/, count: 1 }],
+  });
+}
 for (const [prefix, contract] of [
   ["importRecovery.", {
     requiredKeys: [...importRecoveryCauseKeys, ...importRecoveryFieldKeys].map((key) => `importRecovery.${key}`),
@@ -139,6 +153,7 @@ function validatePosDynamicDomains(errors) {
     return csharpSourceViews(source).code.replace(/[,\s]/g, "") ? [...values, "<unsupported array expression>"] : values;
   };
   const ternaryValues = (source) => Array.from(source.matchAll(/[?:]\s*"([^"\\]+)"/g), (match) => match[1]);
+  check("src/Win7POS.Core/Reports/SalesReportEntry.cs", /enum SalesReportCoverageStatus\s*\{([^}]+)\}/, source => source.split(",").map(value => value.trim()), coverageKeys);
   const customerSettings = "src/Win7POS.Core/Pos/CustomerDisplaySettings.cs";
   for (const [name, values] of [
     ["LogoPosition", ["Left", "Center"]],
@@ -526,6 +541,13 @@ const technicalLiteralReasons = new Map([
   ["→", "icon-like navigation glyph"],
 ]);
 const scopedTechnicalCsharpLiterals = new Map([
+  ["src/Win7POS.Wpf/Pos/PosWorkflowService.cs|historical_maintenance_active", { context: /throw new InvalidOperationException\("historical_maintenance_active"\)/, reason: "internal authorization sentinel; the access boundary renders localized failure copy" }],
+  ["src/Win7POS.Wpf/Pos/Dialogs/PosOnlineFirstLoginDialog.xaml.cs|online_completion_operator_changed", { context: /throw new InvalidOperationException\("online_completion_operator_changed"\)/, reason: "internal authorization sentinel; the access boundary renders localized failure copy" }],
+  ["src/Win7POS.Wpf/Pos/Dialogs/PosOnlineFirstLoginDialog.xaml.cs|online_completion_generation_changed", { context: /throw new InvalidOperationException\("online_completion_generation_changed"\)/, reason: "internal authorization sentinel; the access boundary renders localized failure copy" }],
+  ["src/Win7POS.Wpf/Pos/Dialogs/PosOnlineFirstLoginDialog.xaml.cs|online_completion_authorization_changed", { context: /throw new InvalidOperationException\("online_completion_authorization_changed"\)/, reason: "internal authorization sentinel; the access boundary renders localized failure copy" }],
+  ["src/Win7POS.Wpf/Pos/Dialogs/PosOnlineFirstLoginDialog.xaml.cs|pending_online_login_authority_changed", { context: /throw new InvalidOperationException\("pending_online_login_authority_changed"\)/, reason: "internal authorization sentinel; the access boundary renders localized failure copy" }],
+  ["src/Win7POS.Wpf/Pos/Dialogs/PosOnlineFirstLoginDialog.xaml.cs|pending_online_login_unavailable", { context: /throw new InvalidOperationException\("pending_online_login_unavailable"\)/, reason: "internal authorization sentinel; the access boundary renders localized failure copy" }],
+
   ["src/Win7POS.Wpf/Pos/Dialogs/CustomerDisplaySettingsDialog.xaml.cs|PNG / JPEG / BMP|*.png;*.jpg;*.jpeg;*.bmp", {
     context: /new OpenFileDialog\s*\{\s*Filter = "PNG \/ JPEG \/ BMP\|\*\.png;\*\.jpg;\*\.jpeg;\*\.bmp"/,
     reason: "image format names and file extension patterns in logo picker",
@@ -659,6 +681,33 @@ function parsePosEntries(sources, errors) {
   };
   for (const [filePath, source] of sources) {
     const activeCode = csharpSourceViews(source).code;
+    const relative = posRelativePath(filePath);
+    const historyMatches = relative === "src/Win7POS.Wpf/Localization/PosLocalization.HistoricalImport.cs"
+      ? Array.from(source.matchAll(new RegExp(`HistoryText\\(\\s*catalog\\s*,\\s*${Array(5).fill(literal).join("\\s*,\\s*")}\\s*\\)`, "g")))
+          .filter(match => activeCode.startsWith("HistoryText", match.index)) : [];
+    const analyticalMatches = relative === "src/Win7POS.Wpf/Localization/PosLocalization.AnalyticalReports.cs"
+      ? Array.from(source.matchAll(new RegExp(`new\\[\\]\\s*\\{\\s*${Array(5).fill(literal).join("\\s*,\\s*")}\\s*\\}`, "g")))
+          .filter(match => activeCode.startsWith("new", match.index)) : [];
+    if (historyMatches.length || analyticalMatches.length) {
+      const provider = /private static void (Add\w+Translations)\(Dictionary<string, Dictionary<string, string>> catalog\)/.exec(source)?.[1];
+      if (!provider || !builderSource.includes(`${provider}(catalog);`)) errors.push(`pos: unregistered locale provider ${relative}`);
+      const compact = source.replace(/\s+/g, "");
+      for (const [index, locale] of adminLocales.entries()) {
+        const assignment = historyMatches.length
+          ? `catalog["${locale}"]["history."+key]=${["en","es","it","zh"][index]};`
+          : `catalog["${locale}"][row[0]]=row[${index+1}];`;
+        const historyLoop = 'varvalues=new[]{en,es,it,zh};varlanguages=new[]{"en","es","it","zh-CN"};for(vari=0;i<languages.Length;i++)catalog[languages[i]]["history."+key]=values[i];';
+        if (!compact.includes(assignment) && !(historyMatches.length && compact.includes(historyLoop))) errors.push(`pos: unsupported locale provider registration ${relative}:${locale}`);
+      }
+      for (const match of historyMatches) {
+        const [key,...values]=match.slice(1).map(decode);
+        adminLocales.forEach((locale,index)=>setLocale(`history.${key}`,locale,values[index],filePath));
+      }
+      for (const match of analyticalMatches) {
+        const [key,...values]=match.slice(1).map(decode);
+        adminLocales.forEach((locale,index)=>setLocale(key,locale,values[index],filePath));
+      }
+    }
     const directMatches = Array.from(source.matchAll(directPattern)).filter((match) => activeCode.startsWith("catalog", match.index));
     const recoveryMatches = posRelativePath(filePath) === "src/Win7POS.Wpf/Localization/PosLocalization.ImportRecovery.cs"
       ? Array.from(source.matchAll(recoveryPattern)).filter((match) => activeCode.startsWith("RecoveryText", match.index)) : [];
@@ -741,6 +790,12 @@ function collectPosCodeKeyUsages() {
     const relativePath = posRelativePath(filePath);
     const view = csharpSourceViews(readFileSync(filePath, "utf8"));
     const source = view.active;
+    const wrapperPrefix = relativePath === "src/Win7POS.Wpf/Pos/Dialogs/HistoricalSalesImportViewModel.cs" ? "history." : relativePath === "src/Win7POS.Wpf/Pos/Dialogs/SalesReportTimePolicyViewModel.cs" ? "reportTimePolicy." : null;
+    if (wrapperPrefix) {
+      for (const match of source.matchAll(/\bT\(\s*"([^"\\]+)"\s*\)/g)) {
+        if (view.code.startsWith("T", match.index)) usages.push({ key: wrapperPrefix + match[1], line: source.slice(0, match.index).split("\n").length, path: relativePath, source: "code", scope: posUiScope(relativePath) });
+      }
+    }
     const lines = source.split("\n");
     let lineOffset = 0;
 
@@ -1112,7 +1167,7 @@ function applyInjectedScannerFault(dictionaries) {
 
 function applyInjectedPosFault(posEntries) {
   if (process.env.I18N_CONTRACT_FAULT === "pos-missing-key") {
-    posEntries.delete("reports.fileSaved");
+    posEntries.delete("history.title");
   }
 
   if (process.env.I18N_CONTRACT_FAULT === "pos-placeholder-mismatch") {
