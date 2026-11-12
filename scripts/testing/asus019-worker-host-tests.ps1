@@ -75,7 +75,7 @@ try{
  [ordered]@{schema='history-worker-host-qa-v1';status='PASS';cases=$results;syntheticOnly=$true;linkedProjectUsed=$false;financialOperations=$false;serviceAccount='per-service virtual account';memoryLimit=1073741824;heapMiB=640;processLimit=1;memoryProbe=$m;spawnProbe=$s}|ConvertTo-Json -Depth 6|Set-Content -LiteralPath (Join-Path $output 'host-qualification.json') -Encoding utf8
  Write-Output 'HISTORY_WORKER_HOST_QA=PASS'
 }catch{
- [ordered]@{schema='history-worker-host-qa-v1';status='FAIL';cases=$results;code=if($_.Exception.Message -cmatch '^history_host_[a-z_]+$'){$_.Exception.Message}else{'history_host_unexpected'};syntheticOnly=$true;linkedProjectUsed=$false;financialOperations=$false}|ConvertTo-Json -Depth 5|Set-Content -LiteralPath (Join-Path $output 'host-qualification.json') -Encoding utf8
+ [ordered]@{schema='history-worker-host-qa-v1';status='FAIL';cases=$results;code=if($_.Exception.Message -cmatch '^history_host_[a-z_0-9]+$'){$_.Exception.Message}else{'history_host_unexpected'};syntheticOnly=$true;linkedProjectUsed=$false;financialOperations=$false}|ConvertTo-Json -Depth 5|Set-Content -LiteralPath (Join-Path $output 'host-qualification.json') -Encoding utf8
  throw
 }finally{
  if($secret){[Array]::Clear($secret,0,$secret.Length)}

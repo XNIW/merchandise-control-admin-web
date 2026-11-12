@@ -31,8 +31,10 @@ function New-HistoryHostService {
  & "$env:SystemRoot\System32\sc.exe" sidtype $Name unrestricted *> $null
  if($LASTEXITCODE -ne 0){throw 'history_host_service_sid_failed'}
  $service=Get-CimInstance Win32_Service -Filter "Name='$Name'"
- $changed=Invoke-CimMethod -InputObject $service -MethodName Change -Arguments @{StartName="NT SERVICE\$Name";StartPassword=''}
- if($changed.ReturnValue -ne 0){throw 'history_host_virtual_account_failed'}
+ # ChangeServiceConfig requires NULL (not an empty password) for virtual accounts.
+ # https://learn.microsoft.com/windows/win32/api/winsvc/nf-winsvc-changeserviceconfigw
+ $changed=Invoke-CimMethod -InputObject $service -MethodName Change -Arguments @{StartName="NT SERVICE\$Name";StartPassword=$null}
+ if($changed.ReturnValue -ne 0){throw ('history_host_virtual_account_failed_'+[uint32]$changed.ReturnValue)}
  return [Security.Principal.SecurityIdentifier]([Security.Principal.NTAccount]::new('NT SERVICE',$Name).Translate([Security.Principal.SecurityIdentifier]))
 }
 function Set-HistoryHostParameters {
