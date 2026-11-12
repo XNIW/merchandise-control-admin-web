@@ -7538,6 +7538,24 @@ export type Database = {
         }
         Returns: Json
       }
+      pos_runtime_first_login_commit_v4: {
+        Args: {
+          p_app_version: string
+          p_device_display_name: string
+          p_device_identifier: string
+          p_device_token_hash: string
+          p_device_ttl_seconds: number
+          p_expected_credential_version: number
+          p_metadata_redacted?: Json
+          p_offline_authorization_max_age_seconds: number
+          p_offline_authorization_policy_version: string
+          p_session_token_hash: string
+          p_session_ttl_seconds: number
+          p_shop_id: string
+          p_staff_id: string
+        }
+        Returns: Json
+      }
       pos_runtime_first_login_failure_v1: {
         Args: {
           p_expected_credential_version: number
