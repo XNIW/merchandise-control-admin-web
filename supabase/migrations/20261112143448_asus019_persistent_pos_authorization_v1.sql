@@ -21,6 +21,7 @@ as $$
 declare
   v_session_hint public.pos_sessions%rowtype;
   v_device_identifier text;
+  v_checked_at timestamptz;
 begin
   select session_row.* into v_session_hint
   from public.pos_sessions session_row
@@ -46,72 +47,104 @@ begin
     hashtextextended(p_shop_id::text || ':' || v_device_identifier, 0)
   );
 
-  -- Global POS runtime row-lock order: shop -> staff -> device -> credential
-  -- -> session.  Writers use the same device advisory key before this order.
-  perform 1 from public.shops shop
-  where shop.shop_id = p_shop_id and shop.shop_status = 'active'
+  -- Lock every mutable lease component first.  Do not put temporal predicates
+  -- in these locking reads: expiry may pass while any one of them waits.
+  -- The complete lease is checked using one wall-clock value after all locks
+  -- are held, so publication cannot escape with a stale transaction timestamp.
+  perform 1
+  from public.shops shop
+  where shop.shop_id = p_shop_id
   for share;
   if not found then return false; end if;
 
-  perform 1 from public.staff_accounts staff
+  perform 1
+  from public.staff_accounts staff
   where staff.staff_id = p_staff_id
     and staff.shop_id = p_shop_id
-    and staff.status = 'active'
-    and staff.credential_status = 'active'
-    and staff.credential_version = v_session_hint.staff_credential_version
-    and staff.must_change_credential = false
-    and staff.credential_hash is not null
-    and (staff.credential_expires_at is null or staff.credential_expires_at > now())
-    and (staff.locked_until is null or staff.locked_until <= now())
-    and (
-      staff.session_invalidated_at is null
-      or staff.session_invalidated_at <= v_session_hint.issued_at
-    )
   for share;
   if not found then return false; end if;
 
-  perform 1 from public.shop_devices device
+  perform 1
+  from public.shop_devices device
   where device.shop_device_id = p_shop_device_id
     and device.shop_id = p_shop_id
     and device.device_identifier = v_device_identifier
-    and device.status = 'active'
-    and device.revoked_at is null
   for share;
   if not found then return false; end if;
 
-  perform 1 from public.pos_device_credentials credential
+  perform 1
+  from public.pos_device_credentials credential
   where credential.pos_device_credential_id = v_session_hint.pos_device_credential_id
     and credential.shop_id = p_shop_id
     and credential.shop_device_id = p_shop_device_id
     and credential.staff_id = p_staff_id
-    and credential.status = 'active'
-    and credential.revoked_at is null
-    and credential.expires_at > now()
-    and (credential.offline_authorization_policy_version is distinct from 'persistent-pos-v1'
-      or credential.offline_authorization_invalidated_at is null)
-    and credential.staff_credential_version = v_session_hint.staff_credential_version
   for share;
   if not found then return false; end if;
 
-  perform 1 from public.pos_sessions session_row
+  perform 1
+  from public.pos_sessions session_row
   where session_row.pos_session_id = p_pos_session_id
     and session_row.shop_id = p_shop_id
     and session_row.shop_device_id = p_shop_device_id
     and session_row.staff_id = p_staff_id
     and session_row.pos_device_credential_id = v_session_hint.pos_device_credential_id
     and session_row.staff_credential_version = v_session_hint.staff_credential_version
-    and session_row.status = 'active'
-    and session_row.revoked_at is null
-    and session_row.expires_at > now()
-    and (session_row.offline_authorization_policy_version is distinct from 'persistent-pos-v1'
-      or session_row.offline_authorization_invalidated_at is null)
     and session_row.issued_at = v_session_hint.issued_at
   for share;
+  if not found then return false; end if;
 
-  return found;
+  v_checked_at := clock_timestamp();
+
+  return exists (
+    select 1
+    from public.shops shop
+    join public.staff_accounts staff
+      on staff.staff_id = p_staff_id
+     and staff.shop_id = shop.shop_id
+    join public.shop_devices device
+      on device.shop_device_id = p_shop_device_id
+     and device.shop_id = shop.shop_id
+    join public.pos_device_credentials credential
+      on credential.pos_device_credential_id = v_session_hint.pos_device_credential_id
+     and credential.shop_id = shop.shop_id
+     and credential.shop_device_id = device.shop_device_id
+     and credential.staff_id = staff.staff_id
+    join public.pos_sessions session_row
+      on session_row.pos_session_id = p_pos_session_id
+     and session_row.shop_id = shop.shop_id
+     and session_row.shop_device_id = device.shop_device_id
+     and session_row.staff_id = staff.staff_id
+     and session_row.pos_device_credential_id = credential.pos_device_credential_id
+    where shop.shop_id = p_shop_id
+      and shop.shop_status = 'active'
+      and staff.status = 'active'
+      and staff.credential_status = 'active'
+      and staff.credential_version = session_row.staff_credential_version
+      and staff.must_change_credential = false
+      and staff.credential_hash is not null
+      and (staff.credential_expires_at is null
+        or staff.credential_expires_at > v_checked_at)
+      and (staff.locked_until is null or staff.locked_until <= v_checked_at)
+      and (staff.session_invalidated_at is null
+        or staff.session_invalidated_at <= session_row.issued_at)
+      and device.device_identifier = v_device_identifier
+      and device.status = 'active'
+      and device.revoked_at is null
+      and credential.status = 'active'
+      and credential.revoked_at is null
+      and credential.expires_at > v_checked_at
+      and (credential.offline_authorization_policy_version is distinct from 'persistent-pos-v1'
+        or credential.offline_authorization_invalidated_at is null)
+      and credential.staff_credential_version = session_row.staff_credential_version
+      and session_row.status = 'active'
+      and session_row.revoked_at is null
+      and session_row.expires_at > v_checked_at
+      and (session_row.offline_authorization_policy_version is distinct from 'persistent-pos-v1'
+        or session_row.offline_authorization_invalidated_at is null)
+      and session_row.issued_at = v_session_hint.issued_at
+  );
 end;
 $$;
-
 
 create or replace function public.pos_runtime_first_login_commit_v4(
   p_shop_id uuid,p_staff_id uuid,p_expected_credential_version integer,
