@@ -27,7 +27,13 @@ select ok(not has_function_privilege('anon','public.payment_history_device_http_
 select ok(not has_function_privilege('authenticated','public.payment_history_device_http_v2(uuid,uuid,uuid,uuid,text,text,integer,text,jsonb)','EXECUTE'),'HTTP bridge is not exposed to browser users');
 select ok(has_function_privilege('service_role','public.payment_history_device_http_v2(uuid,uuid,uuid,uuid,text,text,integer,text,jsonb)','EXECUTE'),'server retains the authenticated boundary');
 select ok(not (select prosecdef from pg_proc where oid='public.payment_history_device_http_v2(uuid,uuid,uuid,uuid,text,text,integer,text,jsonb)'::regprocedure),'HTTP error conversion adds no definer privilege');
-select is(pg_temp.device_call(true,'authority','{}'),pg_temp.device_call(false,'authority','{}'),'successful result is unchanged by the HTTP bridge');
+-- Use a supported, idempotent v2 operation. Both calls return the same owned
+-- upload identity; a nonexistent "authority" operation cannot test success.
+create function pg_temp.upload_payload() returns jsonb language sql as $$
+ select jsonb_build_object('request_key','a0000000-0000-4000-8000-000000603019',
+  'file_name','synthetic.w7history.zip','sha256',repeat('b',64),'byte_length','1234');
+$$;
+select is(pg_temp.device_call(true,'baseline_upload_create',pg_temp.upload_payload()),pg_temp.device_call(false,'baseline_upload_create',pg_temp.upload_payload()),'successful result is unchanged by the HTTP bridge');
 select throws_ok($$select pg_temp.device_call(false,'local_review',jsonb_build_object('operation_id','e0000000-0000-4000-8000-000000603019','content_digest',repeat('a',64),'ordinal',1))$$,'40001','payment_history_local_review_stale','raw SQL engine retains its original domain error');
 select throws_ok($$select pg_temp.device_call(true,'local_review',jsonb_build_object('operation_id','e0000000-0000-4000-8000-000000603019','content_digest',repeat('a',64),'ordinal',1))$$,'PT409','payment_history_local_review_stale','HTTP exposes the same denial without serialization retry');
 select set_config('request.jwt.claim.role','authenticated',true);
