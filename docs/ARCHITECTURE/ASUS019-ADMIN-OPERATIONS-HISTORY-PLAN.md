@@ -1,5 +1,27 @@
 # ASUS019 — controllo operativo Admin e futuro storico web
 
+## Addendum 12 novembre — PUT e importazione utilizzabile
+
+Stessa Execution ACTIVE. Diagnostico PR153/main7d94271 pubblicato1a7c6e27:
+osservazione naturale della stessa baseline503 in put_storage_source, TypeError.
+Nel runtime workerd il trasporto di prodotto con redirect:error fallisce prima
+dell'invio. Il successore manual rifiuta tutti i3xx senza inoltro; test locale
+con byte sintetici, target posseduto, status2xx/3xx/4xx/5xx e AbortSignal.
+RED originale conservato, finale foundation1654PASS/0FAIL/7SKIP, security,
+typecheck e lint mirato PASS. Gate remoti e rollout successore NOT_RUN.
+Nessun DDL, rebuild Windows, indebolimento del controllo origine o cambio chiave.
+La causa degli arresti Node resta da isolare separatamente.
+
+Sequenza richiesta: riconciliare originali/ledger/filtro/replica senza doppioni;
+guidare scegli/verifica/conferma/risultato con stato per operazione e generation
+fence; riusare soltanto prove qualificate, applicabili e non revocate; separare
+declined da errori parser, calendario da copertura provata e netto di regolamento
+da vendite. Gestione tecnica nella sede Master, con autorizzazione server e
+audit; import e consultazione POS rimangono disponibili. Prima di estendere
+writer web verificare l'adapter draft/review/commit esistente. Getnet C mancante:
+preview consentita, nessun apply moderno finché non esiste prova temporale valida.
+Ogni successore deve avere propri gate, pacchetto e verifica dell'installato.
+
 La consegna corrente segue l'ultimo addendum di convergenza: cassa quotidiana e
 storico bilaterale. I precedenti riferimenti agli altri domini restano inventario
 storico e non ampliano questa Execution.

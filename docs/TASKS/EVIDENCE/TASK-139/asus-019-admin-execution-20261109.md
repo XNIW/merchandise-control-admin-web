@@ -1,5 +1,25 @@
 # ASUS019 — Execution Admin B/C, preparazione senza operatore
 
+## 12 novembre — causa PUT riprodotta e nuovo delta UX
+
+PR153 è unita in7d94271, versione live1a7c6e27. Osservazione naturale della
+baseline già pendente: HTTP503, fase put_storage_source, TypeError,1798ms.
+Workerd riproduce il difetto redirect:error prima di ogni richiesta in uscita.
+Successore manual: soltanto2xx accettati, nessun redirect seguito. Test nativo
+RED conservato e GREEN; foundation1661totali/1654PASS/0FAIL/7SKIP, typecheck,
+lint mirato e security scan PASS. Prove private U19HistorySourcePut01;
+gate remoti, freeze/merge/deploy e avanzamento della baseline ancora NOT_RUN.
+Contratti economici/auth/hash/origine/timer invariati; nessun DDL o installer.
+Arresti Worker distinti con causa non dimostrata, nessun restart/rekey manuale.
+
+Recepito addendum importazione Getnet nella stessa Execution ACTIVE:
+riconciliazione mensile privata, stati UI e callback obsoleti, percorso guidato,
+resolver di prove qualificate/revocabili, report onesto sulle componenti e sui
+giorni senza dati, operazioni tecniche Master protette server-side. Nuovi gate
+UX e consegna Windows NOT_RUN. Conservare248/v6, ledger e autorità writer.
+Getnet C resta mancante e impedisce l'apply moderno; nessuna prova di giugno
+estesa implicitamente ad agosto, nessun paywall o nuova task.
+
 L'ultimo addendum di convergenza mantiene due consegne correnti: cassa quotidiana
 e storico bilaterale. La precedente matrice di altri domini rimane storica.
 

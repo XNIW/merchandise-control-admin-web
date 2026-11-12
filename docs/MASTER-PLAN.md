@@ -1,5 +1,24 @@
 # MerchandiseControl Admin Web - Master Plan
 
+## ASUS019 — successore PUT e addendum importazione, 12 novembre
+
+Execution ACTIVE. Il diagnostico PR153 è unito in7d94271 e pubblicato come
+1a7c6e27: la stessa baseline pendente fallisce in put_storage_source con TypeError.
+Riproduzione nel runtime workerd: redirect:error non è supportato e impedisce
+l'invio. Il successore usa manual e accetta solo2xx; ogni3xx resta rifiutato senza
+seguire Location. Origine firmata, byte, hash, cancellazione, timeout15s e
+non-overwrite restano invariati. Nessuna modifica al gateway Node o al DDL.
+Test nativo RED conservato; finale locale1654PASS/0FAIL/7SKIP su1661, typecheck,
+lint mirato e security scan PASS. Gate remoti/deploy del successore NOT_RUN.
+Gli arresti del servizio Node restano un residuo distinto, con causa non provata.
+
+L'ultimo addendum utente resta nella stessa task: riconciliazione mensile privata,
+importazione POS guidata e stati terminali separati, configurazioni qualificate
+e revocabili entro scope, riepilogo senza falsi zeri, gestione tecnica Master
+autorizzata sul server e sync bilaterale. Nessuna scelta temporale automatica:
+Getnet C manca e blocca l'apply moderno. Preservare cassa248/v6, ledger, writer
+authority, DPI200% e storia delle prove. Nuovi gate UX/installer NOT_RUN.
+
 Addendum ASUS019 del 10 novembre in EXECUTION: pubblicazione automatica dei
 commit storici POS, ricevute e replica alle altre postazioni. Gap e contratto
 nel [piano canonico](ARCHITECTURE/ASUS019-ADMIN-OPERATIONS-HISTORY-PLAN.md), stessa
