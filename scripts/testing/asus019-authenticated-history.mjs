@@ -10,6 +10,7 @@ import {setTimeout as delay} from "node:timers/promises";
 import {chromium} from "playwright";
 import {createClient} from "@supabase/supabase-js";
 import {projectClientFailure,logClosedReport} from "./asus019-closed-history-report.mjs";
+import {ownedHistoryMediaType,putBrowserHistorySource} from "./asus019-browser-history-upload.mjs";
 
 const root=resolve(dirname(fileURLToPath(import.meta.url)),"../..");
 const args=process.argv.slice(2),options={};
@@ -229,11 +230,12 @@ try{
  demand(conflictProbe.sqlstate==="40001"&&conflictProbe.code==="payment_history_canonical_economic_conflict","history_test_conflict_sql_cause_mismatch");
  receipt.conflictSqlProbe={...conflictProbe,transactionRolledBack:true,samePreparedContent:true,coverage:"owned SQL diagnostic; HTTP denial remains required"};save("client-control.private.json",{nonce,phase:"allow_conflict_review"});
  const conflict=await state("conflict");demand(conflict.status==="PASS_CONFLICT_DENIED_ABORT_RECONCILED"&&conflict.count===recovered.count&&conflict.factsSha===recovered.factsSha,"history_test_conflict_client_mismatch");
+ demand(conflict.denial?.code==="history_cloud_writer_closed"&&conflict.denial.httpStatus===409&&conflict.denial.transportDenied===false&&conflict.denial.retryable===false,"history_test_conflict_http_denial_missing");
  const conflictEvidence=JSON.parse(sql(`SELECT jsonb_build_object('grants',(SELECT count(*) FROM public.payment_history_local_publications WHERE shop_id=${q(shopId)} AND operation_id=${q(conflict.operation)}::uuid AND grant_id IS NOT NULL),'receipts',(SELECT count(*) FROM public.payment_history_receipts WHERE shop_id=${q(shopId)} AND request_key=${q(conflict.operation)}::uuid),'writer',(SELECT writer_authority FROM public.payment_history_runtime WHERE shop_id=${q(shopId)}));`));
  demand(conflictEvidence.grants===0&&conflictEvidence.receipts===0&&conflictEvidence.writer==="local","history_test_conflict_server_mutation");
  const afterConflict=await call("movements",{from_date:null,to_date:null,include_inactive:false,page_size:50,after:null});
  demand(afterConflict.status===200&&afterConflict.body.ok===true&&afterConflict.body.result.rows.length===recovered.count&&sha(afterConflict.body.result.rows.map(rowKey).sort().join("\n"))===recovered.factsSha,"history_test_conflict_browser_mutation");
- receipt.cases.push({id:"peer-economic-conflict-denied-with-negative-outcome-reconciled",status:"PASS",count:conflict.count,factsSha256:conflict.factsSha,grants:0,canonicalReceipts:0});save("client-control.private.json",{nonce,phase:"conflict_observed"});
+ receipt.cases.push({id:"peer-economic-conflict-denied-with-negative-outcome-reconciled",status:"PASS",count:conflict.count,factsSha256:conflict.factsSha,grants:0,canonicalReceipts:0,httpDenial:conflict.denial});save("client-control.private.json",{nonce,phase:"conflict_observed"});
  const checked=async(operation,payload={})=>{const r=await call(operation,payload);demand(r.status===200&&r.body.ok===true,"history_test_financial_api_rejected");return r.body.result;};
  const transfer=async(lane,operation,payload={})=>{
   const r=await page.evaluate(async(body)=>{const response=await fetch("/api/shop/payment-history/transfer",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json","X-History-Request":"1"},body:JSON.stringify(body)});return {status:response.status,body:await response.json()};},{shop_id:shopId,lane,operation,payload});
@@ -245,7 +247,9 @@ try{
  };
  const upload=async(api,path,hash)=>{
   const bytes=ownedBytes(path,hash),fileName=basename(path),created=await api("upload_create",{file_name:fileName,byte_length:String(bytes.length),sha256:hash});
-  const ok=await page.evaluate(async({signedUrl,bytes,fileName})=>{const form=new FormData();form.append("cacheControl","3600");form.append("",new File([new Uint8Array(bytes)],fileName));const r=await fetch(signedUrl,{method:"PUT",headers:{"x-upsert":"false"},body:form});return r.ok;},{signedUrl:created.signed_url,bytes:[...bytes],fileName});demand(ok,"history_test_browser_upload_failed");
+  const contentType=ownedHistoryMediaType(fileName);
+  const uploadReply=await page.evaluate(putBrowserHistorySource,{signedUrl:created.signed_url,bytes:[...bytes],fileName,contentType});
+  receipt.lastBrowserUpload={contentType,...uploadReply};demand(uploadReply.ok,"history_test_browser_upload_failed");
   await api("upload_ready",{upload_id:created.upload_id});await until(async()=>{const s=await api("upload_status",{upload_id:created.upload_id});demand(!["rejected","expired"].includes(s.state),"history_test_source_rejected");return s.state==="verified";});return created.upload_id;
  };
  phase="admin_inventory";const webSource=await state("web_source_ready");
