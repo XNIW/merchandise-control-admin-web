@@ -39,6 +39,8 @@ function transpileCommonJs(relativePath, stubs) {
       require(specifier) {
         if (specifier === "server-only") return {};
         if (specifier in stubs) return stubs[specifier];
+        if (specifier === "./pos-contract")
+          return transpileCommonJs("src/server/pos-auth/pos-contract.ts", {});
         return requireForTest(specifier);
       },
     }),

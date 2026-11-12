@@ -28,6 +28,13 @@ async function loadModule(relativePath) {
   );
   const tempDir = await mkdtemp(join(tmpdir(), "runtime-boundary-"));
   const modulePath = join(tempDir, "boundary.mjs");
+  if (source.includes('from "./pos-contract"')) {
+    const contract = readFileSync(join(root, "src/server/pos-auth/pos-contract.ts"), "utf8")
+      .replace(/^import "server-only";\r?\n/, "");
+    await writeFile(join(tempDir, "pos-contract.mjs"), ts.transpileModule(contract, {
+      compilerOptions: { module: ts.ModuleKind.ES2022, target: ts.ScriptTarget.ES2022 },
+    }).outputText, "utf8");
+  }
   // Keep the shared production role predicate; server data dependencies are
   // unused by that predicate and are deliberately absent from this unit host.
   if (source.includes('from "./access-principal"')) {
@@ -42,7 +49,8 @@ async function loadModule(relativePath) {
     await writeFile(join(tempDir, "access-principal.mjs"), roleModule, "utf8");
   }
   const { outputText } = ts.transpileModule(source.replace(
-    'from "./access-principal"', 'from "./access-principal.mjs"'), {
+    'from "./access-principal"', 'from "./access-principal.mjs"').replace(
+    'from "./pos-contract"', 'from "./pos-contract.mjs"'), {
     compilerOptions: {
       module: ts.ModuleKind.ES2022,
       target: ts.ScriptTarget.ES2022,

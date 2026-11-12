@@ -3,6 +3,7 @@ import "server-only";
 import type { Json, Tables } from "@/lib/supabase/database.types";
 import type { SupabaseAdminClient } from "@/lib/supabase/admin";
 import type { PosShopPayloadRow } from "./shop-payload";
+import { POS_PERSISTENT_LOCAL_AUTHORIZATION_POLICY } from "./pos-contract";
 
 export type PosRuntimeSession = Pick<
   Tables<"pos_sessions">,
@@ -477,6 +478,7 @@ export async function commitPosFirstLogin(
   input: {
     appVersion?: string;
     credentialVersion: number;
+    localAuthorizationPolicy?: typeof POS_PERSISTENT_LOCAL_AUTHORIZATION_POLICY;
     deviceDisplayName: string;
     deviceIdentifier: string;
     deviceTokenHash: string;
@@ -490,7 +492,10 @@ export async function commitPosFirstLogin(
     staffId: string;
   },
 ) {
-  const { data, error } = await supabase.rpc("pos_runtime_first_login_commit_v3", {
+  const procedure = input.localAuthorizationPolicy !== undefined &&
+    input.localAuthorizationPolicy === POS_PERSISTENT_LOCAL_AUTHORIZATION_POLICY
+    ? "pos_runtime_first_login_commit_v4" : "pos_runtime_first_login_commit_v3";
+  const { data, error } = await supabase.rpc(procedure, {
     p_app_version: input.appVersion ?? "",
     p_device_display_name: input.deviceDisplayName,
     p_device_identifier: input.deviceIdentifier,
@@ -566,9 +571,15 @@ export async function commitPosFirstLogin(
     offlineExpiresAtMillis > serverTimeMillis &&
     offlineExpiresAtMillis <= sessionExpiresAtMillis &&
     offlineAuthorizationPolicyVersion ===
-      input.offlineAuthorizationPolicyVersion
+      input.offlineAuthorizationPolicyVersion &&
+    (input.localAuthorizationPolicy
+      ? data.localAuthorizationPolicy === input.localAuthorizationPolicy
+      : data.localAuthorizationPolicy === undefined || data.localAuthorizationPolicy === null)
     ? {
         effectiveOfflineAuthorizationExpiresAt,
+        ...(input.localAuthorizationPolicy
+          ? { localAuthorizationPolicy: input.localAuthorizationPolicy }
+          : {}),
         ok: true as const,
         posSessionId,
         serverTime,
@@ -613,7 +624,10 @@ export async function touchPosHeartbeat(
     p_shop_id: input.shopId,
     p_staff_id: input.staffId,
   });
-  return !error && isRecord(data) && data.ok === true;
+  return !error && isRecord(data) && data.ok === true &&
+    typeof data.expiresAt === "string" && data.expiresAt.length <= 64 &&
+    (timestampMillis(data.expiresAt) ?? 0) > Date.now()
+    ? { expiresAt: data.expiresAt } : null;
 }
 
 export type PosRuntimeLeasePublicationResult =
