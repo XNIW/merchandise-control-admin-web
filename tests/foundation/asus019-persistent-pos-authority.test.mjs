@@ -17,13 +17,13 @@ const SESSION='50000000-0000-4000-8000-000000000019';
 const at=ms=>new Date(Date.now()+ms).toISOString();
 
 function load(path,stubs={}){
- const module={exports:{}};
+ const loadedModule={exports:{}};
  const js=ts.transpileModule(readFileSync(join(process.cwd(),path),'utf8'),{
   compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true},fileName:path}).outputText;
- new Script(js,{filename:path}).runInContext(createContext({module,exports:module.exports,Buffer,Date,Request,Response,console,
+ new Script(js,{filename:path}).runInContext(createContext({module:loadedModule,exports:loadedModule.exports,Buffer,Date,Request,Response,console,
   require(name){if(name==='server-only')return {};if(name in stubs)return stubs[name];
    if(name==='./pos-contract')return load('src/server/pos-auth/pos-contract.ts');return requireForTest(name);}}));
- return module.exports;
+ return loadedModule.exports;
 }
 function input(policy){return {shopId:SHOP,staffId:STAFF,credentialVersion:7,deviceIdentifier:'qa-persistent-device',
  deviceDisplayName:'QA',deviceTokenHash:'sha256:'+'a'.repeat(64),sessionTokenHash:'sha256:'+'b'.repeat(64),
