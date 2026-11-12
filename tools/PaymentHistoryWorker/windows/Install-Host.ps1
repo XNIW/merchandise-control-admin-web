@@ -45,7 +45,7 @@ try{
  }
  Demand ((Hash $ReadyReceipt) -ceq $ReadyReceiptSha256) 'history_host_ready_receipt_changed'
  $ready=Get-Content -LiteralPath $ReadyReceipt -Raw|ConvertFrom-Json
- Demand ($ready.schema -ceq 'asus019-staging-ready-v1' -and $ready.runtimeSourceSha -ceq '612d9bd0fb9f1f8a71d0bc3631186e8fac04761f' -and $ready.historyMigrationsCompleted -and $ready.privateGatewayAvailable -and $ready.workerTarget -ceq 'merchandise-control-admin-web-staging') 'history_host_backend_not_ready'
+ Demand ($ready.schema -ceq 'asus019-staging-ready-v1' -and $ready.runtimeSourceSha -ceq '612d9bd0fb9f1f8a71d0bc3631186e8fac04761f' -and $ready.historyMigrationsCompleted -and $ready.gatewayRoutePublished -and $ready.cloudflareVersion -cmatch '^[0-9a-f-]{36}$' -and $ready.workerTarget -ceq 'merchandise-control-admin-web-staging') 'history_host_backend_not_ready'
  Demand ((Hash $ready.wranglerScript) -ceq $ready.wranglerScriptSha256 -and (Hash $ready.cloudflareConfig) -ceq $ready.cloudflareConfigSha256) 'history_host_provisioner_changed'
  $config=Get-Content -LiteralPath $ready.cloudflareConfig -Raw|ConvertFrom-Json
  Demand ($config.name -ceq 'merchandise-control-admin-web-staging') 'history_host_provisioner_target_invalid'
@@ -64,6 +64,9 @@ try{
  # Inspect names only. Never replace a pre-existing shared gateway key blindly.
  $before=Run-Wrangler @('secret','list') $null|ConvertFrom-Json
  Demand (@($before|Where-Object name -CEQ 'PAYMENT_HISTORY_WORKER_GATEWAY_SECRET').Count -eq 0) 'history_host_gateway_key_already_present'
+ $deployments=Run-Wrangler @('deployments','list','--json') $null|ConvertFrom-Json
+ $deployment=@($deployments|Sort-Object created_on -Descending)[0]
+ Demand (@($deployment.versions).Count -eq 1 -and $deployment.versions[0].percentage -eq 100 -and $deployment.versions[0].version_id -ceq $ready.cloudflareVersion) 'history_host_backend_version_changed'
  $stage='install_service'
  $null=New-Item -ItemType Directory -Path $bin
  $null=New-Item -ItemType Directory -Path $data
@@ -88,6 +91,10 @@ try{
  Set-HistoryHostAcl -Path $keyPath -ServiceSid $sid -Rights Read
  Set-HistoryHostParameters -Name $name -Values @{NodePath=(Join-Path $bin 'node.exe');WorkerPath=(Join-Path $bin 'worker.cjs');SecretPath=$keyPath;GatewayUrl=$gateway;WorkerSha256=$m.workerSha256;NodeSha256=$m.nodeSha256;StatusPath=(Join-Path $status 'status.json')}
  $stage='provision_gateway_key'
+ # Recheck after local preparation: a delayed UAC must not configure a different backend.
+ $deployments=Run-Wrangler @('deployments','list','--json') $null|ConvertFrom-Json
+ $deployment=@($deployments|Sort-Object created_on -Descending)[0]
+ Demand (@($deployment.versions).Count -eq 1 -and $deployment.versions[0].percentage -eq 100 -and $deployment.versions[0].version_id -ceq $ready.cloudflareVersion) 'history_host_backend_version_changed'
  # The key enters the existing CLI only through stdin; no argument/log/repo copy.
  $null=Run-Wrangler @('secret','put','PAYMENT_HISTORY_WORKER_GATEWAY_SECRET') $key
  $configured=$true;$key=$null;[Array]::Clear($keyBytes,0,$keyBytes.Length);$keyBytes=$null
