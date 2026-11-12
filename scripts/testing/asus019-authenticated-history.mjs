@@ -268,7 +268,24 @@ try{
    await api("mapping",{run_id:started.run_id,local_scope_id:scope.id,merchant_id:merchantIds[0],label:"Synthetic canonical merchant",reference:"Independent existing alias mapping for this exact owned export"});
   }
   const review=await api("review",{run_id:started.run_id});demand(review.can_apply===true,"history_test_frozen_review_blocked");
-  const applied=await api("apply",{run_id:started.run_id,review_digest:review.review_digest,request_key:randomUUID()});demand(applied.new_active===0&&applied.new_inactive===0,"history_test_frozen_reconciliation_created_economics");
+  // Closed diagnostics only: no source rows, identifiers or monetary values.
+  // Preserve the zero-new-economics assertion while observing its exact cause.
+  const summary=Object.fromEntries(["total","new_active","new_inactive","duplicates","conflicts","blocked"].map(k=>[k,review.summary[k]]));
+  demand(Object.values(summary).every(n=>Number.isInteger(n)&&n>=0&&n<=100000),"history_test_frozen_diagnostic_count_invalid");
+  const overlap=JSON.parse(sql(`SELECT coalesce(jsonb_agg(x),'[]'::jsonb) FROM (
+   SELECT d.decision,m.active,count(*)::integer source_count,
+    count(*) FILTER(WHERE EXISTS(SELECT 1 FROM public.payment_history_movement_versions v WHERE v.shop_id=m.shop_id AND v.identity_key=d.identity_key AND v.economic_digest=m.economic_digest))::integer same_digest,
+    count(*) FILTER(WHERE EXISTS(SELECT 1 FROM public.payment_history_movement_versions v WHERE v.shop_id=m.shop_id AND v.identity_key=d.identity_key AND NOT app_private.payment_history_conflict_v1(m.economics,app_private.payment_history_economics_v1(v.transaction))))::integer same_economics,
+    count(*) FILTER(WHERE EXISTS(SELECT 1 FROM public.payment_history_movement_versions v WHERE v.shop_id=m.shop_id AND v.identity_key=d.identity_key AND v.active=m.active AND NOT app_private.payment_history_conflict_v1(m.economics,app_private.payment_history_economics_v1(v.transaction))))::integer same_economics_and_state
+   FROM app_private.payment_history_migration_review_rows_v1(${q(started.run_id)}) d
+   JOIN public.payment_history_migration_movements m ON m.run_id=${q(started.run_id)} AND m.local_id=d.local_id
+   GROUP BY d.decision,m.active ORDER BY d.decision,m.active) x;`));
+  demand(Array.isArray(overlap)&&overlap.length<=12&&overlap.every(x=>["new_active","new_inactive","duplicate","duplicate_incoming","conflict","blocked"].includes(x.decision)&&typeof x.active==="boolean"&&[x.source_count,x.same_digest,x.same_economics,x.same_economics_and_state].every(n=>Number.isInteger(n)&&n>=0&&n<=100000)),"history_test_frozen_diagnostic_overlap_invalid");
+  const diagnostic={summary,overlap};(receipt.frozenReconciliations??=[]).push(diagnostic);
+  const applied=await api("apply",{run_id:started.run_id,review_digest:review.review_digest,request_key:randomUUID()});
+  diagnostic.applied=Object.fromEntries(["new_active","new_inactive","duplicates","new_batches"].map(k=>[k,applied[k]]));
+  demand(Object.values(diagnostic.applied).every(n=>Number.isInteger(n)&&n>=0&&n<=100000),"history_test_frozen_diagnostic_receipt_invalid");
+  demand(applied.new_active===0&&applied.new_inactive===0,"history_test_frozen_reconciliation_created_economics");
  }
  save("client-control.private.json",{nonce,phase:"frozen_sources_reconciled"});await state("frozen_replicas_current");
  phase="activate_web_writer";const ready=await transfer("cutover","status");demand(ready.gates?.can_activate===true,"history_test_web_writer_not_ready");
