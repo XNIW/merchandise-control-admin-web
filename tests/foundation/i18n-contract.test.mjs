@@ -267,6 +267,22 @@ test("i18n scanner validates runtime registration forms and bounded dynamic fami
     const result = JSON.parse(run());
     assert.equal(result.status, "pass");
     assert.equal(result.POS_CORE_UI_HARDCODED.count, 0);
+    const coverageFile = join(fixture, "src/Win7POS.Core/Reports/SalesReportEntry.cs");
+    const coverageSource = readFileSync(coverageFile, "utf8");
+    if (coverageSource.includes("CloudReplicaRequired")) {
+      try {
+        writeFileSync(coverageFile, coverageSource.replace(/, CloudReplicaRequired, CloudReplicaCached/, ""));
+        assert.equal(JSON.parse(run()).status, "pass", "the qualified pre-cloud client remains supported");
+        writeFileSync(coverageFile, coverageSource.replace(/, CloudReplicaCached/, ""));
+        assert.throws(run, /dynamic translation domain changed/, "a partial cloud domain remains rejected");
+      } finally { writeFileSync(coverageFile, coverageSource); }
+      const translations = join(fixture, `${wpf}Localization/PosLocalization.AnalyticalReports.cs`);
+      const originalTranslations = readFileSync(translations, "utf8");
+      try {
+        writeFileSync(translations, originalTranslations.replace(/^.*new\[\] \{ "historyReport\.coverage\.CloudReplicaCached"[^\n]*\n/m, ""));
+        assert.throws(run, /missing dynamic translation key historyReport\.coverage\.CloudReplicaCached/);
+      } finally { writeFileSync(translations, originalTranslations); }
+    }
     const directFile = join(fixture, direct);
     const originalDirect = readFileSync(directFile, "utf8");
     try {
@@ -284,7 +300,7 @@ test("i18n scanner validates runtime registration forms and bounded dynamic fami
       [`${wpf}Localization/PosLocalization.HistoricalImport.cs`, source => source.replace(/HistoryText\(catalog,"title",[^\n]+/, ""), /missing loc key history\.title/],
       [`${wpf}Localization/PosLocalization.HistoricalImport.cs`, source => source.replace('en, es, it, zh', 'es, en, it, zh'), /unsupported locale provider registration/],
       [`${wpf}Localization/PosLocalization.AnalyticalReports.cs`, source => source.replace('catalog["es"][row[0]] = row[2];', ''), /unsupported locale provider registration/],
-      ["src/Win7POS.Core/Reports/SalesReportEntry.cs", source => source.replace('VerifiedEmpty }', 'VerifiedEmpty, Unexpected }'), /dynamic translation domain changed/],
+      ["src/Win7POS.Core/Reports/SalesReportEntry.cs", source => source.replace(/VerifiedEmpty(?=\s*[,}])/, "VerifiedEmpty, Unexpected"), /dynamic translation domain changed/],
       [recovery, (source) => source.replace(/^.*RecoveryText\(catalog, "title",.*\n/m, ""), /missing loc key importRecovery\.title/],
       [recovery, (source) => source.replace('catalog["es"]["importRecovery." + key] = es;', ""), /unsupported RecoveryText registration for es/],
       [direct, (source) => source.replace(/^.*\["supplierExcelImport.statusOperationCancelling"\].*\n/gm, ""), /missing loc key supplierExcelImport\.statusOperationCancelling/],

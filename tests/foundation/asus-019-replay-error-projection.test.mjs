@@ -36,3 +36,27 @@ print('closed-prefix-projection PASS')
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.stdout.trim(), "closed-prefix-projection PASS");
 });
+
+test("pgTAP diagnostics retain only known domain codes and closed SQL categories", () => {
+  const script = String.raw`
+import importlib.util,json
+from pathlib import Path
+p=Path('scripts/ci/mobile-recovery-local-replay.py').resolve()
+spec=importlib.util.spec_from_file_location('closed_replay',p);m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
+raw=b'psql:/PRIVATE_SENTINEL/fixture.sql:87: ERROR: payment_history_local_header_mismatch password=PRIVATE_SENTINEL\nrecord "PRIVATE_SENTINEL" is not assigned yet\ncolumn reference "PRIVATE_SENTINEL" is ambiguous\npayment_history_private_sentinel'
+value=m.closed_pgtap_diagnostics(raw,b'',{'fixture.sql'})
+assert value['sqlLocations']==[{'file':'fixture.sql','line':87}]
+assert value['domainCodes']==['payment_history_local_header_mismatch']
+assert value['categories']==['AMBIGUOUS_IDENTIFIER','UNASSIGNED_RECORD']
+assert 'PRIVATE_SENTINEL' not in json.dumps(value) and 'payment_history_private_sentinel' not in json.dumps(value)
+for code in ['payment_history_local_correction_unverified','payment_history_local_receipt_mismatch','payment_history_local_delivery_reconciliation_required',
+ 'payment_history_local_witness_invalid','payment_history_local_witness_required','payment_history_local_witness_conflict','payment_history_local_witness_context_changed',
+ 'payment_history_local_intent_conflict','payment_history_local_intent_unregistered','payment_history_local_intent_immutable','payment_history_local_commit_exists','payment_history_local_baseline_alias_conflict','payment_history_baseline_upload_immutable','payment_history_baseline_recovery_invalid','payment_history_baseline_recovery_conflict','payment_history_baseline_recovery_immutable']:
+ value=m.closed_pgtap_diagnostics(('ERROR: '+code+' password=PRIVATE_SENTINEL').encode(),b'',{'fixture.sql'})
+ assert value['domainCodes']==[code] and 'PRIVATE_SENTINEL' not in json.dumps(value)
+print('closed-pgtap-projection PASS')
+`;
+  const result = spawnSync(process.platform === "win32" ? "python" : "python3", ["-c", script], { encoding: "utf8", timeout: 10_000 });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout.trim(), "closed-pgtap-projection PASS");
+});

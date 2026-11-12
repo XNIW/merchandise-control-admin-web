@@ -54,7 +54,7 @@ export function canonicalHistoryJson(value:CanonicalValue):string {
 }
 export function historyRequestDigest(value:CanonicalValue) {return createHash("sha256").update(LEDGER_SCHEMA_VERSION+"\n"+canonicalHistoryJson(value)).digest("hex");}
 export function verifiedPolicyCovers(policy:ReviewedPolicy|undefined,row:GetnetTransaction,merchantId:string,kind:ReviewedPolicy["kind"]) {
-    if(!policy||policy.kind!==kind||policy.status!=="verified"||policy.level==="unverified"||policy.merchantId!==null&&policy.merchantId!==merchantId||policy.fileSha256.length>0&&!policy.fileSha256.includes(row.source.fileSha256))return false;
+    if(!policy||policy.kind!==kind||policy.status!=="verified"||policy.level==="unverified"||policy.merchantId!==merchantId||!policy.fileSha256.includes(row.source.fileSha256))return false;
     if(kind==="modern_time"&&(policy.level!=="provider_verified"||!policy.documentSha256||policy.interpretation!==row.timestamp.interpretation||policy.version!==row.timestamp.policyVersion))return false;
     const ticks=kind==="modern_time"?commercialDateTimeTicks(row.timestamp.rawTimestamp):economics(row).businessTicks;
     return BigInt(ticks)>=BigInt(policy.fromTicks)&&BigInt(ticks)<BigInt(policy.toTicks);

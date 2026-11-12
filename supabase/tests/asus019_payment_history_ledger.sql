@@ -30,7 +30,7 @@ set local request.jwt.claims='{"role":"service_role"}';
 select is(pg_temp.history('capabilities')#>>'{capabilities,import}','true','existing full access has explicit historical import capability');
 select throws_ok($$select pg_temp.history('invented')$$,'42501','payment_history_permission_denied','unknown operation closed');
 select throws_ok($$select pg_temp.history('permissions','{"role":"manager","capability":"import","enabled":true}')$$,'42501','payment_history_owner_required','staff cannot escalate a shared role');
-select throws_ok($$select pg_temp.history('evidence','{"kind":"modern_time","level":"provider_verified"}')$$,'42501','payment_history_owner_required','staff cannot self-mint provider proof');
+select throws_ok($$select pg_temp.history('evidence','{"kind":"modern_time","level":"provider_verified"}')$$,'22023','payment_history_provider_document_required','financial migrate capability still cannot self-mint provider proof without a verified document');
 select is(pg_temp.history('read')->>'configured','false','unconfigured history is not authoritative empty');
 insert into history_context values('upload',pg_temp.history('upload_create',jsonb_build_object('file_name','synthetic.xlsx','sha256',repeat('a',64),'byte_length','100')));
 select throws_ok($$select pg_temp.history('start',jsonb_build_object('request_key','40000000-0000-4000-8000-000000003019','upload_ids',jsonb_build_array((select value->>'upload_id' from history_context where key='upload')),'configuration','{}'::jsonb))$$,'22023','payment_history_sources_unverified','unverified upload cannot enter a job');

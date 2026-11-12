@@ -4,6 +4,7 @@ import {analyzeGetnetFiles} from "./getnet-analyzer";
 import {GETNET_WEB_LIMITS as L} from "./getnet-limits";
 import type {GetnetImportOptions} from "./getnet-contract";
 import {demandDigest,demandUuid,historyRequestDigest,merchantAliasKey} from "./ledger-contract";
+import {normalizeHeader} from "./value-rules";
 
 type Upload={upload_id:string;shop_id?:string;object_key:string;file_name:string;file_sha256:string;byte_length:string};
 type UploadLease=Upload&{verification_token:string;verification_fence:string};
@@ -65,7 +66,8 @@ export async function runHistoryWorkerOnce(port:HistoryWorkerPort,signal:AbortSi
   if(!unresolved){
    for(let offset=0;offset<rows.length;offset+=200){
     controller.signal.throwIfAborted();memory();
-    const chunk=rows.slice(offset,offset+200).map((transaction,index)=>({ordinal:offset+index+1,upload_id:job.uploads[Number(transaction.source.fileId.slice(5))-1].upload_id,transaction}));
+    const chunk=rows.slice(offset,offset+200).map((transaction,index)=>({ordinal:offset+index+1,upload_id:job.uploads[Number(transaction.source.fileId.slice(5))-1].upload_id,
+      transaction:{...transaction,transactionStatus:normalizeHeader(transaction.transactionStatus),sourceTransactionStatus:transaction.transactionStatus}}));
     await port.rpc("stage",{...lease,rows:chunk},controller.signal);
    }
   }

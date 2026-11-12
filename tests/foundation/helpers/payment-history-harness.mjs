@@ -7,7 +7,7 @@ import { deflateRawSync } from "node:zlib";
 import ts from "typescript";
 const require = createRequire(import.meta.url), unzipper = await import("unzipper-esm"), cache = new Map();
 function load(path) { path = resolve(path); if (cache.has(path))
-    return cache.get(path); const loaded = { exports: {} }; cache.set(path, loaded.exports); const code = ts.transpileModule(readFileSync(path, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText; runInNewContext(code, { module: loaded, exports: loaded.exports, Buffer, TextDecoder, AbortController, Error, setTimeout,clearTimeout,setInterval,clearInterval, require(name) { if (name === "server-only")
+    return cache.get(path); const loaded = { exports: {} }; cache.set(path, loaded.exports); const code = ts.transpileModule(readFileSync(path, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText; runInNewContext(code, { module: loaded, exports: loaded.exports, Buffer, TextDecoder, AbortController, AbortSignal, Error, setTimeout,clearTimeout,setInterval,clearInterval, require(name) { if (name === "server-only")
         return {}; if (name === "unzipper-esm")
         return unzipper; if (name.startsWith("."))
         return load(resolve(dirname(path), name + ".ts")); return require(name); } }); return loaded.exports; }

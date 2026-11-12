@@ -6,6 +6,21 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      database_replay_only:
+        description: Isolated local database replay only; no staging environment or live E2E
+        type: boolean
+        default: false
+        required: false
+      authenticated_history_only:
+        description: Owned disposable replay plus real Core/Data and Admin history roundtrip; no staging
+        type: boolean
+        default: false
+        required: false
+      history_client_sha:
+        description: Immutable public Win7POS commit for the owned authenticated history harness
+        type: string
+        required: false
 
 permissions:
   contents: read
@@ -21,6 +36,7 @@ env:
 jobs:
   database:
     name: Database migrations and pgTAP
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.authenticated_history_only != true }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
 
@@ -59,12 +75,15 @@ jobs:
           path: |
             ${{ runner.temp }}/database-replay-evidence/error.json
             ${{ runner.temp }}/database-replay-evidence/pgtap-diagnostics.json
+            ${{ runner.temp }}/database-replay-evidence/extension-diagnostics.json
             ${{ runner.temp }}/database-replay-evidence/complete.json
+            ${{ runner.temp }}/database-replay-evidence/history-concurrency.json
           if-no-files-found: warn
 
   verify:
     name: Verify
-    runs-on: ubuntu-latest
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.database_replay_only != true && inputs.authenticated_history_only != true }}
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
 
     steps:
@@ -89,7 +108,9 @@ jobs:
         run: npm ci
 
       - name: Install Playwright Chromium
-        run: npx playwright install --with-deps chromium
+        # The runner already carries Chrome's Linux runtime dependencies.
+        # Keep Playwright's locked browser; avoid the failed external apt mirror.
+        run: npx playwright install chromium
 
       - name: Security scan
         run: npm run security:scan
@@ -117,7 +138,7 @@ jobs:
       - name: Historical card import component regressions
         env:
           PLAYWRIGHT_DISABLE_WEB_SERVER: "1"
-        run: npx playwright test tests/e2e/asus019-payment-history-component.spec.ts --project=chromium-desktop --workers=1
+        run: npx playwright test tests/e2e/asus019-payment-history-component.spec.ts tests/e2e/asus019-history-transfer-component.spec.ts --project=chromium-desktop --workers=1
 
       - name: Mini Worker HTTPS transport with intercepted upstream
         run: node scripts/testing/wechat-010-worker-transport.mjs
@@ -128,7 +149,7 @@ jobs:
   task-094-staging-e2e:
     name: TASK-094 staging E2E
     needs: [verify, database]
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' && inputs.database_replay_only != true && inputs.authenticated_history_only != true
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: cloudflare-staging
@@ -185,3 +206,89 @@ jobs:
 
       - name: Run TASK-094 catalog import staging E2E
         run: npm run test:pos-catalog-import-staging-e2e
+
+  authenticated-history:
+    name: ASUS019 owned authenticated history services
+    if: github.event_name == 'workflow_dispatch' && inputs.authenticated_history_only == true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      ASUS019_CLIENT_SHA: ${{ inputs.history_client_sha }}
+      OPENAI_API_KEY: ci-local-placeholder
+      S3_ACCESS_KEY: ci-local-placeholder
+      S3_HOST: ci-local-placeholder.invalid
+      S3_REGION: local
+      S3_SECRET_KEY: ci-local-placeholder
+      SUPABASE_AUTH_EXTERNAL_APPLE_SECRET: ci-local-placeholder
+      SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID: ci-local-placeholder
+      SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_SECRET: ci-local-placeholder
+      SUPABASE_AUTH_SMS_TWILIO_AUTH_TOKEN: ci-local-placeholder
+    defaults:
+      run:
+        working-directory: admin
+    steps:
+      - name: Checkout Admin
+        uses: actions/checkout@v4
+        with:
+          path: admin
+      - name: Validate immutable client input
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$ASUS019_CLIENT_SHA" =~ ^[0-9a-f]{40}$ ]]
+      - name: Checkout exact public client
+        uses: actions/checkout@v4
+        with:
+          repository: XNIW/Win7POS
+          ref: ${{ inputs.history_client_sha }}
+          path: client
+          persist-credentials: false
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: admin/package-lock.json
+      - name: Setup CLR
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.301
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.0
+      - name: Install locked dependencies and attest runner Chrome
+        run: |
+          npm ci
+          test -x /opt/google/chrome/chrome
+          /opt/google/chrome/chrome --version
+          echo "ASUS019_BROWSER_EXECUTABLE=/opt/google/chrome/chrome" >> "$GITHUB_ENV"
+      - name: Canonical owned replay without changed SQL budgets
+        timeout-minutes: 25
+        run: >-
+          python3 -B scripts/ci/mobile-recovery-local-replay.py run
+          --repo "$GITHUB_WORKSPACE/admin"
+          --workdir "$RUNNER_TEMP/asus019-history-local"
+          --evidence-dir "$RUNNER_TEMP/asus019-history-database"
+      - name: Authenticated service and browser roundtrip
+        timeout-minutes: 12
+        run: >-
+          node scripts/testing/asus019-authenticated-history.mjs
+          --owned-workdir "$RUNNER_TEMP/asus019-history-local"
+          --client-repo "$GITHUB_WORKSPACE/client"
+          --evidence-dir "$RUNNER_TEMP/asus019-authenticated-history"
+      - name: Preserve only closed qualification evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: asus019-authenticated-history-evidence
+          path: |
+            ${{ runner.temp }}/asus019-history-database/complete.json
+            ${{ runner.temp }}/asus019-history-database/error.json
+            ${{ runner.temp }}/asus019-history-database/pgtap-diagnostics.json
+            ${{ runner.temp }}/asus019-history-database/extension-diagnostics.json
+            ${{ runner.temp }}/asus019-history-database/history-concurrency.json
+            ${{ runner.temp }}/asus019-authenticated-history/authenticated-history.json
+            ${{ runner.temp }}/asus019-authenticated-history/baseline-recovery-apply.json
+            ${{ runner.temp }}/asus019-authenticated-history/baseline-recovery-sessions.json
+          if-no-files-found: error

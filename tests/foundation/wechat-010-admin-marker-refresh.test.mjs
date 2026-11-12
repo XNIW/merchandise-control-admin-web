@@ -9,7 +9,7 @@ import ts from "typescript";
 const source = readFileSync(
   process.env.WECHAT_SHOP_SHELL_TEST_SOURCE ?? "src/components/shop/ShopShell.tsx",
   "utf8",
-);
+).replace(/\r\n/g,"\n");
 function section(start, end) {
   const a = source.indexOf(start);
   const b = source.indexOf(end, a);
@@ -28,6 +28,9 @@ function harness({ focused = false, throttled = false } = {}) {
   let nextId = 0;
   let marker = "m1";
   let responseOk = true;
+  let responseStatus = 200;
+  let financial = {};
+  const emitted = [];
   let cleanups = [];
   const timers = new Map();
   const refreshes = [];
@@ -62,9 +65,10 @@ function harness({ focused = false, throttled = false } = {}) {
       useEffect: (fn) => cleanups.push(fn()),
       fetch: async (url, options) => {
         requests.push({ url, signal: options.signal });
-        return { ok: responseOk, json: async () => ({ eventMarker: marker }) };
+        return { ok: responseOk, status: responseStatus, json: async () => ({ eventMarker: marker, ...financial }) };
       },
       window: {
+        dispatchEvent: (event) => emitted.push(event),
         setTimeout: (fn, delay) => {
           const id = ++nextId;
           timers.set(id, { fn, at: now + delay });
@@ -74,6 +78,7 @@ function harness({ focused = false, throttled = false } = {}) {
         addEventListener: (name, fn) => add("window", name, fn),
         removeEventListener: (name, fn) => listeners.window.get(name)?.delete(fn),
       },
+      CustomEvent: class { constructor(type, options) { this.type = type; this.detail = options.detail; } },
     };
     vm.runInNewContext(program, context, { timeout: 1_000 });
   }
@@ -95,10 +100,12 @@ function harness({ focused = false, throttled = false } = {}) {
   }
   mount();
   return {
-    document, refreshes, requests, timers, stop, mount, advance,
+    document, refreshes, requests, timers, stop, mount, advance, emitted,
     focus: (value = true) => { document.activeElement = value ? new Input() : null; },
     marker: (value) => { marker = value; },
     response: (value) => { responseOk = value; },
+    financial: (value) => { financial = value; },
+    status: (value) => { responseStatus = value; responseOk = value < 400; },
     online: (value) => { navigator.onLine = value; },
     jump: (ms) => { now += ms; },
     emit: (name, target = "window") => {
@@ -107,6 +114,24 @@ function harness({ focused = false, throttled = false } = {}) {
   };
 }
 
+test("financial discovery reaches an open focused view once without consuming deferred RSC refresh", async () => {
+  const h=harness({focused:true});h.financial({paymentHistoryStatus:"ready",paymentHistoryMarker:"a".repeat(64)});
+  await h.advance(6200);assert.equal(h.refreshes.length,0);assert.equal(h.emitted.length,1);
+  assert.equal(h.emitted[0].detail.shopId,"synthetic-shop-a");
+  h.financial({paymentHistoryStatus:"ready",paymentHistoryMarker:"b".repeat(64)});
+  await h.advance(3000);assert.equal(h.emitted.length,2);assert.equal(h.refreshes.length,0);h.stop();
+});
+test("confirmed authorization denial clears the financial view once while the poll backs off",async()=>{
+  const h=harness();h.status(403);await h.advance(0);assert.equal(h.emitted.length,1);assert.equal(h.emitted[0].detail.paymentHistoryStatus,"denied");
+  await h.advance(6000);assert.equal(h.emitted.length,1);h.stop();
+});
+test("a scoped financial revocation is delivered even when the generic domain returns503",async()=>{
+  const h=harness();h.status(503);h.financial({paymentHistoryStatus:"denied",paymentHistoryMarker:null});await h.advance(0);
+  assert.equal(h.emitted.length,1);assert.equal(h.emitted[0].detail.paymentHistoryStatus,"denied");assert.equal(h.refreshes.length,0);h.stop();
+});
+test("legacy marker responses and malformed financial hashes cannot authorize a financial refresh",async()=>{
+  const h=harness();await h.advance(3000);assert.equal(h.emitted.length,0);h.financial({paymentHistoryStatus:"ready",paymentHistoryMarker:"not-a-hash"});await h.advance(3000);assert.equal(h.emitted.length,0);h.stop();
+});
 test("focused form defers a marker; identical polls refresh once after release", async () => {
   const h = harness({ focused: true });
   await h.advance(6_000);

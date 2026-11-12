@@ -669,6 +669,7 @@ export function ShopShell({
     let stopped = false;
     let timer: number | null = null;
     let lastMarker: string | null = null;
+    let lastEmittedHistory: string | null = null;
     let failureCount = 0;
     const controller = new AbortController();
 
@@ -694,10 +695,25 @@ export function ShopShell({
           `/shop/sync-event-marker?shopId=${encodeURIComponent(activeShopId)}`,
           { cache: "no-store", signal: controller.signal },
         );
-        const payload = (await response.json()) as { eventMarker?: unknown };
+        const payload = (await response.json()) as { eventMarker?: unknown; paymentHistoryMarker?: unknown; paymentHistoryStatus?: unknown };
 
         if (stopped) {
           return;
+        }
+
+        // Discovery reuses this global poll even when RSC refresh is deferred
+        // while a form has focus. Views still acquire their own fresh SQL lease.
+        const historyStatus = response.status === 401 || response.status === 403 ? "denied" : payload.paymentHistoryStatus;
+        if (["ready", "denied", "unavailable"].includes(String(historyStatus)) &&
+          (historyStatus !== "ready" || typeof payload.paymentHistoryMarker === "string" && /^[0-9a-f]{64}$/.test(payload.paymentHistoryMarker))) {
+          const signature = `${historyStatus}/${payload.paymentHistoryMarker ?? ""}`;
+          if (signature !== lastEmittedHistory) {
+            lastEmittedHistory = signature;
+            window.dispatchEvent(new CustomEvent("shop:sync-event-marker", { detail: {
+              shopId: activeShopId, paymentHistoryMarker: historyStatus === "ready" ? payload.paymentHistoryMarker : null,
+              paymentHistoryStatus: historyStatus,
+            } }));
+          }
         }
 
         if (!response.ok || typeof payload.eventMarker !== "string") {

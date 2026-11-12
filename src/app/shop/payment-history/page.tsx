@@ -13,5 +13,5 @@ export default async function PaymentHistoryPage({searchParams}:{searchParams:Pr
  if(access.status!=="ready"||access.principalKind==="pos_staff_manager"&&access.principal.roleKey==="courier")return <p role="alert" className="p-6">{copy.unavailable}</p>;
  let capabilities:Record<string,unknown>|null=null;
  try{capabilities=await historyRequest(access,"capabilities");}catch{}
- return capabilities?<PaymentHistoryWorkbench shopId={access.selectedShop.shopId} copy={copy} locale={locale} initialCapabilities={capabilities}/>:<p role="alert" className="p-6">{copy.unavailable}</p>;
+ return capabilities?<PaymentHistoryWorkbench key={access.selectedShop.shopId} shopId={access.selectedShop.shopId} copy={copy} locale={locale} initialCapabilities={capabilities}/>:<p role="alert" className="p-6">{copy.unavailable}</p>;
 }

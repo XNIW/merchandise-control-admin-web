@@ -1,0 +1,57 @@
+begin;
+set local role postgres;
+create extension if not exists pgtap with schema extensions;
+set local search_path=public,extensions;
+select plan(30);
+select ok(not app_private.payment_history_local_keys_v2(null,array['kind']),'missing object fails closed');
+select ok(not app_private.payment_history_local_keys_v2('[]',array['kind']),'array is not an object');
+select ok(not app_private.payment_history_local_keys_v2('{"kind":"undo","extra":true}',array['kind']),'expanded object fails closed');
+select is(app_private.payment_history_local_page_v2('[{"kind":"undo","fields":{"batch_id":"b","batch_revision":"1","apply_operation_id":"a"}}]'),1,'bounded typed page is recognized without authorizing a mutation');
+select throws_ok($$select app_private.payment_history_local_page_v2('[]')$$,'22023','payment_history_local_page_invalid','empty pages are denied');
+select throws_ok($$select app_private.payment_history_local_page_v2('[{"kind":"native_sale","fields":{}}]')$$,'22023','payment_history_local_record_invalid','native financial commands are not historical records');
+select throws_ok($$select app_private.payment_history_local_page_v2('[{"kind":"undo","fields":{"batch_id":"b","batch_revision":1,"apply_operation_id":"a"}}]')$$,'22023','payment_history_local_record_invalid','numbers cannot bypass exact string fields');
+select throws_ok($$select app_private.payment_history_local_page_v2('[{"kind":"undo","fields":{"batch_id":"b","batch_revision":"1","apply_operation_id":"a","secret":"x"}}]')$$,'22023','payment_history_local_record_invalid','unknown record fields are denied');
+select throws_ok($$select app_private.payment_history_local_page_v2(repeat('x',262145))$$,'22023','payment_history_local_page_invalid','oversized page is denied before JSON processing');
+select throws_ok($$select app_private.payment_history_local_page_v2((select jsonb_agg(jsonb_build_object('kind','undo','fields',jsonb_build_object('batch_id','b','batch_revision','1','apply_operation_id','a')))::text from generate_series(1,201)))$$,'22023','payment_history_local_page_invalid','more than 200 records is denied');
+select ok(not has_function_privilege('service_role','app_private.payment_history_local_prepare_v2(uuid,uuid,jsonb)','EXECUTE'),'preparation is not a service-role API');
+select ok(not has_function_privilege('authenticated','app_private.payment_history_local_stage_v2(uuid,uuid,jsonb)','EXECUTE'),'staging is not a browser API');
+select ok(not has_function_privilege('anon','app_private.payment_history_local_page_v2(text)','EXECUTE'),'record validation is private');
+
+insert into public.shops(shop_id,shop_code,shop_name,shop_status) values('10000000-0000-4000-8000-000000063019','PREP019','Synthetic preparation','active');
+insert into public.shop_devices(shop_device_id,shop_id,device_identifier,display_name,device_type,status) values('20000000-0000-4000-8000-000000063019','10000000-0000-4000-8000-000000063019','SYNTHETIC-PREP','Synthetic preparation','pos','active');
+insert into public.payment_history_runtime(shop_id) values('10000000-0000-4000-8000-000000063019');
+create temp table fixture(payload jsonb,raw text,sha text);
+insert into fixture(payload) values(jsonb_build_object('operation_id','40000000-0000-4000-8000-000000063019','kind','Apply','local_dataset_id','synthetic-dataset','restore_epoch','0','restore_lineage_id','50000000-0000-4000-8000-000000063019','base_revision','0','writer_epoch','1','request_fingerprint',repeat('a',64),'content_digest',repeat('b',64),'page_count',1,'protocol_version',2));
+update fixture set raw=jsonb_build_array(jsonb_build_object('kind','operation','fields',jsonb_build_object('protocol_version','2','operation_id',payload->>'operation_id','operation_kind','Apply','shop_id','10000000-0000-4000-8000-000000063019','device_id','20000000-0000-4000-8000-000000063019','local_dataset_id','synthetic-dataset','restore_epoch','0','restore_lineage_id',payload->>'restore_lineage_id','base_revision','0','request_fingerprint',payload->>'request_fingerprint')))::text;
+update fixture set sha=encode(extensions.digest(convert_to(raw,'UTF8'),'sha256'),'hex');
+update fixture set payload=payload||jsonb_build_object('content_digest',encode(extensions.digest(convert_to(sha||chr(10),'UTF8'),'sha256'),'hex'));
+create function pg_temp.prepare(v jsonb) returns jsonb language sql as $$select app_private.payment_history_local_prepare_v2('10000000-0000-4000-8000-000000063019','20000000-0000-4000-8000-000000063019',v)$$;
+create function pg_temp.stage(v jsonb) returns jsonb language sql as $$select app_private.payment_history_local_stage_v2('10000000-0000-4000-8000-000000063019','20000000-0000-4000-8000-000000063019',v)$$;
+create function pg_temp.page() returns jsonb language sql as $$select jsonb_build_object('operation_id',payload->>'operation_id','content_digest',payload->>'content_digest','ordinal',1,'page_json',raw,'page_sha256',sha) from fixture$$;
+select throws_ok($$select pg_temp.prepare(payload) from fixture$$,'40001','payment_history_local_context_unverified','client assertion alone cannot establish a baseline');
+insert into public.payment_history_uploads(upload_id,shop_id,actor_kind,actor_id,object_key,file_name,file_sha256,byte_length,state,verified_at)
+ values('60000000-0000-4000-8000-000000063019','10000000-0000-4000-8000-000000063019','pos_staff_manager','30000000-0000-4000-8000-000000063019','history/10000000-0000-4000-8000-000000063019/60000000-0000-4000-8000-000000063019','synthetic.zip',repeat('a',64),1,'verified',clock_timestamp());
+insert into public.payment_history_migration_runs(run_id,shop_id,source_upload_id,actor_kind,actor_id,actor_session_id,request_key,request_digest,state)
+ values('70000000-0000-4000-8000-000000063019','10000000-0000-4000-8000-000000063019','60000000-0000-4000-8000-000000063019','pos_staff_manager','30000000-0000-4000-8000-000000063019','80000000-0000-4000-8000-000000063019','90000000-0000-4000-8000-000000063019',repeat('b',64),'applied');
+insert into public.payment_history_source_snapshots(snapshot_id,shop_id,shop_device_id,local_dataset_id,data_revision,restore_epoch,archive_sha256,backup_sha256,source_manifest,source_summary,run_id,created_revision)
+ values('a0000000-0000-4000-8000-000000063019','10000000-0000-4000-8000-000000063019','20000000-0000-4000-8000-000000063019','synthetic-dataset',0,0,repeat('a',64),repeat('c',64),'{}','{}','70000000-0000-4000-8000-000000063019',1);
+insert into public.payment_history_local_writer_contexts values('10000000-0000-4000-8000-000000063019','20000000-0000-4000-8000-000000063019','synthetic-dataset','50000000-0000-4000-8000-000000063019',0,0,'a0000000-0000-4000-8000-000000063019','synthetic verified archive',clock_timestamp());
+select is((select pg_temp.prepare(payload)->>'next_ordinal' from fixture),'1','verified baseline permits bounded staging');
+select is((select pg_temp.prepare(payload)->>'next_ordinal' from fixture),'1','same prepare resumes the original operation');
+select throws_ok($$select pg_temp.prepare(payload||jsonb_build_object('content_digest',repeat('c',64))) from fixture$$,'23505','payment_history_local_identity_conflict','same operation cannot change its content root');
+select throws_ok($$select pg_temp.prepare(payload||jsonb_build_object('restore_lineage_id','50000000-0000-4000-8000-000000063020')) from fixture$$,'40001','payment_history_local_context_unverified','restored lineage cannot borrow the original baseline');
+select throws_ok($$select pg_temp.stage(pg_temp.page()||jsonb_build_object('page_sha256',repeat('f',64)))$$,'22023','payment_history_local_page_digest_invalid','changed bytes cannot borrow a page hash');
+select throws_ok($$select pg_temp.stage(pg_temp.page()||jsonb_build_object('ordinal',2,'page_json','[{"kind":"undo","fields":{"batch_id":"b","batch_revision":"1","apply_operation_id":"a"}}]','page_sha256',encode(extensions.digest(convert_to('[{"kind":"undo","fields":{"batch_id":"b","batch_revision":"1","apply_operation_id":"a"}}]','UTF8'),'sha256'),'hex')))$$,'40001','payment_history_local_page_out_of_order','cursor cannot skip missing pages');
+select is(pg_temp.stage(pg_temp.page())->>'next_ordinal','2','complete immutable page advances resume position');
+select is(pg_temp.stage(pg_temp.page())->>'next_ordinal','2','lost stage ACK replays the same page');
+select is((select staged_pages from public.payment_history_local_publications where operation_id='40000000-0000-4000-8000-000000063019'),1,'page replay does not increment counters');
+select is((select count(*) from public.payment_history_batches where shop_id='10000000-0000-4000-8000-000000063019'),0::bigint,'preparation creates no economic batch');
+select is((select count(*) from public.payment_history_local_publications where shop_id='10000000-0000-4000-8000-000000063019' and grant_id is not null),0::bigint,'staging does not mint a write grant');
+select throws_ok($$select pg_temp.prepare(payload||jsonb_build_object('page_count',20001)) from fixture$$,'22023','payment_history_local_request_invalid','page capacity is enforced before staging');
+select throws_ok($$select app_private.payment_history_local_stage_v2('10000000-0000-4000-8000-000000063019','20000000-0000-4000-8000-000000063020',pg_temp.page())$$,'40001','payment_history_local_preparation_stale','another device cannot resume the operation');
+update public.payment_history_runtime set writer_authority='frozen',writer_epoch=writer_epoch+1 where shop_id='10000000-0000-4000-8000-000000063019';
+select throws_ok($$select pg_temp.prepare(payload) from fixture$$,'40001','payment_history_local_writer_closed','freeze blocks new preparation');
+select throws_ok($$select pg_temp.stage(pg_temp.page())$$,'40001','payment_history_local_writer_closed','freeze blocks unadmitted staging');
+select is((select count(*) from public.payment_history_local_drain_set where shop_id='10000000-0000-4000-8000-000000063019'),0::bigint,'never-authorized staging does not enter the admitted drain set');
+select * from finish();
+rollback;

@@ -18,6 +18,31 @@ NATIVE_EMPTY = '20261108051044_asus_019_native_empty_catalog_scope.sql'
 NATIVE_EMPTY_SHA = 'af69667d6e8e9988a833c4cb2b818c4378061cbc6869c4821b29aa5e64e379ce'
 NATIVE_EMPTY_BODY_MD5 = '9622c4d3a4c793a7803d730b8a8c51d4'
 REVIEWED_EXTENSIONS = {
+    '20261112013056_payment_history_frozen_inactive_reconciliation_v1.sql': {'sha256':'d6697ab3f448e868feae963ff0d358015f70a365fa2922b6b929dd9eb34ec98c','additionalAssertions':13,'testFile':'supabase/tests/asus019_payment_history_frozen_inactive_reconciliation.sql'},
+    '20261111222943_payment_history_device_http_conflict_v2.sql': {'sha256':'64124b7da2bc56e18af9af6d5eeafdb9f52ccee8294175d5fda5c581385ec25c','additionalAssertions':11,'testFile':'supabase/tests/asus019_payment_history_device_http_boundary.sql'},
+    '20261111141636_payment_history_device_composed_boundary_v2.sql': {'sha256':'ba0992abf2f957abca0c67198ed6621e383db0b4bde2eeaaf8058ef9e8d2f6a0','additionalAssertions':43,'testFile':'supabase/tests/asus019_payment_history_device_composed_boundary.sql'},
+    '20261111125408_payment_history_baseline_session_recovery_v2.sql': {'sha256':'8f497f4f55f3b51ef64fa3732db8f342ea63d9fdad754fb2dc4cd5f9885cdc8a','additionalAssertions':39,'testFile':'supabase/tests/asus019_payment_history_baseline_session_recovery.sql'},
+    '20261111121621_payment_history_device_baseline_upload_identity_v2.sql': {'sha256':'4284d8704bbe44745b6b6d21f3621a6f907ec9c5d7a7703d1c06697fc397419f','additionalAssertions':24,'testFile':'supabase/tests/asus019_payment_history_baseline_upload_identity.sql'},
+    '20261111111650_payment_history_device_baseline_composition_v2.sql': {'sha256':'afc90b47279ea36895e7dda1c0fc341e5d399e3f9fd6ce250ea2e776d2063f9f','additionalAssertions':37,'testFile':'supabase/tests/asus019_payment_history_baseline_composition.sql'},
+    '20261111092708_payment_history_local_outcome_reconciliation_v2.sql': {'sha256':'77baa9f4c3970ffcacb0364852c02d48b2075b4bb4aa1359fe0fbef5eec15b39','additionalAssertions':50,'testFile':'supabase/tests/asus019_payment_history_local_outcome_witnesses.sql'},
+    '20261111075532_payment_history_local_delivery_v2.sql': {'sha256':'25780fa985cc6e729ca317857ab20dac3ccc87a20ebfb9abcea6d2b78c955525','additionalAssertions':62,'testFile':'supabase/tests/asus019_payment_history_local_delivery.sql'},
+    '20261111063201_payment_history_local_content_grants_v2.sql': {'sha256':'3ae615ba10d9e91a7c916e8bc1080e942910a4ab5483fd744a6fc011357defe8','additionalAssertions':54,'testFile':'supabase/tests/asus019_payment_history_local_content_grants.sql'},
+    '20261111051947_payment_history_local_undo_review_v2.sql': {'sha256':'29f9c9551201c03771e49be8fe49a6e1a13c67a730538a9c043f0fb66f44fa16','additionalAssertions':39,'testFile':'supabase/tests/asus019_payment_history_local_undo_review.sql'},
+    '20261111041740_payment_history_local_semantic_decisions_v2.sql': {'sha256':'8e0ddbfacbc41613db0b8bb4c13f2b3033af561a0fe362a16bdeaec6a44e1bbf','additionalAssertions':30,'testFile':'supabase/tests/asus019_payment_history_local_semantic_decisions.sql'},
+    '20261111033913_payment_history_local_review_index_v2.sql': {'sha256':'82b0701fc2141f7bd9365e4e06efd2ce2401025a8c4593aab6eb4c8a3b101890','additionalAssertions':37,'testFile':'supabase/tests/asus019_payment_history_local_review_index.sql'},
+    '20261111031138_payment_history_local_projection_v2.sql': {'sha256':'2cc64ee02d7532bdf4f5d44d13eb1a2f6f81182baf795548915c69deba92ee35','additionalAssertions':33,'testFile':'supabase/tests/asus019_payment_history_local_projection.sql'},
+    '20261111014055_payment_history_device_baseline_pipeline_v2.sql': {'sha256':'5ba873dace7d9b76b75c47fb37c8783222043d12823c21f41085186c1e01973c','additionalAssertions':32,'testFile':'supabase/tests/asus019_payment_history_device_baseline_pipeline.sql'},
+    '20261111013002_payment_history_local_baseline_context_v2.sql': {'sha256':'c2232e4771829c202c37b06c0b64d3279ce8c733a59be44da591a938e0365d31','additionalAssertions':20,'testFile':'supabase/tests/asus019_payment_history_local_baseline_context.sql'},
+    '20261110234619_payment_history_local_owner_resolution_v2.sql': {'sha256':'506ea6f6cd04650e9a6e5d53e735c33f2c7561eede5a4165b7a06ac7ab61e683','additionalAssertions':20,'testFile':'supabase/tests/asus019_payment_history_owner_resolution.sql'},
+    '20261110225640_staff_web_sync_marker_permission_domains.sql': {'sha256':'e9af34c253824e34faa17c73e83d8f7461bae487b15a9754febe4eab5773bf9c','additionalAssertions':20,'testFile':'supabase/tests/asus019_staff_marker_domains.sql'},
+    '20261110223804_payment_history_local_correction_owner_v2.sql': {'sha256':'04af62ef4047d474e15788d70b2e78108e5cf0fac94b1a80e87be9f938dc12e4','additionalAssertions':12,'testFile':'supabase/tests/asus019_payment_history_correction_owner.sql'},
+    '20261110213924_payment_history_movement_read_and_marker.sql': {'sha256':'14eee1e594830bc9bb241795ce7c5f135feb9dad2a4bae13768d6592998ffc7e','additionalAssertions':37,'testFile':'supabase/tests/asus019_payment_history_movement_read.sql'},
+    '20261110211051_payment_history_local_semantic_review_v2.sql': {'sha256':'fe17bced0c2f331e2fd6fc74f271f22c943542cd2b3f5e6a61d635dd18324db3','additionalAssertions':24,'testFile':'supabase/tests/asus019_payment_history_local_semantic_review.sql'},
+    '20261110203449_payment_history_local_publication_admission_v2.sql': {'sha256':'253eec9b4dc565083d6fab31aba67d8a7878bc57bd1552694362cec76d92212a','additionalAssertions':30,'testFile':'supabase/tests/asus019_payment_history_local_preparation.sql'},
+    '20261110181221_payment_history_local_commit_sync_v2.sql': {'sha256':'ebfa26747b33a683a90864d2a4c33eb1acd4d17d839b1a806fec545d3daeda21','additionalAssertions':26,'testFile':'supabase/tests/asus019_payment_history_local_publication_foundation.sql'},
+    '20261110124034_payment_history_review_retention_and_actor_revocation.sql': {'sha256': '866867a3d444fc137731c616d3f5af5cd4d11a29070c0d33e8dc5dcf808fec64', 'additionalAssertions': 39, 'testFile': 'supabase/tests/asus019_payment_history_review_retention.sql'},
+    '20261110070629_payment_history_transfer_review_details.sql': {'sha256':'7654ca2eaacda7f0ed410fbc08d6613ec7e15f62f7eec2897e5907983272cada','additionalAssertions':7,'testFile':'supabase/tests/asus019_payment_history_transfer_details.sql'},
+    '20261110044957_payment_history_migration_and_replica_v1.sql': {'sha256':'a943f661433e4b67db8924ee35277c4d75ecb2edd54442add0ad24b6ec49ffe9','additionalAssertions':64,'testFile':'supabase/tests/asus019_payment_history_transfer.sql'},
     '20261110032142_payment_history_cloud_ledger_v1.sql': {'sha256':'0fb57fc06dda53c404647373322291ac85a1ab55aec1046b802ce4eb63973f83','additionalAssertions':66,'testFile':'supabase/tests/asus019_payment_history_ledger.sql'},
     '20261110022056_asus019_staff_mobile_device_reads.sql': {'sha256':'336bb7611b21235ea3a6cde9e7c8283e8b94c5c2edfadfee6eca5f3e9cb8891e','additionalAssertions':25,'testFile':'supabase/tests/asus019_staff_mobile_operations_read.sql'},
     '20261110020325_asus019_staff_operations_read.sql': {'sha256':'2b4c17b47f5f27e767224204f4d3fd694afb835903bdb09baa9ad8968b909e86','additionalAssertions':31,'testFile':'supabase/tests/asus019_staff_operations_read.sql'},
@@ -93,8 +118,26 @@ def run(argv):
         if REPLAY_STAGE == "pgTAP" and EVIDENCE_ROOT is not None and ERROR_ROOT is not None:
             known = {p.name for p in (ERROR_ROOT / "supabase/tests").glob("*.sql")}
             dump(EVIDENCE_ROOT / "pgtap-diagnostics.json", closed_pgtap_diagnostics(r.stdout, r.stderr, known))
+        if REPLAY_STAGE.startswith('reviewed extension ') and EVIDENCE_ROOT is not None:
+            name = REPLAY_STAGE.removeprefix('reviewed extension ')
+            if name in REVIEWED_EXTENSIONS:
+                dump(EVIDENCE_ROOT / 'extension-diagnostics.json', closed_extension_diagnostics(r.stdout, r.stderr, name))
         raise ValueError("command failed; private evidence retained; no retry")
     return r.stdout
+
+
+def closed_extension_diagnostics(stdout, stderr, name):
+    # Never export the SQL body, exception message, CLI arguments or paths.
+    require(name in REVIEWED_EXTENSIONS, 'unknown diagnostic migration')
+    source = (stdout + b'\n' + stderr).decode('utf-8', errors='replace')
+    states = sorted(set(re.findall(r'SQLSTATE\s*[:=]?\s*([0-9A-Z]{5})\b', source, re.I)))
+    allowed_states = {'42601','42703','42883','42P01','42702','42P13','42804','23502','23503','23505','23514','42501','22023','40001','55000','54000'}
+    statements = sorted({int(m[1]) for m in re.finditer(r'At statement:\s*(\d+)\b', source) if int(m[1]) <= 10000})
+    lines = sorted({int(m[1]) for m in re.finditer(r'(?m)^LINE\s+(\d+):', source) if int(m[1]) <= 100000})
+    categories = [label for pattern,label in ((r'syntax error','SYNTAX_ERROR'),(r'not null|not-null','NOT_NULL'),(r'column.+does not exist','MISSING_COLUMN'),(r'function.+does not exist','MISSING_FUNCTION'),(r'ambiguous','AMBIGUOUS_IDENTIFIER'),(r'cannot change','INCOMPATIBLE_REPLACEMENT'),(r'permission denied','PERMISSION_DENIED'),(r'check constraint','CHECK_CONSTRAINT')) if re.search(pattern,source,re.I)]
+    tokens = sorted({m[1].lower() for m in re.finditer(r'(?:at or near|near)\s+[\"\']([A-Za-z ]{1,16})[\"\']',source,re.I) if m[1].lower() in {'end','then','case','row','transaction','offset','values','select','begin','if','loop','null','from','where','declare'}})
+    return {'status':'FAIL','migration':name,'sqlStates':[s.upper() for s in states if s.upper() in allowed_states],
+            'statementNumbers':statements,'relativeSQLLineNumbers':lines,'categories':categories,'syntaxTokens':tokens}
 
 
 def closed_pgtap_diagnostics(stdout, stderr, known):
@@ -122,10 +165,30 @@ def closed_pgtap_diagnostics(stdout, stderr, known):
         (r'duplicate key value', 'UNIQUE_CONSTRAINT'), (r'column .+ does not exist', 'MISSING_COLUMN'),
         (r'function .+ does not exist', 'MISSING_FUNCTION'), (r'permission denied', 'PERMISSION_DENIED'),
         (r'syntax error', 'SYNTAX_ERROR'), (r'Bad plan|planned \d+ tests but ran', 'TEST_PLAN_MISMATCH'),
-        (r'Failed tests?:', 'ASSERTION_FAILURE'),
+        (r'Failed tests?:', 'ASSERTION_FAILURE'), (r'ambiguous', 'AMBIGUOUS_IDENTIFIER'),
+        (r'record .+ is not assigned yet', 'UNASSIGNED_RECORD'),
     ) if re.search(pattern, source, re.I)]
-    return {'status':'FAIL', 'testFiles':files, 'sqlLocations':[{'file':name,'line':line} for name,line in sorted(locations)],
-            'failedAssertionNumbers':failures, 'categories':categories or ['UNCLASSIFIED_PGTAP_FAILURE']}
+    result = {'status':'FAIL', 'testFiles':files, 'sqlLocations':[{'file':name,'line':line} for name,line in sorted(locations)],
+              'failedAssertionNumbers':failures, 'categories':categories or ['UNCLASSIFIED_PGTAP_FAILURE']}
+    allowed_codes = {'payment_history_local_request_invalid','payment_history_local_writer_closed',
+        'payment_history_local_context_unverified','payment_history_local_identity_conflict',
+        'payment_history_local_record_invalid','payment_history_local_page_invalid',
+        'payment_history_local_header_mismatch','payment_history_local_page_digest_invalid',
+        'payment_history_local_content_digest_invalid','payment_history_local_preparation_key_invalid',
+        'payment_history_local_preparation_index_incomplete','payment_history_local_review_stale',
+        'payment_history_local_review_source_invalid','payment_history_local_policy_unverified',
+        'payment_history_local_merchant_unverified','payment_history_local_transaction_invalid',
+        'payment_history_transaction_invalid','payment_history_economics_invalid',
+        'payment_history_local_undo_owner_invalid','payment_history_local_undo_owner_unverified',
+        'payment_history_local_undo_stale','payment_history_local_review_incomplete',
+        'payment_history_local_correction_unverified','payment_history_local_correction_owner_unverified',
+        'payment_history_local_receipt_invalid','payment_history_local_receipt_mismatch','payment_history_local_receipt_capacity',
+        'payment_history_local_receipt_conflict','payment_history_local_batch_conflict',
+        'payment_history_local_delivery_reconciliation_required','payment_history_local_sequence_immutable',
+        'payment_history_baseline_recovery_invalid','payment_history_baseline_recovery_conflict','payment_history_baseline_recovery_immutable','payment_history_baseline_upload_immutable','payment_history_local_baseline_alias_conflict','payment_history_local_witness_invalid','payment_history_local_witness_required','payment_history_local_witness_conflict','payment_history_local_witness_context_changed','payment_history_local_intent_conflict','payment_history_local_intent_unregistered','payment_history_local_intent_immutable','payment_history_local_commit_exists'}
+    codes = sorted({m[0] for m in re.finditer(r'\bpayment_history_[a-z_]{1,90}\b', source) if m[0] in allowed_codes})
+    if codes: result['domainCodes'] = codes
+    return result
 
 def put(path, data):
     require(not path.exists() and not path.is_symlink(), "output already exists")
@@ -1122,6 +1185,13 @@ def replay(repo, workdir, bootstrap_only=False):
     expected_assertions = 4375 + sum(spec['additionalAssertions'] for spec in REVIEWED_EXTENSIONS.values())
     require(summary is not None and int(summary[1]) == len(tests) and int(summary[2]) == expected_assertions
             and re.search(rb"(?m)^Result: PASS\s*$", output) is not None, "database test summary mismatch")
+    REPLAY_STAGE = "ASUS019 historical concurrency"
+    print("Database replay: " + REPLAY_STAGE, flush=True)
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("asus019_history_concurrency", Path(__file__).with_name("asus019-history-concurrency.py"))
+    historical_concurrency = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(historical_concurrency)
+    history_concurrency_result = historical_concurrency.qualify(root, sys.modules[__name__], EVIDENCE_ROOT)
     prefix_manifest(root)
     complete = {"status": "LOCAL_CANONICAL_BYTE_EXACT_AND_PGTAP_PASS", "head": inputs["head"],
       "CLI": CLI_VERSION, "profile": LOCAL_PROFILE, "runnerSHA256": inputs["runnerSHA256"],
@@ -1141,7 +1211,7 @@ def replay(repo, workdir, bootstrap_only=False):
       "nativeEmptyScopeBodyMD5": NATIVE_EMPTY_BODY_MD5,
       "nativeEmptyScopeVerifiedSHA256": sha((root / ".replay/native-empty-raw-verified.json").read_bytes()),
       "pgtapStdoutSHA256": sha(output), "operatorSQLByteExactReplay": True,
-      "localACLIsTESTEquivalent": "NOT_CLAIMED"}
+      "localACLIsTESTEquivalent": "NOT_CLAIMED", "historicalConcurrency": history_concurrency_result}
     dump(root / ".replay/complete.json", complete); export_complete(complete)
     REPLAY_STAGE = "complete"; print("Database replay: complete", flush=True)
 
@@ -1168,6 +1238,7 @@ def export_complete(complete):
               "nativeEmptyScopeBodyMD5": complete["nativeEmptyScopeBodyMD5"],
               "nativeEmptyScopeVerifiedSHA256": complete["nativeEmptyScopeVerifiedSHA256"],
               "pgtapStdoutSHA256": complete["pgtapStdoutSHA256"],
+              "historicalConcurrency": complete["historicalConcurrency"],
               "operatorSQLByteExactReplay": complete["operatorSQLByteExactReplay"], "localACLIsTESTEquivalent": "NOT_CLAIMED",
               "profile": complete["profile"], "runnerSHA256": complete["runnerSHA256"]})
 
