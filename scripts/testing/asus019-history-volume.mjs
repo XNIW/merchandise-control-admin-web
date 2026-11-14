@@ -18,7 +18,7 @@ const evidence=resolve(options['--evidence-dir']);demand(!existsSync(evidence)&&
 const save=(name,value)=>{const p=join(evidence,name),t=p+'.tmp';writeFileSync(t,JSON.stringify(value),{mode:0o600});renameSync(t,p);};
 const command=(program,argv,env=process.env)=>{const r=spawnSync(program,argv,{cwd:root,env,encoding:'utf8',timeout:120000,maxBuffer:8*1024*1024});demand(r.status===0&&!r.error,'history_volume_command_failed');return r.stdout;};
 let phase='ownership',child,server;const report={status:'FAIL',syntheticOnly:true,realPostgres:true,realStorage:true,realGateway:true,realGatewayRoute:true,gatewayRuntime:'node24-native-route-adapter',sqlRuntime:'postgres-postgrest-owned-fixture',realWorkerArtifact:true,financialApply:false};
-const counters={gatewayRequests:0,vectorRequests:0,encodedStagingBytes:0,roundTripMs:[],sqlOriginalMs:[],lostAckInjected:false};
+const counters={gatewayRequests:0,vectorRequests:0,encodedStagingBytes:0,chargedStagingBytes:0,roundTripMs:[],sqlOriginalMs:[],lostAckInjected:false};
 try{
  const runtime=JSON.parse(command('python3',['-B','scripts/ci/asus019-history-local-runtime.py','--workdir',options['--owned-workdir']]));
  demand(runtime.url==='http://127.0.0.1:54321'&&/^[0-9a-f]{64}$/.test(runtime.containerID)&&/^r4-ci-preflight-[0-9a-f]{12}$/.test(runtime.project),'history_volume_owned_runtime');
@@ -29,6 +29,9 @@ try{
  phase='fixture';const shop='10000000-0000-4000-8000-000000693019',staff='30000000-0000-4000-8000-000000693019';
  const fixture=await syntheticBaselineVolume({shopId:shop}),m=fixture.manifest,device=m.deviceId,credential=randomUUID(),session=randomUUID(),deviceHash='sha256:'+sha(randomBytes(32)),sessionHash='sha256:'+sha(randomBytes(32));
  demand(m.shopId===shop&&fixture.metadata.rows===25947&&fixture.metadata.movementBytes===20274917,'history_volume_exact_payload');report.payload=fixture.metadata;
+ const encodedLinkFactor=Math.max(1,869952/fixture.archive.length);
+ report.representativeness={aggregateReferenceArchiveBytes:869952,syntheticArchiveBytes:fixture.archive.length,encodedLinkChargeFactor:encodedLinkFactor,
+  limitation:'Synthetic field entropy differs from the original. Archive-size ratio charges additional network time; it does not qualify live-cloud completion.',liveCloudQualified:false};
  sql(`BEGIN;INSERT INTO public.shops(shop_id,shop_code,shop_name,shop_status) VALUES(${q(shop)},'VOLUME019','Synthetic full-volume baseline','active');
  INSERT INTO public.staff_accounts(staff_id,shop_id,staff_code,display_name,role_key,status,credential_kind,credential_hash,credential_updated_at,credential_expires_at,must_change_credential,credential_version,credential_status) VALUES(${q(staff)},${q(shop)},'1001','Synthetic volume operator','pos_admin','active','password','argon2id:synthetic-not-a-login',clock_timestamp(),null,false,7,'active');
  INSERT INTO public.staff_role_permissions(shop_id,role_key,permission_key,enabled) VALUES(${q(shop)},'pos_admin','shop_admin.full_access',true);
@@ -48,14 +51,14 @@ try{
  server=createServer(async(req,res)=>{try{
   if(req.method!=='POST'||req.url!=='/api/internal/payment-history/worker'){res.writeHead(404);res.end();return;}
   counters.gatewayRequests++;const start=performance.now();let encoded=0;
-  const throttle=new Transform({transform(bytes,_encoding,done){encoded+=bytes.length;setTimeout(()=>done(null,bytes),Math.ceil(bytes.length/51200*1000));}});
+  const throttle=new Transform({transform(bytes,_encoding,done){encoded+=bytes.length;setTimeout(()=>done(null,bytes),Math.ceil(bytes.length*encodedLinkFactor/51200*1000));}});
   // Shape only the Worker staging link; Storage remains the actual local service.
   const body=req.pipe(throttle);await delay(300);
   const abort=new AbortController();req.once('aborted',()=>abort.abort());
   const response=await route.POST(new Request(`http://127.0.0.1${req.url}`,{method:req.method,headers:req.headers,body:Readable.toWeb(body),duplex:'half',signal:abort.signal}));
   const bytes=Buffer.from(await response.arrayBuffer());let result;try{result=JSON.parse(bytes);}catch{}
   if(result?.data?.phase&&['stage_objects','stage_movements'].includes(result.data.phase)){
-   counters.vectorRequests++;counters.encodedStagingBytes+=encoded;counters.roundTripMs.push(performance.now()-start);counters.sqlOriginalMs.push(result.data.sql_elapsed_ms);
+   counters.vectorRequests++;counters.encodedStagingBytes+=encoded;counters.chargedStagingBytes+=encoded*encodedLinkFactor;counters.roundTripMs.push(performance.now()-start);counters.sqlOriginalMs.push(result.data.sql_elapsed_ms);
    if(!counters.lostAckInjected){counters.lostAckInjected=true;res.destroy();return;}
   }
   res.writeHead(response.status,Object.fromEntries(response.headers));res.end(bytes);
@@ -86,6 +89,7 @@ try{
  demand(measured.elapsedMs<120000&&counters.vectorRequests===67&&counters.lostAckInjected,'history_volume_budget_or_replay_failed');
  demand(sql(`SELECT count(*) FROM public.payment_history_batches WHERE shop_id=${q(shop)};`)==='0','history_volume_published_without_apply');
  report.counters=counters;report.transport={latencyMsPerGatewayRequest:300,encodedWorkerLinkBytesPerSecond:51200,storageLink:'actual-loopback',identityComparator:'NOT_RUN_THIS_GATE',heapMiB:640,processRssLimitBytes:1073741824};
+ report.representativeness.encodedWireToMovementRatio=counters.encodedStagingBytes/fixture.metadata.movementBytes;
  report.status='PASS_REAL_GATEWAY_SQL_FULL_VOLUME';save('complete.json',report);
  const sqlBytes=readFileSync(join(resolve(options['--owned-workdir']),'.replay/complete.json')),sqlEvidence=JSON.parse(sqlBytes);
  demand(sqlEvidence.status==='LOCAL_CANONICAL_BYTE_EXACT_AND_PGTAP_PASS'&&sqlEvidence.head===report.serverSha&&sqlEvidence.operatorSQLByteExactReplay===true&&sqlEvidence.pgTAPFiles===sqlEvidence.databaseTestFiles.length&&sqlEvidence.pgTAPTests>=4375&&['supabase/tests/asus019_history_qualified_configuration.sql','supabase/tests/asus019_history_migration_stage_vector.sql'].every(p=>sqlEvidence.databaseTestFiles.includes(p)),'history_volume_own_sql_evidence');
