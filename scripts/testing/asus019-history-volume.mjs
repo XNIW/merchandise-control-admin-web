@@ -53,8 +53,9 @@ try{
   counters.gatewayRequests++;const start=performance.now();let encoded=0;
   const throttle=new Transform({transform(bytes,_encoding,done){encoded+=bytes.length;setTimeout(()=>done(null,bytes),Math.ceil(bytes.length*encodedLinkFactor/51200*1000));}});
   // Shape only the Worker staging link; Storage remains the actual local service.
-  const body=req.pipe(throttle);await delay(300);
   const abort=new AbortController();req.once('aborted',()=>abort.abort());
+  await delay(300,undefined,{signal:abort.signal});
+  const body=req.pipe(throttle);
   const response=await route.POST(new Request(`http://127.0.0.1${req.url}`,{method:req.method,headers:req.headers,body:Readable.toWeb(body),duplex:'half',signal:abort.signal}));
   const bytes=Buffer.from(await response.arrayBuffer());let result;try{result=JSON.parse(bytes);}catch{}
   if(result?.data?.phase&&['stage_objects','stage_movements'].includes(result.data.phase)){
@@ -87,6 +88,9 @@ try{
  const state=JSON.parse(sql(`SELECT jsonb_build_object('state',state,'error_code',error_code,'processed_objects',processed_objects,'processed_movements',processed_movements,'summary',summary) FROM public.payment_history_migration_runs WHERE shop_id=${q(shop)} AND run_id=${q(run.run_id)};`));report.canonical=state;
  demand(state.state==='review_ready'&&state.processed_objects===25955&&state.processed_movements===25947&&state.summary?.movements===25947&&state.summary?.activeGrossClp==='25947000'&&state.summary?.knownActiveNetClp==='25687530','history_volume_canonical_result_failed');
  demand(measured.elapsedMs<120000&&counters.vectorRequests===67&&counters.lostAckInjected,'history_volume_budget_or_replay_failed');
+ const additiveFloorMs=counters.chargedStagingBytes/51200*1000+counters.vectorRequests*300;
+ demand(measured.elapsedMs>=additiveFloorMs,'history_volume_additive_network_floor_failed');
+ report.representativeness.additiveNetworkFloorMs=additiveFloorMs;
  demand(sql(`SELECT count(*) FROM public.payment_history_batches WHERE shop_id=${q(shop)};`)==='0','history_volume_published_without_apply');
  report.counters=counters;report.transport={latencyMsPerGatewayRequest:300,encodedWorkerLinkBytesPerSecond:51200,storageLink:'actual-loopback',identityComparator:'NOT_RUN_THIS_GATE',heapMiB:640,processRssLimitBytes:1073741824};
  report.representativeness.encodedWireToMovementRatio=counters.encodedStagingBytes/fixture.metadata.movementBytes;

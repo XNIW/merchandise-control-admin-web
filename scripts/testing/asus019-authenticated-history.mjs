@@ -11,6 +11,7 @@ import {chromium} from "playwright";
 import {createClient} from "@supabase/supabase-js";
 import {projectClientFailure,logClosedReport} from "./asus019-closed-history-report.mjs";
 import {ownedHistoryMediaType,putBrowserHistorySource} from "./asus019-browser-history-upload.mjs";
+import {readOwnedHistoryWorkbook} from "./asus019-owned-workbook.mjs";
 
 const root=resolve(dirname(fileURLToPath(import.meta.url)),"../..");
 const args=process.argv.slice(2),options={};
@@ -166,8 +167,7 @@ try{
   await until(async()=>{const s=await importCall("upload_status",{upload_id:created.upload_id});demand(!["rejected","expired"].includes(s.state),"history_test_qualified_source_rejected");return s.state==="verified";});return {id:created.upload_id,hash};};
  const qualifiedSources=new Map();
  const approveSource=async descriptor=>{
-  const hash=descriptor.sourceSha,path=descriptor.sourcePath;demand(/^[0-9a-f]{64}$/.test(hash)&&isAbsolute(path??"")&&realpathSync(path)===path&&/^new-[0-9a-f]{32}\.xlsx$/.test(basename(path)),"history_test_policy_source_hash");
-  const bytes=readFileSync(path);demand(bytes.length>0&&bytes.length<=20971520&&sha(bytes)===hash,"history_test_policy_source_bytes");
+  const hash=descriptor.sourceSha,path=descriptor.sourcePath,bytes=readOwnedHistoryWorkbook(path,hash);
   const subjects=descriptor.qualificationSubjects;demand(Array.isArray(subjects)&&subjects.length>0&&subjects.length<=10&&subjects.every(s=>s.fileSha256===hash&&s.profile==="GetnetLegacy"&&s.parserVersion==="getnet-ooxml-v1"),"history_test_policy_subjects");
   if(!qualifiedSources.has(hash))await verifyBytes(basename(path),bytes,"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
   const content="BT /F1 8 Tf 20 780 Td (Independent synthetic legacy fixture: "+hash+") Tj 0 -14 Td (CLP; first actual POS use 2025-01-01; exact file and parser scopes are reviewed.) Tj ET";
