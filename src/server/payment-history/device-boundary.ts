@@ -38,6 +38,11 @@ export async function deviceHistoryRequest(value:unknown,sourceUploadUrl?:string
    throw new PosHistoryError("history_cloud_access_denied",403);
   }
   const conflict=error.code==="40001"||error.code==="PT409";
+  if(op==="baseline_recover"&&payload.retry_failed===true){
+   if(conflict&&error.message==="payment_history_baseline_retry_pending")throw new PosHistoryError("history_baseline_retry_pending",409);
+   if(conflict||error.code==="22023")throw new PosHistoryError("history_baseline_retry_conflict",409);
+   if(error.code==="23505")throw new PosHistoryError("history_idempotency_conflict",409);
+  }
   if(op==="baseline_apply"&&conflict&&error.message==="payment_history_review_stale_or_blocked")throw new PosHistoryError("history_baseline_review_stale",409);
   throw new PosHistoryError(conflict&&["snapshot_start","delta_start","page","replica_ack"].includes(op)?"history_resnapshot_required":conflict?"history_cloud_writer_closed":"history_cloud_unavailable",conflict?409:503);
  }

@@ -40,6 +40,23 @@ for(const mutate of [d=>d.shop_id=id(99),d=>d.device_id=id(99),d=>d.session_id=i
  test("device projection rejects expanded or mismatched backend data "+mutate.toString(),async()=>{const x=device(),data={ok:true,shop_id:id(1),device_id:id(2),session_id:id(4),result:structuredClone(authority)};mutate(data);x.setAnswer({data,error:null});await assert.rejects(()=>x.boundary.deviceHistoryRequest(x.input),e=>e.code==="history_response_invalid");});
 test("replica gap has a closed resnapshot result, without SQL error text",async()=>{const x=device();x.setAnswer({data:null,error:{code:"40001",message:"PRIVATE_SENTINEL"}});await assert.rejects(()=>x.boundary.deviceHistoryRequest({...x.input,operation:"page",payload:{cursor:id(9)}}),e=>e.code==="history_resnapshot_required"&&!e.message.includes("PRIVATE"));});
 for(const [code,message] of [["55000","payment_history_qualified_upgrade_required"],["40001","payment_history_local_protocol_required"]])test("qualified upgrade requirement preserves the POS authentication lease "+code,async()=>{const x=device();x.setAnswer({data:null,error:{code,message}});await assert.rejects(()=>x.boundary.deviceHistoryRequest({...x.input,operation:"local_write_grant",payload:{operation_id:id(9),writer_epoch:"1",kind:"Apply"}}),e=>e.code==="history_qualified_upgrade_required"&&e.status===409);assert.equal(x.calls.filter(c=>c.name).length,1);});
+for(const [sqlCode,message,code] of [["40001","payment_history_baseline_retry_pending","history_baseline_retry_pending"],
+ ["PT409","payment_history_baseline_retry_pending","history_baseline_retry_pending"],
+ ["40001","payment_history_baseline_recovery_conflict","history_baseline_retry_conflict"],
+ ["22023","payment_history_sources_unverified","history_baseline_retry_conflict"],
+ ["23505","payment_history_idempotency_conflict","history_idempotency_conflict"]])
+ test("failed baseline retry exposes only a closed outcome "+code,async()=>{
+  const x=device();x.input.operation="baseline_recover";x.input.payload={recovery_request_key:id(6),run_id:id(7),apply_request_key:id(8),retry_failed:true,previous_recovery_request_key:id(9)};
+  x.setAnswer({data:null,error:{code:sqlCode,message}});
+  await assert.rejects(()=>x.boundary.deviceHistoryRequest(x.input),e=>e.code===code&&e.status===409);
+  assert.equal(x.calls.find(c=>c.name).name,"payment_history_device_http_v2");
+  assert.equal(x.calls.filter(c=>c.name).length,1);
+ });
+test("ordinary baseline recovery retains its existing conflict classification",async()=>{
+ const x=device();x.input.operation="baseline_recover";x.input.payload={recovery_request_key:id(6),run_id:id(7),apply_request_key:id(8)};
+ x.setAnswer({data:null,error:{code:"40001",message:"payment_history_baseline_recovery_conflict"}});
+ await assert.rejects(()=>x.boundary.deviceHistoryRequest(x.input),e=>e.code==="history_cloud_writer_closed"&&e.status===409);
+});
 function transfer(){
  const calls=[],access={status:"ready",principalKind:"pos_staff_manager",selectedShop:{shopId:id(1)},principal:{staff:{staffId:id(3)},staffWebSession:{sessionId:id(4),sessionTokenHash:hash(sessionToken),credentialVersion:7}}};let rpcError=null,grants=[true,true],data={ok:true,shop_id:id(1),actor:{kind:"pos_staff_manager",id:id(3),session_id:id(4),credential_version:7},result:{run_id:id(8),state:"queued"}};
  class RequestError extends Error{constructor(code,status){super(code);this.code=code;this.status=status;}}

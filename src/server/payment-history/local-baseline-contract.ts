@@ -22,9 +22,12 @@ const fields={
  baseline_status:["run_id"],baseline_review:["run_id"],
  baseline_apply:["run_id","request_key","review_digest"],baseline_receipt:["request_key"],baseline_recover:["recovery_request_key","run_id","apply_request_key"]} as const;
 export function validateBaselineRequest(op:BaselineOperation,value:unknown){
- const p=closed(value,[...fields[op],...(op==="baseline_recover"&&historyObject(value)&&Object.hasOwn(value,"previous_review_digest")?["previous_review_digest"]:[])]);
+ const optional=op==="baseline_recover"&&historyObject(value)?["previous_review_digest","retry_failed","previous_recovery_request_key"].filter(k=>Object.hasOwn(value,k)):[];
+ const p=closed(value,[...fields[op],...optional]);
+ if(Object.hasOwn(p,"previous_recovery_request_key")&&p.retry_failed!==true)fail();
  for(const [k,v] of Object.entries(p)){
-  if(["request_key","upload_id","run_id","restore_lineage_id","recovery_request_key","apply_request_key"].includes(k))id(v);
+  if(["request_key","upload_id","run_id","restore_lineage_id","recovery_request_key","apply_request_key","previous_recovery_request_key"].includes(k))id(v);
+  else if(k==="retry_failed"){if(v!==true)fail();}
   else if(["data_revision","restore_epoch","writer_epoch","byte_length"].includes(k))integer(v,BigInt(k==="writer_epoch"||k==="byte_length"?1:0),BigInt(k==="byte_length"?20971520:"9223372036854775807"));
   else if(k==="sha256"||k==="review_digest"||k==="previous_review_digest")hash(v);
   else if(k==="file_name"){text(v);if(!/^[^/\\]+\.w7history\.zip$/.test(v as string))fail();}
