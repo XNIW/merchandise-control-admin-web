@@ -58,6 +58,36 @@ Own SQL, volume con route HTTP/Storage/Worker CJS reali, combinazione client,
 bundle e consegna restano NOT_RUN finché non attestati dal loro candidato.
 Nessun DDL live o deploy viene qualificato dalla sola implementazione.
 
+## Addendum 13 novembre (14 UTC) — volume del gateway baseline
+
+Stessa Execution ACTIVE. Upload reale già verificato; FAIL successivo durante
+stage_objects conservato, nessun retry live. Indagine isolata su main ca9f239:
+gzip soltanto nel trasporto Node24/gateway, HMAC dei byte wire prima di una
+decompressione nativa limitata, wire e decoded8MiB. Contratti SQL/main Worker,
+200righe/6MiB,15s/120s, heartbeat20s e autorizzazione finanziaria restano identici.
+La qualifica usa fixture CLR sintetica espansa, workerd nativo e RPC posseduta
+senza Supabase; dati aggregati reali danno soltanto target25947righe/20274917B.
+Confronto controllato e security in corso, senza attribuire il timeout reale a
+gzip né trasferire PASS da prove di byte a prestazioni cloud. Evidence privata
+C:/Dev/U19BaselineVolume01. Nessun rollout/DDL/servicerestart o nuovo writer.
+
+Successore14novembre: prove temporizzate precedenti contese, non qualifica.
+Anche gzip raggiunge timeout120666ms nel modello, FAIL conservato. Contratto v2
+esplicitamente autorizzato da root: max4 chunk canonici≤200 per vettore, sola
+fase/fence, ordine invariato, totale6MiB, ACK vincolato, nessun fallback v1.
+Wrapper SQL additivo nella tranche Master; nessun incremento di120s/15s o memoria.
+Signal e diagnostiche Worker estesi fino a RPC; causa processo separata da
+migration_failed, ring redatto512KiB nel path status esistente. Packaging v2
+richiede artifact CJS già qualificato e ricevuta hashata esterna che lega source
+immutabile/tree, artifact e prove SQL/volume; gate v1/frozen kit preservati.
+Nessun PASS di stub attribuito a gateway+SQL reale, host installato o baseline.
+
+Finali locali:90/90 mirati, typecheck/lint, bundle Node24, parsing PowerShell e
+diff-check PASS; dettagli e FAIL precedenti nell'evidence task/U19BaselineVolume01.
+Recovery daemon ristretto a claim migration con nonce/body immutabili e3backoff
+2/5/15s dentro l'unico120s pre-claim. --once, auth, contratto e stage non ricevono
+quel recovery. Nessun riavvio del cronometro, nessun rollout o qualifica live.
+
 ## Addendum 12 novembre — PUT e importazione utilizzabile
 
 Stessa Execution ACTIVE. Diagnostico PR153/main7d94271 pubblicato1a7c6e27:

@@ -5,6 +5,7 @@ param(
  [Parameter(Mandatory)][string]$ReadyReceipt,
  [Parameter(Mandatory)][ValidatePattern('^[0-9a-f]{64}$')][string]$ReadyReceiptSha256,
  [Parameter(Mandatory)][string]$ReceiptPath,
+ [ValidatePattern('^[0-9a-f]{64}$')][string]$RuntimeQualificationReceiptSha256,
  [switch]$ValidateOnly
 )
 $ErrorActionPreference='Stop'
@@ -35,17 +36,27 @@ function Run-Wrangler([string[]]$Arguments,[string]$InputText){
 try{
  $package=[IO.Path]::GetFullPath($PackageDirectory)
  $m=Get-Content -LiteralPath (Join-Path $package 'manifest.json') -Raw|ConvertFrom-Json
- Demand ($m.schema -ceq 'history-worker-windows-package-v1' -and $m.workerSha256 -ceq '20eb2acd148a6c169f280174cd521f9e331eb64efda491e3c579a33349314ccb' -and $m.runtimeFilesUnchanged -and -not $m.secretsIncluded) 'history_host_package_identity_invalid'
+ $v2=$m.schema -ceq 'history-worker-windows-package-v2'
+ if($v2){Demand ($RuntimeQualificationReceiptSha256 -cmatch '^[0-9a-f]{64}$' -and $m.runtimeQualificationReceiptSha256 -ceq $RuntimeQualificationReceiptSha256 -and $m.sourceSha -cmatch '^[0-9a-f]{40}$' -and $m.sourceTree -cmatch '^[0-9a-f]{40}$' -and $m.workerSha256 -cmatch '^[0-9a-f]{64}$' -and -not $m.runtimeFilesUnchanged -and -not $m.secretsIncluded) 'history_host_package_identity_invalid'}
+ else{Demand ($m.schema -ceq 'history-worker-windows-package-v1' -and $m.workerSha256 -ceq '20eb2acd148a6c169f280174cd521f9e331eb64efda491e3c579a33349314ccb' -and $m.runtimeFilesUnchanged -and -not $m.secretsIncluded) 'history_host_package_identity_invalid'}
  $expected=@('HistoryWorkerService.exe','HistoryWorkerService.exe.config','worker.cjs','HostDeployment.psm1','Install-Host.ps1','README.md','Node-LICENSE.txt')
+ if($v2){$expected+=@('WorkerQualification.psm1','runtime-qualification.json')}
  Demand (@($m.files).Count -eq $expected.Count -and @($m.files.path|Select-Object -Unique).Count -eq $expected.Count -and @($m.files.path|Where-Object {$_ -cnotin $expected}).Count -eq 0) 'history_host_package_members_invalid'
  foreach($file in $m.files){
   Demand ($file.path -cmatch '^[A-Za-z0-9._-]+$') 'history_host_package_member_invalid'
   $path=Join-Path $package $file.path
   Demand ((Get-Item -LiteralPath $path).Length -eq $file.bytes -and (Hash $path) -ceq $file.sha256) 'history_host_package_hash_invalid'
  }
+ if($v2){
+  Import-Module (Join-Path $package 'WorkerQualification.psm1') -Force
+  $qualification=Read-HistoryWorkerRuntimeQualification -ReceiptPath (Join-Path $package 'runtime-qualification.json') -ReceiptSha256 $RuntimeQualificationReceiptSha256 -WorkerPath (Join-Path $package 'worker.cjs') -SourceSha $m.sourceSha -SourceTree $m.sourceTree
+  Demand ($m.runtimeQualifiedServerSha -ceq $qualification.sourceSha -and $m.artifactId -ceq $qualification.artifactId -and $m.artifactArchiveSha256 -ceq $qualification.artifactArchiveSha256) 'history_host_package_identity_invalid'
+ }
  Demand ((Hash $ReadyReceipt) -ceq $ReadyReceiptSha256) 'history_host_ready_receipt_changed'
  $ready=Get-Content -LiteralPath $ReadyReceipt -Raw|ConvertFrom-Json
- Demand ($ready.schema -ceq 'asus019-staging-ready-v1' -and $ready.runtimeSourceSha -ceq '612d9bd0fb9f1f8a71d0bc3631186e8fac04761f' -and $ready.historyMigrationsCompleted -and $ready.gatewayRoutePublished -and $ready.cloudflareVersion -cmatch '^[0-9a-f-]{36}$' -and $ready.workerTarget -ceq 'merchandise-control-admin-web-staging') 'history_host_backend_not_ready'
+ if($v2){Demand ($ready.schema -ceq 'asus019-staging-ready-v2' -and $ready.runtimeSourceSha -ceq $qualification.sourceSha -and $ready.gatewayContract -ceq 'stage_vector_v2' -and $ready.runtimeQualificationReceiptSha256 -ceq $RuntimeQualificationReceiptSha256) 'history_host_backend_not_ready'}
+ else{Demand ($ready.schema -ceq 'asus019-staging-ready-v1' -and $ready.runtimeSourceSha -ceq '612d9bd0fb9f1f8a71d0bc3631186e8fac04761f') 'history_host_backend_not_ready'}
+ Demand ($ready.historyMigrationsCompleted -and $ready.gatewayRoutePublished -and $ready.cloudflareVersion -cmatch '^[0-9a-f-]{36}$' -and $ready.workerTarget -ceq 'merchandise-control-admin-web-staging') 'history_host_backend_not_ready'
  Demand ((Hash $ready.wranglerScript) -ceq $ready.wranglerScriptSha256 -and (Hash $ready.cloudflareConfig) -ceq $ready.cloudflareConfigSha256) 'history_host_provisioner_changed'
  $config=Get-Content -LiteralPath $ready.cloudflareConfig -Raw|ConvertFrom-Json
  Demand ($config.name -ceq 'merchandise-control-admin-web-staging') 'history_host_provisioner_target_invalid'

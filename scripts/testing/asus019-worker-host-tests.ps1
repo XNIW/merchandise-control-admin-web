@@ -38,7 +38,7 @@ try{
  foreach($file in @('HistoryWorkerService.exe','HistoryWorkerService.exe.config')){Copy-Item -LiteralPath (Join-Path $PackageDirectory $file) -Destination (Join-Path $bin $file)}
  Copy-Item -LiteralPath $node -Destination (Join-Path $bin 'node.exe')
  $serviceNode=Join-Path $bin 'node.exe'
- $stub=Join-Path $bin 'worker.cjs';[IO.File]::WriteAllText($stub,'setInterval(()=>{},1000);')
+ $stub=Join-Path $bin 'worker.cjs';[IO.File]::WriteAllText($stub,'const path=process.env.HISTORY_WORKER_DIAGNOSTICS_FILE;if(!path)process.exit(31);require("node:fs").writeFileSync(path,JSON.stringify({event:"history_worker_host_probe",syntheticOnly:true})+"\n");setInterval(()=>{},1000);')
  $sid=New-HistoryHostService -Name $name -HostExe (Join-Path $bin 'HistoryWorkerService.exe') -Created ([ref]$created)
  Set-HistoryHostAcl -Path $output -ServiceSid $sid -Rights ReadAndExecute
  Set-HistoryHostAcl -Path $bin -ServiceSid $sid -Rights ReadAndExecute
@@ -57,15 +57,19 @@ try{
  $readers=@($acl.Access|Where-Object AccessControlType -eq Allow|ForEach-Object { $_.IdentityReference.Translate([Security.Principal.SecurityIdentifier]).Value })
  Demand ($acl.AreAccessRulesProtected -and $acl.GetOwner([Security.Principal.SecurityIdentifier]).Value -eq 'S-1-5-18' -and @($readers|Where-Object {$_ -notin @('S-1-5-18','S-1-5-32-544',$sid.Value)}).Count -eq 0) 'history_host_secret_acl_exposes_other_identity'
  Add-Pass 'dedicated_virtual_account_and_service_only_secret_acl'
+ $diagnosticPath=Join-Path $status 'worker-diagnostics.ndjson'
  Start-Service -Name $name
  $deadline=[DateTimeOffset]::UtcNow.AddSeconds(30);$health=$null
  do{
   Start-Sleep -Milliseconds 200
   if(Test-Path -LiteralPath (Join-Path $status 'status.json')){$health=Get-Content -LiteralPath (Join-Path $status 'status.json') -Raw|ConvertFrom-Json}
- }while(((-not $health) -or $health.state -ne 'running') -and [DateTimeOffset]::UtcNow -lt $deadline)
+ }while(((-not $health) -or $health.state -ne 'running' -or -not (Test-Path -LiteralPath $diagnosticPath -PathType Leaf)) -and [DateTimeOffset]::UtcNow -lt $deadline)
  Demand ($null -ne $health -and $health.state -eq 'running' -and $health.serviceSidPresent -and $health.processMemoryLimit -eq 1GB -and $health.activeProcessLimit -eq 1) 'history_host_service_not_healthy'
  $pidOwned=[int]$health.pid
  Demand ($null -ne (Get-Process -Id $pidOwned -ErrorAction SilentlyContinue)) 'history_host_owned_child_missing'
+ Demand (Test-Path -LiteralPath $diagnosticPath -PathType Leaf) 'history_host_persistent_diagnostic_path_not_delivered'
+ $diagnostic=Get-Content -LiteralPath $diagnosticPath -Raw|ConvertFrom-Json
+ Demand ($diagnostic.event -ceq 'history_worker_host_probe' -and $diagnostic.syntheticOnly -and @($diagnostic.PSObject.Properties).Count -eq 2) 'history_host_diagnostic_probe_invalid'
  Add-Pass 'SCM_virtual_identity_DPAPI_child_launch_and_actual_limits'
  Stop-Service -Name $name
  $deadline=[DateTimeOffset]::UtcNow.AddSeconds(10)

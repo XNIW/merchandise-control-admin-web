@@ -6084,3 +6084,41 @@ Win7 fisico indisponibile, prova provider C moderna mancante. Execution ACTIVE,
 nessun DONE. Questo aggiornamento è solo documentale: runtime/Admin invariato.
 
 </details>
+
+## ASUS019 — indagine volume baseline, 13 novembre (14 UTC)
+
+Stessa Execution ACTIVE, ramo isolato da main ca9f239. Il FAIL reale conservato
+ha upload verificato e timeout durante stage_objects:6000oggetti/0movimenti.
+Prototipo circoscritto al trasporto: gzip Node24 se minore del JSON, HMAC sui byte
+wire prima del decoder nativo workerd; limiti wire/decoded8MiB indipendenti.
+Operazioni,200righe/6MiB,15s/120s, heartbeat20s e SQL/main Worker invariati.
+La prova sintetica preliminare su25947movimenti/20274917byte NDJSON riconcilia
+tutti i chunk e finish:72174835byte identity/1818712gzip. Non è prova della
+causa live. Gate nativi/security/volume finali ancora in corso, evidence separata
+C:/Dev/U19BaselineVolume01; RED e FAIL preservati. Nessun retry baseline reale,
+DB live, migrazione, deploy o riavvio del servizio effettuato da questa indagine.
+
+Addendum corrente14novembre: il confronto precedente era conteso con UI/portable
+e non qualifica prestazioni. Identity FAIL122365ms; gzip FAIL120666ms nel modello
+registrato: nessun timeout trasformato in PASS. Root autorizza il contratto
+additivo stage_vector_v2, max4 sottobatch canonici≤200, stessa fase/fence/ordinali,
+transazione vettore atomica e totale6MiB/decoded8MiB. SQL è posseduto dalla tranche
+Master; Worker verifica l'ACK e non fa fallback al server vecchio. Il controller
+120s raggiunge RPC/download/reader; terminal fail usa il fence originale e solo
+il segnale processo. Diagnostiche chiuse misurano fasi/RPC/byte/RSS/cancellazione,
+gateway, DB roundtrip e SQL originario distinti. Host passa soltanto un path
+status per il ring512KiB atomico, conservando chiavi/DPAPI/ACL e limiti.
+Mirati esclusivi84/84, typecheck02/lint02/CJSbundle/CSCnet48-x64 PASS sul WIP;
+nuovi guard packaging e prova processo CJS in qualifica finale. Pacchetto v2
+richiede ricevuta esterna del verifier CI con source/tree/artifact/raw hash e
+gate SQL/volume reali: nessuna ricevuta creata automaticamente dal builder.
+Gate SQL+gateway/volume reale,5/5 SCM remoto, consegna e baseline live restano
+NOT_RUN per questa tranche; il solo processo Running non attesta continuità.
+
+Gate locali finali del delta14novembre:90/90 mirati PASS (2328ms), typecheck e
+lint final02 PASS, bundle Node24 finale PASS, parsing5file PowerShell PASS e
+diff-check PASS. Include processo CJS reale con fatal redatto persistente e22
+guard packaging sintetici solo in memoria. Lint final01 FAIL del nome locale
+module nel probe VM conservato e corretto senza indebolire assert/soglie.
+Qualifica completa SQL/volume/host e consegna rimangono gate separati pendenti;
+root ha autorizzato soltanto freeze/commit locale di questa tranche, nessun push.
