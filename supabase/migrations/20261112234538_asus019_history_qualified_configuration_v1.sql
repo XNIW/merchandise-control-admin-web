@@ -917,7 +917,8 @@ declare p public.payment_history_local_publications;r public.payment_history_run
  if not local_new and app_private.payment_history_local_economic_conflict_v2(local_previous->'economics',economics) then
   raise exception using errcode='40001',message='payment_history_local_economic_conflict';end if;
  if local_new and local_previous is not null and app_private.payment_history_local_economic_conflict_v2(local_previous->'economics',economics) then
-  if approval is null or approval->>'previous_transaction_id' is distinct from local_previous->>'local_transaction_id'
+  if approval is null or coalesce(local_previous->>'source_kind','') not in('baseline','publication')
+   or (local_previous->>'source_kind'='baseline' and approval->>'previous_transaction_id' is distinct from local_previous->>'local_transaction_id')
    or approval->>'previous_local_batch_id' is distinct from local_previous->>'local_batch_id'
    or (approval->>'previous_apply_operation_id')::uuid is distinct from (local_previous->>'apply_operation_id')::uuid
    or approval->>'previous_economic_digest' is distinct from local_previous->>'economic_digest'

@@ -34,7 +34,7 @@ try{
   limitation:'Synthetic field entropy differs from the original. Archive-size ratio charges additional network time; it does not qualify live-cloud completion.',liveCloudQualified:false};
  sql(`BEGIN;INSERT INTO public.shops(shop_id,shop_code,shop_name,shop_status) VALUES(${q(shop)},'VOLUME019','Synthetic full-volume baseline','active');
  INSERT INTO public.staff_accounts(staff_id,shop_id,staff_code,display_name,role_key,status,credential_kind,credential_hash,credential_updated_at,credential_expires_at,must_change_credential,credential_version,credential_status) VALUES(${q(staff)},${q(shop)},'1001','Synthetic volume operator','pos_admin','active','password','argon2id:synthetic-not-a-login',clock_timestamp(),null,false,7,'active');
- INSERT INTO public.staff_role_permissions(shop_id,role_key,permission_key,enabled) VALUES(${q(shop)},'pos_admin','shop_admin.full_access',true);
+ INSERT INTO public.staff_role_permissions(shop_id,role_key,permission_key,enabled) VALUES(${q(shop)},'pos_admin','shop_admin.full_access',true) on conflict(shop_id,role_key,permission_key) do update set enabled=true;
  INSERT INTO public.payment_history_role_permissions(shop_id,role_key,capability,enabled) VALUES(${q(shop)},'pos_admin','migrate',true);
  INSERT INTO public.payment_history_runtime(shop_id) VALUES(${q(shop)});
  INSERT INTO public.shop_devices(shop_device_id,shop_id,device_identifier,display_name,device_type,status) VALUES(${q(device)},${q(shop)},'SYNTHETIC-VOLUME-POS','Synthetic volume POS','pos','active');
