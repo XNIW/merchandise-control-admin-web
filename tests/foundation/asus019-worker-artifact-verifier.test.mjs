@@ -13,9 +13,10 @@ function fixture(){
  const runnerSource="REVIEWED_EXTENSIONS = {\n 'one': {'additionalAssertions':36,'testFile':'supabase/tests/asus019_history_qualified_configuration.sql'},\n 'two': {'additionalAssertions':23,'testFile':'supabase/tests/asus019_history_migration_stage_vector.sql'},\n}\nexpected_assertions = 4375 + sum(x)\nlen(tests) == 67 + len(extension_tests)";
  const sqlContract=workerSqlQualificationContract({runnerSource,runnerSha256,concurrencySha256,files}),source={runId:'123',artifactId:'456',sourceSha,sourceTree,lockSha256,sqlContract};
  const sql={status:'LOCAL_CANONICAL_BYTE_EXACT_AND_PGTAP_PASS',head:sourceSha,CLI:'2.109.0',profile:'ci',operatorSQLByteExactReplay:true,runnerSHA256:runnerSha256,pgTAPFiles:files.length,pgTAPTests:4434,databaseTestFiles:files,historicalConcurrency:{status:'PASS',cases:3,receiptSHA256:'f'.repeat(64),harnessSHA256:concurrencySha256},pgtapStdoutSHA256:'1'.repeat(64)};
- const volume={status:'PASS_REAL_GATEWAY_SQL_FULL_VOLUME',serverSha:sourceSha,workerSha256:hash(worker),realGateway:true,gatewayRuntime:'node24-native-route-adapter',sqlRuntime:'postgres-postgrest-owned-fixture',payload:{rows:25947,movementBytes:20274917},canonical:{state:'review_ready',processed_objects:25955,processed_movements:25947},limits:{analysisBudgetMs:120000,requestBudgetMs:15000,canonicalRowLimit:200,vectorChunkLimit:4},measurement:{elapsedMs:1000,exit:{code:0,signal:null},peakRssBytes:1000000,diagnosticsSha256:'2'.repeat(64),diagnosticsBytes:4000},transport:{latencyMsPerGatewayRequest:300,encodedWorkerLinkBytesPerSecond:51200,storageLink:'actual-loopback',heapMiB:640,processRssLimitBytes:1073741824},counters:{vectorRequests:67,lostAckInjected:true}};
+ const volume={status:'PASS_REAL_GATEWAY_SQL_FULL_VOLUME',serverSha:sourceSha,workerSha256:hash(worker),realGateway:true,gatewayRuntime:'node24-native-route-adapter',sqlRuntime:'postgres-postgrest-owned-fixture',payload:{rows:25947,movementBytes:20274917},canonical:{state:'review_ready',processed_objects:25955,processed_movements:25947},limits:{analysisBudgetMs:120000,requestBudgetMs:15000,canonicalRowLimit:200,vectorChunkLimit:4},measurement:{elapsedMs:100000,exit:{code:0,signal:null},peakRssBytes:1000000,diagnosticsSha256:'2'.repeat(64),diagnosticsBytes:4000},transport:{latencyMsPerGatewayRequest:300,encodedWorkerLinkBytesPerSecond:51200,storageLink:'actual-loopback',heapMiB:640,processRssLimitBytes:1073741824},counters:{vectorRequests:67,lostAckInjected:true}};
  volume.payload.archiveBytes=486290;volume.counters.encodedStagingBytes=1800000;volume.counters.chargedStagingBytes=1800000*Math.max(1,869952/486290);
  volume.representativeness={aggregateReferenceArchiveBytes:869952,syntheticArchiveBytes:486290,encodedLinkChargeFactor:Math.max(1,869952/486290),encodedWireToMovementRatio:1800000/20274917,liveCloudQualified:false};
+ volume.representativeness.additiveNetworkFloorMs=volume.counters.chargedStagingBytes/51200*1000+67*300;
  const metadata={run:{id:123,status:'completed',conclusion:'success',event:'workflow_dispatch',path:'.github/workflows/ci.yml',head_sha:sourceSha,workflow_id:55,repository:{id:66,full_name:workerArtifactRepository},head_repository:{id:66,full_name:workerArtifactRepository}},workflow:{id:55,path:'.github/workflows/ci.yml'},artifact:{id:456,name:workerArtifactName,expired:false,created_at:'2026-11-14T03:00:30Z',workflow_run:{id:123,head_sha:sourceSha,repository_id:66,head_repository_id:66}},jobs:{total_count:1,jobs:[{name:'ASUS019 owned authenticated history services',run_id:123,status:'completed',conclusion:'success',started_at:'2026-11-14T03:00:00Z',completed_at:'2026-11-14T03:01:00Z',steps:['Canonical owned replay without changed SQL budgets','Full-volume actual gateway SQL and dedicated Worker','Authenticated service and browser roundtrip'].map(name=>({name,status:'completed',conclusion:'success'}))}]}};
  function archive({extra=[],changeManifest=()=>{}}={}){
   const sqlBytes=Buffer.from(JSON.stringify(sql)),volumeBytes=Buffer.from(JSON.stringify(volume)),manifest={schema:'asus019-worker-volume-source-v2',serverSha:sourceSha,sourceTree,lockSha256,workerSha256:hash(worker),nodeVersion:'v24.18.0',sqlEvidenceSha256:hash(sqlBytes),volumeEvidenceSha256:hash(volumeBytes)};changeManifest(manifest);
@@ -44,9 +45,20 @@ test('charge arithmetic accepts only67-term roundoff and never discounts a large
  const x=fixture(),factor=x.volume.representativeness.encodedLinkChargeFactor;
  x.volume.counters.encodedStagingBytes=Array.from({length:67},(_,i)=>10000+i).reduce((n,v)=>n+v,0);
  x.volume.counters.chargedStagingBytes=Array.from({length:67},(_,i)=>(10000+i)*factor).reduce((n,v)=>n+v,0);x.volume.representativeness.encodedWireToMovementRatio=x.volume.counters.encodedStagingBytes/20274917;
+ x.volume.representativeness.additiveNetworkFloorMs=x.volume.counters.chargedStagingBytes/51200*1000+67*300;
  await verifyWorkerArtifactArchive(x.archive(),x.metadata,x.source);
  const y=fixture();y.volume.payload.archiveBytes=900000;y.volume.representativeness.syntheticArchiveBytes=900000;y.volume.representativeness.encodedLinkChargeFactor=1;y.volume.counters.chargedStagingBytes=y.volume.counters.encodedStagingBytes;
+ y.volume.representativeness.additiveNetworkFloorMs=y.volume.counters.chargedStagingBytes/51200*1000+67*300;
  await verifyWorkerArtifactArchive(y.archive(),y.metadata,y.source);
+});
+test('sequential additive charge requires elapsed at or above latency plus charged byte time',async()=>{
+ const x=fixture(),floor=x.volume.counters.chargedStagingBytes/x.volume.transport.encodedWorkerLinkBytesPerSecond*1000+x.volume.counters.vectorRequests*x.volume.transport.latencyMsPerGatewayRequest;
+ x.volume.measurement.elapsedMs=floor-0.001;
+ await assert.rejects(()=>verifyWorkerArtifactArchive(x.archive(),x.metadata,x.source),/^Error: history_worker_artifact_volume_additive_time_rejected$/);
+ x.volume.measurement.elapsedMs=floor;
+ await verifyWorkerArtifactArchive(x.archive(),x.metadata,x.source);
+ x.volume.representativeness.additiveNetworkFloorMs=floor-1;
+ await assert.rejects(()=>verifyWorkerArtifactArchive(x.archive(),x.metadata,x.source),/^Error: history_worker_artifact_volume_additive_time_rejected$/);
 });
 test('ZIP digest, member hashes, extra files and traversal paths are rejected before package writes',async()=>{
  const x=fixture(),bytes=x.archive();bytes[10]^=1;await assert.rejects(()=>verifyWorkerArtifactArchive(bytes,x.metadata,x.source),/archive_digest_rejected/);

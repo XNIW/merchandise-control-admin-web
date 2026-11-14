@@ -68,6 +68,10 @@ export async function verifyWorkerArtifactArchive(bytes,metadata,source){
  // accumulation roundoff, far below one charged byte; never a model discount.
  const sameNumber=(actual,expected,terms=1)=>number(actual)&&Math.abs(actual-expected)<=Math.min(0.000001,Number.EPSILON*Math.max(1,expected)*terms*4);
  requireValue(representative.encodedLinkChargeFactor===factor&&Number.isSafeInteger(encodedBytes)&&encodedBytes>0&&encodedBytes<=67*8388608&&number(charged)&&charged>=encodedBytes&&sameNumber(charged,encodedBytes*factor,67)&&sameNumber(representative.encodedWireToMovementRatio,encodedBytes/20274917),'volume_charge_model_rejected');
+ // Every staging request pays both latency and its charged byte time. A report
+ // below this conservative floor cannot qualify a sequential additive model.
+ const stagingFloorMs=charged/transport.encodedWorkerLinkBytesPerSecond*1000+volume.counters.vectorRequests*transport.latencyMsPerGatewayRequest;
+ requireValue(sameNumber(representative.additiveNetworkFloorMs,stagingFloorMs)&&measured.elapsedMs>=stagingFloorMs,'volume_additive_time_rejected');
  const receipt={schema:'history-worker-runtime-qualification-v2',protocol:'stage_vector_v2',nodeVersion:'v24.18.0',sourceSha:source.sourceSha,sourceTree:source.sourceTree,workerSha256:manifest.workerSha256,artifactId:source.artifactId,artifactArchiveSha256:sha(bytes),canonicalSql:{status:'PASS',sourceSha:source.sourceSha,runId:source.runId,reportSha256:manifest.sqlEvidenceSha256},realVolume:{status:'PASS',sourceSha:source.sourceSha,runId:source.runId,reportSha256:manifest.volumeEvidenceSha256,workerSha256:manifest.workerSha256,syntheticOnly:true,sqlReal:true,realGateway:true,gatewayRuntime:volume.gatewayRuntime,sqlRuntime:volume.sqlRuntime,rows:25947,movementBytes:20274917,analysisBudgetMs:120000,requestBudgetMs:15000,canonicalRowLimit:200,vectorChunkLimit:4,elapsedMs:measured.elapsedMs}};
  const receiptBytes=Buffer.from(JSON.stringify(receipt,null,2)+'\n');
  return {files,receipt,receiptBytes,receiptSha256:sha(receiptBytes)};
