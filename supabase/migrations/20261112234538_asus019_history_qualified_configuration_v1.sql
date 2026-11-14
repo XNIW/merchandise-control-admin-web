@@ -628,11 +628,6 @@ declare a jsonb;fresh jsonb;response jsonb;op text;j public.payment_history_jobs
    or exists(select 1 from jsonb_array_elements_text(p_payload->'evidence_ids') id where not exists(select 1 from public.payment_history_evidence e
     where e.evidence_id=id::uuid and e.shop_id=p_shop_id and e.status='verified' and e.qualification_version='getnet-qualified-input-v1' and e.scope->>'parser_version'=j.parser_version))) then
    raise exception using errcode='22023',message='payment_history_qualified_evidence_required';end if;
-  if op in('review','commit') and exists(select 1 from public.payment_history_staged_movements s
-   left join public.payment_history_merchant_aliases ma on ma.shop_id=s.shop_id and ma.alias_key=s.alias_key and ma.active
-   left join public.payment_history_evidence e on e.shop_id=ma.shop_id and e.evidence_id=ma.evidence_id
-   where s.job_id=j.job_id and (e.qualification_version is distinct from 'getnet-qualified-input-v1' or e.scope->>'parser_version' is distinct from j.parser_version)) then
-   raise exception using errcode='22023',message='payment_history_qualified_evidence_required';end if;
  end if;
  response:=app_private.payment_history_request_engine_v2(p_shop_id,op,p_payload,a);
  if op='start' then
