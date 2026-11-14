@@ -73,6 +73,17 @@ test('recovery request has original Apply identity and an optional strictly type
  for(const delta of [{previous_review_digest:null},{previous_review_digest:1},{previous_review_digest:''},{extra:true},{apply_request_key:'00000000-0000-0000-0000-000000000000'}])
   assert.throws(()=>c.validateBaselineRequest('baseline_recover',{...p,...delta}));
 });
+test('failed retry is explicit true and a continuation names its previous recovery request',()=>{
+ const p={recovery_request_key:id(8),run_id:id(4),apply_request_key:id(9),retry_failed:true};
+ assert.equal(c.validateBaselineRequest('baseline_recover',p).retry_failed,true);
+ assert.equal(c.validateBaselineRequest('baseline_recover',{...p,previous_recovery_request_key:id(7)}).previous_recovery_request_key,id(7));
+ for(const retry_failed of [false,null,0,1,'true',{},[]])assert.throws(()=>c.validateBaselineRequest('baseline_recover',{...p,retry_failed}));
+ for(const previous_recovery_request_key of [null,1,'','00000000-0000-0000-0000-000000000000'])
+  assert.throws(()=>c.validateBaselineRequest('baseline_recover',{...p,previous_recovery_request_key}));
+ const ordinary={...p,previous_recovery_request_key:id(7)};delete ordinary.retry_failed;
+ assert.throws(()=>c.validateBaselineRequest('baseline_recover',ordinary));
+ assert.throws(()=>c.validateBaselineRequest('baseline_status',{run_id:id(4),retry_failed:true}));
+});
 test('uncommitted recovery proof binds current lease and exact original intent without a financial receipt',()=>{
  const value={recovery_ack_json:JSON.stringify(recoveryAck()),receipt_json:null};
  assert.equal(c.validateBaselineRecovery(value,recoveryScope()).recovery_ack_json,value.recovery_ack_json);
