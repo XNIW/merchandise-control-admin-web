@@ -14,16 +14,17 @@ export type HistorySourcePort={
 const fail=(code="history_baseline_upload_invalid",status=400):never=>{throw new HistorySourceError(code,status);};
 // The client sends only to its configured Admin origin. Only this server-side
 // port receives the bounded, owned Storage target; it is never sent to POS.
-export async function transferHistorySource(request:Request,port:HistorySourcePort){
+export async function transferHistorySource(request:Request,port:HistorySourcePort,sourceKind:"baseline"|"getnet"="baseline"){
  const phase=(value:HistorySourcePhase)=>{try{port.observePhase?.(value);}catch{/* Observability has no authority over the transfer. */}};
  phase("validation");
- if(request.headers.get("content-type")!=="application/zip"||!request.body)return fail();
+ if(request.headers.get("content-type")!==(sourceKind==="getnet"?"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":"application/zip")||!request.body)return fail();
  const length=request.headers.get("content-length");if(!length||!(/^[1-9][0-9]{0,7}$/).test(length)||BigInt(length)>BigInt(20971520))return fail();
  const upload=request.headers.get("x-history-upload-id");if(!upload)return fail();demandUuid(upload);
  const input={deviceId:request.headers.get("x-history-device-id"),sessionId:request.headers.get("x-history-session-id"),
-  deviceToken:request.headers.get("x-history-device-token"),sessionToken:request.headers.get("x-history-session-token"),operation:"baseline_upload_status",payload:{upload_id:upload}};
+  deviceToken:request.headers.get("x-history-device-token"),sessionToken:request.headers.get("x-history-session-token"),operation:sourceKind==="getnet"?"web_upload_status":"baseline_upload_status",payload:{upload_id:upload}};
  phase("authorize_source");const first=await port.request(input),meta=first.result;
  if(meta.upload_id!==upload||meta.byte_length!==length||typeof meta.sha256!=="string"||
+  sourceKind==="getnet"&&(typeof meta.file_name!=="string"||!/\.xlsx$/i.test(meta.file_name))||
   !["pending","uploaded","verifying","verified"].includes(String(meta.state)))return fail("history_baseline_source_unavailable",409);
  phase("read_source");const signal=AbortSignal.any([request.signal,AbortSignal.timeout(15000)]),reader=request.body.getReader(),parts:Uint8Array[]=[];let size=0;
  const abort=()=>{void reader.cancel().catch(()=>{});};signal.addEventListener("abort",abort,{once:true});
@@ -35,7 +36,7 @@ export async function transferHistorySource(request:Request,port:HistorySourcePo
  // Recheck the actual lease and immutable metadata after reading the body.
  phase("reauthorize_source");const fresh=await port.request(input);
  if(!fresh.ok||fresh.shop_id!==first.shop_id||fresh.device_id!==first.device_id||fresh.session_id!==first.session_id||
-  !historyObject(fresh.result)||fresh.result.upload_id!==upload||fresh.result.sha256!==meta.sha256||fresh.result.byte_length!==length||
+  !historyObject(fresh.result)||fresh.result.upload_id!==upload||fresh.result.sha256!==meta.sha256||fresh.result.byte_length!==length||sourceKind==="getnet"&&fresh.result.file_name!==meta.file_name||
   !["pending","uploaded","verifying","verified"].includes(String(fresh.result.state)))return fail("history_baseline_source_changed",409);
  const owned={upload_id:upload,object_key:`history/${first.shop_id}/${upload}`};
  phase("prepare_storage_target");const target=await baselineUploadTarget(owned,{shopId:first.shop_id,deviceId:first.device_id},port.storage,port.storageOrigin);

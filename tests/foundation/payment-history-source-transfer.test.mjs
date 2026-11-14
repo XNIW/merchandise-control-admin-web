@@ -7,13 +7,13 @@ const diagnostic=load('src/server/payment-history/baseline-source-diagnostic.ts'
 const id=n=>`${n}0000000-0000-4000-8000-000000000019`;
 const bytes=Buffer.from('synthetic transport bytes; archive validity remains a worker check');
 const sha=createHash('sha256').update(bytes).digest('hex');
-function fixture(){
- const meta={upload_id:id(5),byte_length:String(bytes.length),sha256:sha,state:'pending'};
+function fixture(sourceKind='baseline'){
+ const meta={upload_id:id(5),byte_length:String(bytes.length),sha256:sha,state:'pending',file_name:sourceKind==='getnet'?'synthetic.xlsx':'synthetic.w7history.zip'};
  const state={auth:0,sign:0,put:0,existing:false,denyFresh:false,freshMutation:null,targetHost:'synthetic.supabase.co',putOk:true,firstMutation:null};
  const path=`history/${id(1)}/${id(5)}`;
  const port={storageOrigin:'https://synthetic.supabase.co',
   request:async input=>{
-   state.auth++;assert.equal(input.operation,'baseline_upload_status');assert.equal(input.payload.upload_id,id(5));
+   state.auth++;assert.equal(input.operation,sourceKind==='getnet'?'web_upload_status':'baseline_upload_status');assert.equal(input.payload.upload_id,id(5));
    assert.equal(input.deviceToken,'synthetic-device-token-019');assert.equal(input.sessionToken,'synthetic-session-token-019');
    if(state.auth===2&&state.denyFresh)throw Object.assign(Error('auth_denied'),{code:'auth_denied',status:403});
    const reply={ok:true,shop_id:id(1),device_id:id(2),session_id:id(4),result:{...meta}};
@@ -26,10 +26,13 @@ function fixture(){
   put:async(url,body,signal)=>{state.put++;assert.equal(new URL(url).hostname,'synthetic.supabase.co');assert.equal(signal.aborted,false);assert.deepEqual(Buffer.from(body),bytes);return {ok:state.putOk,status:state.putOk?200:500};}
  };
  function request({body=bytes,headers={},signal}={}){return new Request('https://admin.invalid/api/pos/payment-history/source',{method:'POST',headers:{
-  'content-type':'application/zip','content-length':String(bytes.length),'x-history-upload-id':id(5),'x-history-device-id':id(2),'x-history-session-id':id(4),
+  'content-type':sourceKind==='getnet'?'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':'application/zip','content-length':String(bytes.length),'x-history-upload-id':id(5),'x-history-device-id':id(2),'x-history-session-id':id(4),
   'x-history-device-token':'synthetic-device-token-019','x-history-session-token':'synthetic-session-token-019',...headers},body,signal});}
  return {port,state,request};
 }
+test('POS web source reuses the exact authorized transport for XLSX only',async()=>{const x=fixture('getnet');const result=await c.transferHistorySource(x.request(),x.port,'getnet');assert.equal(result.status,200);assert.equal(x.state.auth,2);assert.equal(x.state.put,1);});
+test('a baseline archive cannot select the web XLSX source lane',async()=>{const x=fixture('getnet');x.state.firstMutation=r=>r.result.file_name='synthetic.w7history.zip';await assert.rejects(()=>c.transferHistorySource(x.request(),x.port,'getnet'),e=>e.code==='history_baseline_source_unavailable');assert.equal(x.state.put,0);});
+test('web source metadata remains bound after reading its bytes',async()=>{const x=fixture('getnet');x.state.freshMutation=r=>r.result.file_name='other.xlsx';await assert.rejects(()=>c.transferHistorySource(x.request(),x.port,'getnet'),e=>e.code==='history_baseline_source_changed');assert.equal(x.state.put,0);});
 test('the BFF authenticates twice, hashes exact source bytes and sends only the owned server target to Storage',async()=>{
  const f=fixture(),result=await c.transferHistorySource(f.request(),f.port);
  assert.equal(result.status,200);assert.equal(result.body.upload_id,id(5));assert.equal(result.body.already_present,false);

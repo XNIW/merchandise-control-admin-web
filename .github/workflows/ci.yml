@@ -249,6 +249,12 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: admin/package-lock.json
+      - name: Use qualified dedicated Worker runtime
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+          cache-dependency-path: admin/package-lock.json
       - name: Setup CLR
         uses: actions/setup-dotnet@v4
         with:
@@ -270,6 +276,12 @@ jobs:
           --repo "$GITHUB_WORKSPACE/admin"
           --workdir "$RUNNER_TEMP/asus019-history-local"
           --evidence-dir "$RUNNER_TEMP/asus019-history-database"
+      - name: Full-volume actual gateway SQL and dedicated Worker
+        timeout-minutes: 8
+        run: >-
+          node scripts/testing/asus019-history-volume.mjs
+          --owned-workdir "$RUNNER_TEMP/asus019-history-local"
+          --evidence-dir "$RUNNER_TEMP/asus019-history-volume"
       - name: Authenticated service and browser roundtrip
         timeout-minutes: 12
         run: >-
@@ -277,6 +289,12 @@ jobs:
           --owned-workdir "$RUNNER_TEMP/asus019-history-local"
           --client-repo "$GITHUB_WORKSPACE/client"
           --evidence-dir "$RUNNER_TEMP/asus019-authenticated-history"
+      - name: Preserve the exact qualified dedicated Worker artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: asus019-history-worker-v2-qualified
+          path: ${{ runner.temp }}/asus019-history-volume/qualified-artifact/*
+          if-no-files-found: error
       - name: Preserve only closed qualification evidence
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
@@ -288,6 +306,7 @@ jobs:
             ${{ runner.temp }}/asus019-history-database/pgtap-diagnostics.json
             ${{ runner.temp }}/asus019-history-database/extension-diagnostics.json
             ${{ runner.temp }}/asus019-history-database/history-concurrency.json
+            ${{ runner.temp }}/asus019-history-volume/complete.json
             ${{ runner.temp }}/asus019-authenticated-history/authenticated-history.json
             ${{ runner.temp }}/asus019-authenticated-history/baseline-recovery-apply.json
             ${{ runner.temp }}/asus019-authenticated-history/baseline-recovery-sessions.json

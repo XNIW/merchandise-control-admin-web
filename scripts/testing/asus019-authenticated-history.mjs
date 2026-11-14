@@ -77,6 +77,7 @@ try{
  INSERT INTO public.staff_accounts(staff_id,shop_id,staff_code,display_name,role_key,status,credential_kind,credential_hash,credential_updated_at,credential_expires_at,must_change_credential,credential_version,credential_status)
  VALUES(${q(staffId)},${q(shopId)},${q(staffCode)},'Synthetic history operator','pos_admin','active','password',${q(credentialHash)},clock_timestamp(),clock_timestamp()+interval '1 hour',false,7,'active');
  INSERT INTO public.staff_role_permissions(shop_id,role_key,permission_key,enabled) VALUES(${q(shopId)},'pos_admin','shop_admin.full_access',true) ON CONFLICT(shop_id,role_key,permission_key) DO UPDATE SET enabled=true;
+ INSERT INTO public.payment_history_role_permissions(shop_id,role_key,capability,enabled) VALUES(${q(shopId)},'pos_admin','migrate',true);
  INSERT INTO public.payment_history_runtime(shop_id) VALUES(${q(shopId)});`;
  for(const [index,a] of [actorA,actorB,recoveryApplyActor,recoverySessionsActor].entries())setup+=`
  INSERT INTO public.shop_devices(shop_device_id,shop_id,device_identifier,display_name,device_type,status) VALUES(${q(a.deviceId)},${q(shopId)},'AUTH-HISTORY-${index}','Synthetic POS ${index}','pos','active');
@@ -158,13 +159,29 @@ try{
  demand(baseline.status===200&&baseline.body?.ok===true&&Array.isArray(baseline.body.result?.rows)&&baseline.body.result.rows.length===source.baselineCount,"history_test_browser_baseline");
  receipt.cases.push({id:"authenticated-original-baselines",status:"PASS",count:source.baselineCount});
  phase="independent_source_policy";
- const approveSource=hash=>{
-  demand(/^[0-9a-f]{64}$/.test(hash),"history_test_policy_source_hash");
-  sql(`INSERT INTO public.payment_history_evidence(evidence_id,shop_id,kind,verification_level,status,policy_version,reference,scope,actor_kind,actor_id,verified_at)
-  SELECT gen_random_uuid(),m.shop_id,k.kind,'operator_attested','verified','synthetic-v1','Synthetic independent import policy',jsonb_build_object('merchant_id',m.merchant_id,'file_sha256',jsonb_build_array(${q(hash)}),'from_ticks','0','to_ticks','3155378975999999999','native_start_ticks','638712864000000000'),'pos_staff_manager',${q(staffId)},clock_timestamp()
-  FROM public.payment_history_merchants m CROSS JOIN(VALUES('native_start'),('legacy_currency')) k(kind) WHERE m.shop_id=${q(shopId)};`);
+ const importCall=async(operation,payload={})=>{const r=await call(operation,payload);demand(r.status===200&&r.body?.ok===true,"history_test_qualification_transport");return r.body.result;};
+ const qualify=async payload=>{const r=await page.evaluate(async body=>{const response=await fetch("/api/shop/payment-history/qualification",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json","X-History-Request":"1"},body:JSON.stringify(body)});return {status:response.status,body:await response.json()};},{shop_id:shopId,operation:"qualify",payload});demand(r.status===200&&r.body?.ok===true&&r.body.result?.status==="verified","history_test_qualification_rejected");return r.body.result.evidence_id;};
+ const verifyBytes=async(fileName,bytes,contentType)=>{const hash=sha(bytes),created=await importCall("upload_create",{file_name:fileName,byte_length:String(bytes.length),sha256:hash});
+  const put=await page.evaluate(putBrowserHistorySource,{signedUrl:created.signed_url,bytes:[...bytes],fileName,contentType});demand(put.ok,"history_test_qualified_source_transfer");await importCall("upload_ready",{upload_id:created.upload_id});
+  await until(async()=>{const s=await importCall("upload_status",{upload_id:created.upload_id});demand(!["rejected","expired"].includes(s.state),"history_test_qualified_source_rejected");return s.state==="verified";});return {id:created.upload_id,hash};};
+ const qualifiedSources=new Map();
+ const approveSource=async descriptor=>{
+  const hash=descriptor.sourceSha,path=descriptor.sourcePath;demand(/^[0-9a-f]{64}$/.test(hash)&&isAbsolute(path??"")&&realpathSync(path)===path&&/^new-[0-9a-f]{32}\.xlsx$/.test(basename(path)),"history_test_policy_source_hash");
+  const bytes=readFileSync(path);demand(bytes.length>0&&bytes.length<=20971520&&sha(bytes)===hash,"history_test_policy_source_bytes");
+  const subjects=descriptor.qualificationSubjects;demand(Array.isArray(subjects)&&subjects.length>0&&subjects.length<=10&&subjects.every(s=>s.fileSha256===hash&&s.profile==="GetnetLegacy"&&s.parserVersion==="getnet-ooxml-v1"),"history_test_policy_subjects");
+  if(!qualifiedSources.has(hash))await verifyBytes(basename(path),bytes,"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+  const content="BT /F1 8 Tf 20 780 Td (Independent synthetic legacy fixture: "+hash+") Tj 0 -14 Td (CLP; first actual POS use 2025-01-01; exact file and parser scopes are reviewed.) Tj ET";
+  const objects=["<< /Type /Catalog /Pages 2 0 R >>","<< /Type /Pages /Kids [3 0 R] /Count 1 >>","<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>","<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",`<< /Length ${Buffer.byteLength(content)} >>\nstream\n${content}\nendstream`];let pdf="%PDF-1.4\n",offsets=[0];for(const [index,object] of objects.entries()){offsets.push(Buffer.byteLength(pdf));pdf+=`${index+1} 0 obj\n${object}\nendobj\n`;}const xref=Buffer.byteLength(pdf);pdf+=`xref\n0 ${objects.length+1}\n0000000000 65535 f \n`+offsets.slice(1).map(n=>String(n).padStart(10,"0")+" 00000 n \n").join("")+`trailer\n<< /Size ${objects.length+1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+  const docBytes=Buffer.from(pdf),doc=await verifyBytes("synthetic-qualified-"+hash+".pdf",docBytes,"application/pdf");
+  const metadata=await importCall("metadata"),proofs=[];
+  for(const subject of subjects){const mapping=metadata.aliases.find(a=>a.alias_key===subject.aliasKey);demand(mapping&&subject.sourceIdentity?.hasEvidence===true,"history_test_policy_merchant_mapping");
+   for(const kind of ["merchant_mapping","legacy_currency","native_start"]){const scope={merchant_id:mapping.merchant_id,alias_key:kind==="merchant_mapping"?subject.aliasKey:"",profile:subject.profile,parser_version:subject.parserVersion,file_sha256:[hash],from_ticks:subject.fromTicks,to_ticks:subject.toTicks,interpretation:"Unresolved",native_start_ticks:kind==="native_start"?"638712864000000000":null};
+    proofs.push(await qualify({request_key:randomUUID(),kind,level:"operator_attested",version:"synthetic-v1",reference:"Independent owned fixture source and first-use policy",document_upload_id:doc.id,document_sha256:doc.hash,scope,mapping:kind==="merchant_mapping"?{label:"Synthetic evidenced merchant",source_identity:subject.sourceIdentity}:null}));
+   }
+  }
+  qualifiedSources.set(hash,{doc,proofs});
  };
- approveSource(source.sourceSha);
+ await approveSource(source);
  save("client-control.private.json",{nonce,phase:"allow_local_apply"});
  phase="client_roundtrip";const published=await state("published");
  demand(published.status==="PASS_CORE_DATA_ROUNDTRIP"&&published.count===source.baselineCount+source.expected.length,"history_test_client_counts");
@@ -181,7 +198,7 @@ try{
  save("client-control.private.json",{nonce,phase:"admin_observed"});
  for(const name of ["duplicate","undo","correction"]){
   if(name==="correction"){
-   phase="correction_source_ready";const prepared=await state(phase);demand(prepared.sourceSha!==source.sourceSha,"history_test_correction_source_reused");approveSource(prepared.sourceSha);save("client-control.private.json",{nonce,phase:"allow_correction_apply"});
+   phase="correction_source_ready";const prepared=await state(phase);demand(prepared.sourceSha!==source.sourceSha,"history_test_correction_source_reused");await approveSource(prepared);save("client-control.private.json",{nonce,phase:"allow_correction_apply"});
   }
   phase=name;const current=await state(name);demand(current.status==="PASS_CORE_DATA_CASE","history_test_extended_client_status");
   const count=name==="undo"?source.baselineCount:published.count;demand(current.count===count,"history_test_extended_count");
@@ -199,7 +216,7 @@ try{
   }
   receipt.cases.push({id:name,status:"PASS",count,factsSha256});save("client-control.private.json",{nonce,phase:name+"_observed"});
  }
- phase="fault_source_ready";const faultSource=await state(phase);approveSource(faultSource.sourceSha);save("client-control.private.json",{nonce,phase:"allow_fault_apply"});
+ phase="fault_source_ready";const faultSource=await state(phase);await approveSource(faultSource);save("client-control.private.json",{nonce,phase:"allow_fault_apply"});
  phase="lost_ack_checkpoint";const pending=await state("restart_pending");
  demand(pending.ackDroppedAfterRealReceipt===true&&pending.pullBeforeAck===true&&pending.count===published.count+faultSource.expected.length&&/^[0-9a-f-]{36}$/.test(pending.operation),"history_test_lost_ack_checkpoint");
  const receiptCount=()=>sql(`SELECT count(*) FROM public.payment_history_receipts WHERE shop_id=${q(shopId)} AND request_key=${q(pending.operation)}::uuid;`);
@@ -219,7 +236,7 @@ try{
  const restartFacts=sha(afterRestart.body.result.rows.map(rowKey).sort().join("\n"));demand(restartFacts===recovered.factsSha,"history_test_restart_browser_facts");
  receipt.cases.push({id:"lost-ack-real-process-restart-pull-before-ack",status:"PASS",count:recovered.count,factsSha256:restartFacts,canonicalReceipts:1});
  save("client-control.private.json",{nonce,phase:"restart_observed"});
- phase="conflict_source_ready";const conflictSource=await state(phase);approveSource(conflictSource.sourceSha);save("client-control.private.json",{nonce,phase:"allow_conflict_prepare"});
+ phase="conflict_source_ready";const conflictSource=await state(phase);await approveSource(conflictSource);save("client-control.private.json",{nonce,phase:"allow_conflict_prepare"});
  phase="conflict_sql_probe";const conflictReview=await state("conflict_review_ready");
  demand(conflictReview.payload?.operation_id===conflictSource.operation&&/^[0-9a-f]{64}$/.test(conflictReview.payload?.content_digest??"")&&conflictReview.payload?.ordinal===1,"history_test_conflict_probe_scope");
  const conflictProbe=JSON.parse(sql(`BEGIN; SET LOCAL statement_timeout='8s'; SET LOCAL lock_timeout='6s'; SET LOCAL search_path=pg_catalog; SET LOCAL request.jwt.claim.role='service_role'; SET LOCAL request.jwt.claims='{"role":"service_role"}';
@@ -252,7 +269,7 @@ try{
   receipt.lastBrowserUpload={contentType,...uploadReply};demand(uploadReply.ok,"history_test_browser_upload_failed");
   await api("upload_ready",{upload_id:created.upload_id});await until(async()=>{const s=await api("upload_status",{upload_id:created.upload_id});demand(!["rejected","expired"].includes(s.state),"history_test_source_rejected");return s.state==="verified";});return created.upload_id;
  };
- phase="admin_inventory";const webSource=await state("web_source_ready");
+ phase="admin_inventory";const webSource=await state("web_source_ready");await approveSource(webSource);
  const devices=await transfer("cutover","devices");demand(devices.devices.length===4&&devices.devices.every(d=>retiredIds.includes(d.device_id)?d.revoked===true:[actorA.deviceId,actorB.deviceId].includes(d.device_id)&&!d.revoked),"history_test_cutover_device_scope");
  for(const actor of [actorA,actorB])await transfer("cutover","inventory",{device_id:actor.deviceId,hardware_reference_sha256:sha("Synthetic asset "+actor.deviceId),disposition:"active",protocol_version:1,client_build_sha:receipt.clientSha,reference:"Synthetic owned protocol1 device"});
  for(const deviceId of retiredIds)await transfer("cutover","inventory",{device_id:deviceId,hardware_reference_sha256:sha("Synthetic recovery asset "+deviceId),disposition:"retired_verified",protocol_version:0,client_build_sha:null,reference:"Owned empty recovery fixture completed; device credential and sessions revoked"});
@@ -293,14 +310,16 @@ try{
  phase="admin_origin_import";const webUpload=await upload(checked,webSource.sourcePath,webSource.sourceSha);
  const webJob=await checked("start",{request_key:randomUUID(),upload_ids:[webUpload],configuration:{legacyAmountsAreClp:true,modernTimeInterpretation:"Unresolved",temporalPolicyVersion:"getnet-web-unresolved-v1",temporalEvidenceReference:""}});
  const webAnalysis=await until(async()=>{const s=await checked("status",{job_id:webJob.job_id});demand(!["failed","cancelled"].includes(s.state),"history_test_web_analysis_failed");return s.state==="review_ready"?s:null;});
- const proofs=new Set(metadata.evidence.map(e=>e.evidence_id));
+ const proofs=new Set(),webDocument=qualifiedSources.get(webSource.sourceSha)?.doc;demand(webDocument,"history_test_web_document_missing");
  for(const candidate of webAnalysis.merchants){
   const merchantId=metadata.aliases.find(a=>a.alias_key===candidate.alias_key)?.merchant_id;demand(merchantId,"history_test_web_mapping_missing");
-  const proof=await checked("evidence",{kind:"merchant_mapping",level:"operator_attested",version:"synthetic-web-mapping-v1",reference:"Independent existing alias mapping for this exact synthetic source",scope:{merchant_id:merchantId,alias_key:candidate.alias_key,file_sha256:[webSource.sourceSha],from_ticks:"0",to_ticks:"3155378975999999999"}});
-  await checked("merchant",{merchant_id:merchantId,label:"Synthetic canonical merchant",evidence_id:proof.evidence_id,source_identity:candidate.source_identity});proofs.add(proof.evidence_id);
- }
- for(const merchant of metadata.merchants)for(const kind of ["legacy_currency","native_start"]){
-  const proof=await checked("evidence",{kind,level:"operator_attested",version:"synthetic-web-v1",reference:"Independent policy for this owned synthetic source",scope:{merchant_id:merchant.merchant_id,file_sha256:[webSource.sourceSha],from_ticks:"0",to_ticks:"3155378975999999999",...(kind==="native_start"?{native_start_ticks:"638712864000000000"}:{})}});proofs.add(proof.evidence_id);
+  // Reconstruct Web scope from actual server parser output, independently of
+  // the C# preflight qualification for this same immutable file.
+  const parsed=JSON.parse(sql(`SELECT jsonb_build_object('from_ticks',min((economics->>'businessTicks')::bigint)::text,'to_ticks',(max((economics->>'businessTicks')::bigint)+1)::text,'parser',min(transaction->>'parserVersion'),'profiles',count(distinct transaction->>'profile'),'profile',min(transaction->>'profile')) FROM public.payment_history_staged_movements WHERE shop_id=${q(shopId)} AND job_id=${q(webJob.job_id)} AND alias_key=${q(candidate.alias_key)};`));
+  demand(parsed.parser==="getnet-ooxml-web-v1"&&parsed.profiles===1&&parsed.profile==="GetnetLegacy","history_test_actual_web_parser_scope");
+  for(const kind of ["merchant_mapping","legacy_currency","native_start"]){const scope={merchant_id:merchantId,alias_key:kind==="merchant_mapping"?candidate.alias_key:"",profile:parsed.profile,parser_version:parsed.parser,file_sha256:[webSource.sourceSha],from_ticks:parsed.from_ticks,to_ticks:parsed.to_ticks,interpretation:"Unresolved",native_start_ticks:kind==="native_start"?"638712864000000000":null};
+   proofs.add(await qualify({request_key:randomUUID(),kind,level:"operator_attested",version:"synthetic-web-v1",reference:"Independent owned source; actual Web parser scope reviewed separately",document_upload_id:webDocument.id,document_sha256:webDocument.hash,scope,mapping:kind==="merchant_mapping"?{label:"Synthetic canonical merchant",source_identity:candidate.source_identity}:null}));
+  }
  }
  await checked("configure",{job_id:webJob.job_id,evidence_ids:[...proofs]});const webReview=await checked("review",{job_id:webJob.job_id});demand(webReview.can_commit===true&&webReview.summary.new_count===webSource.expected.length,"history_test_web_review_blocked");
  const webReceipt=await checked("commit",{job_id:webJob.job_id,request_key:randomUUID(),review_digest:webReview.review_digest});demand(webReceipt.kind==="apply","history_test_web_commit_missing");

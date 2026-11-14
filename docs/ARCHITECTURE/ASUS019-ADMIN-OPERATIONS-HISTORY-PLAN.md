@@ -1,5 +1,63 @@
 # ASUS019 — controllo operativo Admin e futuro storico web
 
+## Delta qualificazioni e gestione Master — implementazione 12–14 novembre
+
+Stessa Execution ACTIVE; nessuna nuova task. La gestione tecnica riusa il
+workbench e i pannelli trasferimento/cutover nella sede Master dello shop scelto.
+Master significa sessione SSR verificata e riga platform_admins attiva, non
+staff code o badge. Una delega operativa richiede il grant migrate canonico
+esplicito; il fallback shop_admin.full_access non qualifica operazioni tecniche.
+La baseline automatica POS mantiene il proprio motore e i propri controlli.
+
+Le qualificazioni usano payment_history_evidence e richiedono documento privato
+con hash/dimensioni verificati, attore qualificante, shop/esercente/alias,
+profilo/parser, hash file e intervallo raw inclusivo/esclusivo. Il documento
+provider rimane necessario per l'orario moderno. Vecchie attestazioni e testo
+libero non diventano qualifiche. Nessuna scelta da timezone PC o nome file.
+La nuova lettura device qualified_config è autenticata, chiusa, fresca e
+revocabile; non attribuisce autorità offline. Il client deve rianalizzare con
+la sola policy applicabile e confermare tramite il percorso economico canonico.
+
+La console ordinaria consuma le qualificazioni con il grant import e non crea
+più attestazioni verificate da testo libero. Ogni nuovo job Web/POS richiede
+prove qualificate anche nel review server; i journal già persistiti conservano
+la propria provenienza. Il Master usa una selezione esplicita di lane verificata
+dal server, così un cookie staff concomitante non cambia il soggetto operante.
+
+Per la nuova Apply locale, qualification contiene config_digest,
+resolver_fingerprint ed evidence_ids UUID ordinati. Lo stesso contenuto è
+legato al RequestFingerprint e all'header della publication, quindi al root
+immutabile. Ogni pagina e l'autorizzatore finale ricontrollano lo stato online;
+una revoca attende il drain dei grant pendenti, senza usare il TTL come prova
+di mancato commit. Nuove Apply senza qualificazione sono negate, mentre
+receipt, reconcile e publication legacy già esistenti restano compatibili.
+local_scope_bindings deriva soltanto dalle baseline applied dello stesso POS e
+dalle relative prove correnti: nessuna equivalenza dedotta da alias o nomi.
+
+Parser C# getnet-ooxml-v1 e parser Web getnet-ooxml-web-v1 restano distinti.
+La nuova publication qualifica parser_version esplicito del movimento originale;
+history-pos-normalized-v2 non viene equiparato automaticamente a un parser XLSX.
+Lo stesso alias canonico può usare prove indipendenti applicabili a ciascuna
+versione, selezionate dagli ID qualificati del piano.
+
+L'adapter POS Web riusa il solo motore draft/review/commit, ledger e ricevute
+canonici; la lettura, upload XLSX e job sono legati alla lease POS v6 attuale.
+Nessun nuovo controllo di scadenza PIN, paywall, cutover automatico o ledger.
+
+La migrazione additiva stage_vector_v2, approvata esplicitamente nell'Execution,
+trasporta al massimo quattro sottobatch da massimo200 righe della stessa fase.
+Ogni sottobatch attraversa il motore v1 invariato; transazione, nonce e ACK sono
+unici per vettore e ogni errore annulla l'intero vettore. Nessun finish nel
+vettore, budget globale120s e limiti memoria invariati. sql_elapsed_ms misura il
+tempo SQL reale originale e resta identico nel replay della stessa richiesta.
+
+I gate locali sono salvati in C:/Dev/U19MasterHistory01; il primo foundation
+completo conserva un FAIL dovuto ai sette file WECHAT CRLF nel checkout Windows
+(hash LF identici ai blob canonici), senza modifica delle migrazioni storiche.
+Own SQL, volume con route HTTP/Storage/Worker CJS reali, combinazione client,
+bundle e consegna restano NOT_RUN finché non attestati dal loro candidato.
+Nessun DDL live o deploy viene qualificato dalla sola implementazione.
+
 ## Addendum 12 novembre — PUT e importazione utilizzabile
 
 Stessa Execution ACTIVE. Diagnostico PR153/main7d94271 pubblicato1a7c6e27:

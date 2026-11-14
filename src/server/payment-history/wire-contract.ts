@@ -1,6 +1,7 @@
 // A closed projection at the SQL/HTTP boundary. Unknown fields are rejected,
 // including fields that could accidentally expose a worker lease or credential.
 import {validateHistoryMovementRead,validateHistoryMovementQuery} from "../../lib/payment-history/movement-read-contract";
+import {validateQualifiedConfigResult} from "./qualified-config-contract";
 export {validateHistoryMovementQuery};
 type RecordValue=Record<string,unknown>;
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -23,6 +24,7 @@ function receipt(value:unknown){
  if(r.kind==="apply")reviewSummary(r.summary);else number(r.deactivated);return r;
 }
 export function validateHistoryResult(operation:string,value:unknown,request?:unknown):RecordValue{
+ if(operation==="qualified_config")return validateQualifiedConfigResult(value,typeof (value as RecordValue)?.shop_id==="string"?String((value as RecordValue).shop_id):"");
  if(operation==="movements"||operation==="movements_export")return validateHistoryMovementRead(value,request===undefined?undefined:validateHistoryMovementQuery(request)) as unknown as RecordValue;
  let r:RecordValue;
  if(operation==="capabilities"){
@@ -32,7 +34,7 @@ export function validateHistoryResult(operation:string,value:unknown,request?:un
   r=object(value,["merchants","aliases","evidence"]);
   for(const item of array(r.merchants,201)){const m=object(item,["merchant_id","label","evidence_id"]);id(m.merchant_id);id(m.evidence_id);text(m.label,256);}
   for(const item of array(r.aliases,201)){const a=object(item,["alias_key","merchant_id","evidence_id"]);id(a.merchant_id);id(a.evidence_id);hash(a.alias_key);}
-  for(const item of array(r.evidence,201)){const e=object(item,["evidence_id","kind","verification_level","policy_version","reference","scope"]);id(e.evidence_id);text(e.kind,40);text(e.verification_level,40);text(e.policy_version,160);text(e.reference,2048);if(!historyRecord(e.scope)||Object.keys(e.scope).some(k=>!["merchant_id","alias_key","file_sha256","from_ticks","to_ticks","native_start_ticks","interpretation"].includes(k))||JSON.stringify(e.scope).length>16384)throw Error("history_response_invalid");}
+  for(const item of array(r.evidence,201)){const e=object(item,["evidence_id","kind","verification_level","policy_version","reference","scope"]);id(e.evidence_id);text(e.kind,40);text(e.verification_level,40);text(e.policy_version,160);text(e.reference,2048);if(!historyRecord(e.scope)||Object.keys(e.scope).some(k=>!["merchant_id","alias_key","file_sha256","from_ticks","to_ticks","native_start_ticks","interpretation","profile","parser_version"].includes(k))||JSON.stringify(e.scope).length>16384)throw Error("history_response_invalid");}
  }else if(operation==="upload_create"){
   r=object(value,["upload_id","object_key"]);id(r.upload_id);text(r.object_key,100);
  }else if(["upload_ready","upload_status"].includes(operation)){

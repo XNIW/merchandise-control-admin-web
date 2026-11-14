@@ -6,13 +6,13 @@ const record=(v:unknown):Data=>v&&typeof v==="object"&&!Array.isArray(v)?v as Da
 const list=(v:unknown):Data[]=>Array.isArray(v)?v as Data[]:[];
 const button="rounded-lg border border-current/30 px-4 py-2 text-sm disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-4";
 const field="mt-1 block w-full rounded-lg border border-current/30 bg-transparent p-2 text-sm";
-export function HistoryCutoverPanel({shopId,copy}:{shopId:string;copy:HistoryCutoverCopy}){
+export function HistoryCutoverPanel({shopId,copy,masterMode=false}:{shopId:string;masterMode?:boolean;copy:HistoryCutoverCopy}){
  const [status,setStatus]=useState<Data|null>(null),[devices,setDevices]=useState<Data[]>([]),[busy,setBusy]=useState(false),[message,setMessage]=useState(""),[error,setError]=useState("");
  const [device,setDevice]=useState(""),[asset,setAsset]=useState(""),[hardwareHash,setHardwareHash]=useState(""),[disposition,setDisposition]=useState("unresolved"),[build,setBuild]=useState(""),[reference,setReference]=useState(""),[complete,setComplete]=useState(false),[completeRef,setCompleteRef]=useState("");
  const lock=useRef(false),controller=useRef<AbortController|null>(null),mounted=useRef(false);
  useEffect(()=>{mounted.current=true;controller.current=new AbortController();return()=>{mounted.current=false;controller.current?.abort();};},[]);
  async function call(operation:string,payload:Data={}){
-  const response=await fetch("/api/shop/payment-history/transfer",{method:"POST",credentials:"same-origin",cache:"no-store",signal:controller.current?.signal,headers:{"Content-Type":"application/json","X-History-Request":"1"},body:JSON.stringify({shop_id:shopId,lane:"cutover",operation,payload})});const body=await response.json();if(!response.ok||body.ok!==true)throw Error("history_cutover_failed");return record(body.result);
+  const response=await fetch("/api/shop/payment-history/transfer",{method:"POST",credentials:"same-origin",cache:"no-store",signal:controller.current?.signal,headers:{"Content-Type":"application/json","X-History-Request":"1",...(masterMode?{"X-History-Master":"1"}:{})},body:JSON.stringify({shop_id:shopId,lane:"cutover",operation,payload})});const body=await response.json();if(!response.ok||body.ok!==true)throw Error("history_cutover_failed");return record(body.result);
  }
  async function refresh(){const [current,names]=await Promise.all([call("status"),call("devices")]);if(mounted.current){setStatus(current);setDevices(list(names.devices));}}
  async function run(work:()=>Promise<void>){if(lock.current)return;lock.current=true;setBusy(true);setError("");setMessage("");try{await work();}catch{if(mounted.current)setError(copy.error);}finally{lock.current=false;if(mounted.current)setBusy(false);}}
