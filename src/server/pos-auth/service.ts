@@ -551,7 +551,7 @@ export async function handlePosHeartbeat(
     ok: true as const,
     serverTime: nowIso(),
     session: {
-      expiresAt,
+      expiresAt: heartbeatTouched.expiresAt,
       heartbeatAfterSeconds: HEARTBEAT_AFTER_SECONDS,
       posSessionId: session.pos_session_id,
     },

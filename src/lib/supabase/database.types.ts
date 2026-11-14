@@ -7072,6 +7072,22 @@ export type Database = {
           p_staff_web_session_id?: string; p_session_token_hash?: string; p_credential_version?: number }
         Returns: Json
       }
+      payment_history_technical_access_v1: {
+        Args: { p_shop_id: string; p_staff_id?: string; p_staff_web_session_id?: string; p_session_token_hash?: string; p_credential_version?: number }
+        Returns: Json
+      }
+      payment_history_qualification_request_v1: {
+        Args: { p_shop_id: string; p_operation: string; p_payload?: Json; p_staff_id?: string; p_staff_web_session_id?: string; p_session_token_hash?: string; p_credential_version?: number }
+        Returns: Json
+      }
+      payment_history_device_qualified_config_v1: {
+        Args: { p_shop_id: string; p_shop_device_id: string; p_staff_id: string; p_pos_session_id: string; p_device_token_hash: string; p_session_token_hash: string; p_credential_version: number; p_operation: string; p_payload: Json }
+        Returns: Json
+      }
+      payment_history_device_web_v1: {
+        Args: { p_shop_id: string; p_shop_device_id: string; p_staff_id: string; p_pos_session_id: string; p_device_token_hash: string; p_session_token_hash: string; p_credential_version: number; p_operation: string; p_payload: Json }
+        Returns: Json
+      }
       payment_history_movements_v1: {
         Args: { p_shop_id: string; p_operation: string; p_payload: Json; p_staff_id?: string;
           p_staff_web_session_id?: string; p_session_token_hash?: string; p_credential_version?: number }
@@ -7091,6 +7107,10 @@ export type Database = {
       }
       payment_history_transfer_details_v1: {
         Args: { p_shop_id: string; p_operation: string; p_payload?: Json; p_staff_id?: string; p_staff_web_session_id?: string; p_session_token_hash?: string; p_credential_version?: number }
+        Returns: Json
+      }
+      payment_history_device_http_v2: {
+        Args: { p_shop_id: string; p_shop_device_id: string; p_staff_id: string; p_pos_session_id: string; p_device_token_hash: string; p_session_token_hash: string; p_credential_version: number; p_operation: string; p_payload?: Json }
         Returns: Json
       }
       payment_history_device_v2: {
@@ -7517,6 +7537,24 @@ export type Database = {
         Returns: Json
       }
       pos_runtime_first_login_commit_v3: {
+        Args: {
+          p_app_version: string
+          p_device_display_name: string
+          p_device_identifier: string
+          p_device_token_hash: string
+          p_device_ttl_seconds: number
+          p_expected_credential_version: number
+          p_metadata_redacted?: Json
+          p_offline_authorization_max_age_seconds: number
+          p_offline_authorization_policy_version: string
+          p_session_token_hash: string
+          p_session_ttl_seconds: number
+          p_shop_id: string
+          p_staff_id: string
+        }
+        Returns: Json
+      }
+      pos_runtime_first_login_commit_v4: {
         Args: {
           p_app_version: string
           p_device_display_name: string

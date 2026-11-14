@@ -2,6 +2,7 @@ import {createHash} from "node:crypto";
 import {LOCAL_RECEIPT_MAX_BYTES,validateLocalReceipt} from "./local-receipt-contract";
 import {demandDigest,demandUuid,windowsFieldHash} from "./ledger-contract";
 import {closedHistoryObject,historyObject} from "./replica-contract";
+import {LOCAL_QUALIFICATION_HEADER_FIELDS,validateLocalQualification,validateLocalQualificationHeader} from "./local-qualification-contract";
 
 // Incremental facts, not the frozen ZIP migration protocol. These operations
 // become reachable only with the corresponding device SQL boundary installed.
@@ -38,9 +39,13 @@ export function validateLocalCommitPage(raw:unknown,sha:unknown):LocalCommitReco
  return parsed.map(value=>{
   const record=closedHistoryObject(value,["kind","fields"]);
   if(typeof record.kind!=="string"||!Object.hasOwn(columns,record.kind)||!historyObject(record.fields)||Buffer.byteLength(JSON.stringify(record))>LOCAL_COMMIT_RECORD_BYTES)return fail();
-  const fields=closedHistoryObject(record.fields,columns[record.kind as keyof typeof columns]);
-  if(Object.values(fields).some(v=>v!==null&&(typeof v!=="string"||v.length>2048||v.includes("\0"))))return fail();
+  const qualified=record.kind==="operation"&&LOCAL_QUALIFICATION_HEADER_FIELDS.some(k=>Object.hasOwn(record.fields as object,k));
+  const sourceParser=record.kind==="movement"&&Object.hasOwn(record.fields,"parser_version");
+  const fields=closedHistoryObject(record.fields,[...columns[record.kind as keyof typeof columns],...(qualified?LOCAL_QUALIFICATION_HEADER_FIELDS:[]),...(sourceParser?["parser_version"]:[])]);
+  if(sourceParser&&fields.parser_version!=="getnet-ooxml-v1")return fail();
+  if(Object.entries(fields).some(([k,v])=>v!==null&&(typeof v!=="string"||v.length>(record.kind==="operation"&&k==="qualification_evidence_ids"?8192:2048)||v.includes("\0"))))return fail();
   if(record.kind==="operation"){
+   validateLocalQualificationHeader(fields);
    if(fields.protocol_version!=="2"||!["Apply","Undo"].includes(String(fields.operation_kind)))return fail();
    for(const key of ["shop_id","device_id","restore_lineage_id"])demandUuid(String(fields[key]));
    // Local operation IDs remain byte-exact provenance. The authenticated RPC
@@ -66,7 +71,7 @@ export function localCommitContentDigest(pageDigests:readonly string[]){
 }
 export function validateLocalCommitRequest(operation:LocalCommitOperation,value:unknown){
  const fields={
-  local_prepare:["operation_id","kind","local_dataset_id","restore_epoch","restore_lineage_id","base_revision","writer_epoch","request_fingerprint","content_digest","page_count","protocol_version","local_nonce"],
+  local_prepare:["operation_id","kind","local_dataset_id","restore_epoch","restore_lineage_id","base_revision","writer_epoch","request_fingerprint","content_digest","page_count","protocol_version","local_nonce",...(historyObject(value)&&Object.hasOwn(value,"qualification")?["qualification"]:[])],
   local_stage:["operation_id","content_digest","ordinal","page_json","page_sha256"],
   local_review:["operation_id","content_digest","ordinal",...(historyObject(value)&&Object.hasOwn(value,"review_token")?["review_token"]:[])],
   local_authorize:["operation_id","content_digest","review_token"],
@@ -75,6 +80,7 @@ export function validateLocalCommitRequest(operation:LocalCommitOperation,value:
  };
  const p=closedHistoryObject(value,fields[operation]);uuid(p.operation_id);digest(p.content_digest);
  if(operation==="local_prepare"){
+  if(Object.hasOwn(p,"qualification")){if(p.kind!=="Apply")return fail();validateLocalQualification(p.qualification);}
   if(p.protocol_version!==2||!["Apply","Undo"].includes(String(p.kind))||!Number.isSafeInteger(p.page_count)||Number(p.page_count)<1||Number(p.page_count)>LOCAL_COMMIT_MAX_PAGES)return fail();
   bounded(p.local_dataset_id,256);integer(p.restore_epoch);uuid(p.restore_lineage_id);integer(p.base_revision);integer(p.writer_epoch,BigInt("1"));digest(p.request_fingerprint);uuid(p.local_nonce);
   if(p.local_nonce==="00000000-0000-0000-0000-000000000000")return fail();

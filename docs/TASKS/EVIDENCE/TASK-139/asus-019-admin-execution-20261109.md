@@ -1,5 +1,25 @@
 # ASUS019 — Execution Admin B/C, preparazione senza operatore
 
+## 12 novembre — causa PUT riprodotta e nuovo delta UX
+
+PR153 è unita in7d94271, versione live1a7c6e27. Osservazione naturale della
+baseline già pendente: HTTP503, fase put_storage_source, TypeError,1798ms.
+Workerd riproduce il difetto redirect:error prima di ogni richiesta in uscita.
+Successore manual: soltanto2xx accettati, nessun redirect seguito. Test nativo
+RED conservato e GREEN; foundation1661totali/1654PASS/0FAIL/7SKIP, typecheck,
+lint mirato e security scan PASS. Prove private U19HistorySourcePut01;
+gate remoti, freeze/merge/deploy e avanzamento della baseline ancora NOT_RUN.
+Contratti economici/auth/hash/origine/timer invariati; nessun DDL o installer.
+Arresti Worker distinti con causa non dimostrata, nessun restart/rekey manuale.
+
+Recepito addendum importazione Getnet nella stessa Execution ACTIVE:
+riconciliazione mensile privata, stati UI e callback obsoleti, percorso guidato,
+resolver di prove qualificate/revocabili, report onesto sulle componenti e sui
+giorni senza dati, operazioni tecniche Master protette server-side. Nuovi gate
+UX e consegna Windows NOT_RUN. Conservare248/v6, ledger e autorità writer.
+Getnet C resta mancante e impedisce l'apply moderno; nessuna prova di giugno
+estesa implicitamente ad agosto, nessun paywall o nuova task.
+
 L'ultimo addendum di convergenza mantiene due consegne correnti: cassa quotidiana
 e storico bilaterale. La precedente matrice di altri domini rimane storica.
 
@@ -293,6 +313,14 @@ PR135/151/TASK146 aggiornati, coda storica TASK146 conservata esattamente.
 
 </details>
 
+## Diagnostica del trasferimento — stessa Execution, 12 novembre
+
+Il client248 resta installato e qualificato. Baseline reale upload_created: archivio/backup verificati, oggetto Storage assente, zero movimenti cloud. Dashboard aggiornata Healthy; nella finestra17:02–18:02 Santiago Storage mostra object-info400 e signed-upload200, nessun PUT. Causa ancora non dimostrata.
+
+Il successore server registra nei soli errori source fase, codice chiuso e durata nel campo stage del logger route-rejection esistente, che conserva envelope e request ID generato dal server. La sua implementazione e la sua guardia rimangono esatte rispetto5ff8577; nessuna nuova emissione console o allowlist. Callback e guasti del logger non cambiano l’esito. Nessun header, URL firmato, credenziale, contenuto o identità economica entra nel log. Risposte HTTP, timeout15s, doppia autenticazione, hash, origine/oggetto, non-overwrite e verifica Worker invariati.
+
+Validazione finale locale: foundation1653PASS/0FAIL/7SKIP (1660totali),41/41mirati inclusi i controlli sicurezza, scanner sicurezza/typecheck/lint mirato PASS. FAIL intermedi conservati: due confronti VM, poi TypeError fra realm; primo foundation1651/1/7 per console fuori canale e secondo1632/21/7 per nuova dipendenza del logger condiviso e corpo non identico. Risolto riusando il sink originale senza modificarlo né cambiare assert/allowlist. La prima CI43308989789/Cloudflare43308989713 di eb26 conserva il relativo FAIL; nuovo sorgente congelato e gate propri necessari prima del deploy. Nessun DDL o installer Windows per questo delta, nessun DONE.
+
 <details>
 <summary>Checkpoint precedente171130Z conservato come storia</summary>
 
@@ -340,6 +368,80 @@ fisico restano separate; il test Core/Data non attesta WPF o periferiche.
 
 
 </details>
+
+## Indagine baseline-volume — 13 novembre (14 UTC), stessa Execution
+
+Checkout isolato ca9f239: modifica soltanto sender/gateway e prove/documenti
+necessari. Originale live-failure-response e aggregate source-metadata restano
+evidence private esterne; nessun originale finanziario entra nelle fixture.
+Prototipo gzip: firma wire, HMAC prima di decompressione, wire/decoded8MiB,
+identità nonce/body immutabile nei retry. Stage200righe/6MiB, richieste15s,
+analisi120s, heartbeat20s e codice SQL/main invariati. RED workerd400/zeroRPC
+conservato; primo GREEN26/26, helper successivo34PASS/3FAIL conservato, correzione
+del solo bootstrap server-only37/37. Nuova bomb64MiB e volume finale in corso.
+Pipeline completa sintetica25947movimenti/20274917byte NDJSON: ogni payload hash
+e finish identity/gzip identico;72174835/1818712byte wire. La fixture ZIP486290B
+non riproduce l'entropia ZIP reale869952B: nessuna stima cloud da quei byte.
+Modello registrato prima della prova RTT300ms+50KiB/s, DB stub a costo costante:
+identity timeout122365ms con30batch/6000oggetti/0movimenti. Gzip ancora in corso;
+ipotesi da qualificare, nessun aumento timer o automatico retry reale. Output
+immutabili C:/Dev/U19BaselineVolume01, nessun DB/deploy/riavvio/commit/push.
+
+## Successore14novembre — deadline, vettori e diagnostiche, non rollout
+
+Il confronto fullrun01 conteso termina anche gzip con FAIL120665.953ms. Non è
+prestazione qualificata e non dimostra causa live; originale tentativo1 fermo
+con6000oggetti resta preservato. Root ha richiesto serializzazione delle nuove
+prove e autorizzato esplicitamente stage_vector_v2: max4 chunk di1..200 righe,
+fence/fase unici, payloadtotale6MiB, transazione atomica e motore v1 invariato.
+Schema concordato col proprietario Master SQL; ACK phase/count/last verificato
+nel Node worker, server v2 necessario, nessun fallback. Misura SQL pura proviene
+dal wrapper; DBroundtrip e overhead gateway non sono rinominati SQL.
+
+Nello slot esclusivo: targeted-v2-deadline-01 PASS78/78 e02 PASS84/84, coprono
+RPC headers/body bloccata, ACK dopo deadline, abort processo, fail col fence e
+segnale originari, vector ACK errato, nessun finish/reclaim/fallback,4×200 e
+1001righe sintetiche, native workerd HMAC/limiti/bomb64MiB e regressioni export.
+Typecheck01 FAIL di tipizzazione async/JSON conservato,02 PASS; lint02 PASS.
+Bundle01 costruito con gateway privilegiato escluso; CSC01 FAIL del path comando
+con slash conservato, CSC02 net48/x64 PASS. Nessun processo di prova residuo.
+
+Log persistente nuovo512KiB atomico/whitelist, path derivato solo da statusPath
+host esistente, nessun cambio chiave/ACL/configSCM. Fatalcatch e stop processo
+redatti, nessuna OOM inventata da recovery counter. Unit guard packaging v2 e
+prova actualCJSfatalpersist aggiunte, gate finali ancora in corso. Il builder
+accetta solo artifact prequalificato più ricevuta esterna hashata che lega
+source/tree/artifact/raw hash ai run/report SQL e volume reale; non emette una
+qualifica propria. Frozen kit v1 e hard pin612d9bd/20eb restano invariati.
+
+SQL reale+gateway+bundle25.947,5/5 SCM nell'esatto workflow Windows, pacchetto
+qualificato, consegna installata e retry canonico live non eseguiti qui.
+Root coordina freeze locale autorizzato e test finali seriali prima handoff;
+nessun push/deploy/service restart o operazione finanziaria da questa tranche.
+
+Ulteriore delta richiesto da root: timer monotono120s avviato prima del claim,
+nessun reset dopo backoff o ACK. Recovery esplicito soltanto claim migration
+daemon: nonce/body identici, massimo3 backoff2/5/15s dentro quel budget. Stage,
+auth e contratto errato terminali; --once non recupera oltre la coppia normale.
+Un attempt_started_at server può soltanto accorciare il residuo. Mirati finali
+di questo delta, packaging guard in memoria e actualCJS fatal sono selezionati
+per la finestra CPU esclusiva successiva; nessuna ricevuta CI fittizia prodotta.
+
+## Ricevuta locale finale14novembre — congelamento autorizzato, non qualifica CI
+
+targeted-v2-final-01:90test/90PASS/0FAIL/0SKIP in2328.1833ms nello slot esclusivo.
+Include4 nuovi recovery/deadline, actual Node24 CJS fatalpersist e22 assertion
+del guard packaging solo in memoria (nessun manifest qualificante scritto).
+Typecheck-final01 PASS. Lint-final01 FAIL del solo nome module nel probe VM;
+rinominato loaded, lint-final02 PASS. Bundle-final01 PASS, privileged adapter
+escluso. Parsing dei5file PowerShell modificati PASS; diff-check PASS.
+CSC02 già PASS sul medesimo sorgente host (net48/x64). Nessun test120s rilanciato
+su stub; risultati fullrun01 contesi e FAIL restano immutabili e non qualificanti.
+
+Root autorizza commit esclusivamente locale dei file elencati nel diff, poi
+integrazione con Master SQL su un unico head. Nessun push/DDL/live/retry/SCM/UAC.
+Il vero gate SQL+gateway+artifactCJS/volume25947,5/5SCM in runner canonico e le
+ricevute verificate per packaging/rollout non sono prodotti da questa tranche.
 
 <!-- ASUS019_CURRENT_START -->
 ## Qualifiche precedenti — evidence conservate
@@ -1084,5 +1186,23 @@ handoff al coordinatore TASK146 dopo lettura del suo task/codice; nessun test
 mobile attribuito ai gate Windows. Scala Windows 200% mantenuta; 100/125 differiti,
 Win7 fisico indisponibile, prova provider C moderna mancante. Execution ACTIVE,
 nessun DONE. Questo aggiornamento è solo documentale: runtime/Admin invariato.
+
+</details>
+
+
+<details>
+<summary>Raccordi storici del main 8e466108 preservati nel merge documentale</summary>
+
+Addendum utente 10 novembre: sincronizzazione automatica POS→Admin→altre
+postazioni nella stessa Execution. Gap confermato e contratto condiviso nel
+[piano canonico](../../../ARCHITECTURE/ASUS019-ADMIN-OPERATIONS-HISTORY-PLAN.md).
+Baseline151/43f668df,135/fbdde199; consegna136 separata. Implementazione aperta,
+nuovi gate NOT_RUN. Nessun PASS pregresso trasferito, rollout o DONE.
+
+Chiarimento bilaterale recepito: matrice per dominio e operazione nel medesimo
+CLOUD-CONTINUATION Windows, contratto coordinato nel piano Admin. Replica storica
+in background e pubblicazione locale sono implementazioni distinte; invio vendite
+non equivale a consultazione dei registri inter-postazione. E2E autenticati nuovi
+NOT_RUN; component test e build restano classificati separatamente.
 
 </details>

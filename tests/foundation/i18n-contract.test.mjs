@@ -267,6 +267,22 @@ test("i18n scanner validates runtime registration forms and bounded dynamic fami
     const result = JSON.parse(run());
     assert.equal(result.status, "pass");
     assert.equal(result.POS_CORE_UI_HARDCODED.count, 0);
+    const dailyCoverage = join(fixture, `${wpf}Pos/Dialogs/DailyReportViewModel.Analytical.cs`);
+    const originalDailyCoverage = readFileSync(dailyCoverage, "utf8");
+    if (originalDailyCoverage.includes("private static string CoverageText(SalesReportContext context)")) {
+      try {
+        writeFileSync(dailyCoverage, originalDailyCoverage.replace('"historyReport.coverage."+context.Snapshot.Coverage.Status', '"historyReport.coverage."+unboundedSuffix'));
+        assert.throws(run, /unsupported dynamic translation binding|missing loc key historyReport\.coverage\./);
+      } finally { writeFileSync(dailyCoverage, originalDailyCoverage); }
+    }
+    const shell = join(fixture, `${wpf}MainWindow.xaml.cs`);
+    const originalShell = readFileSync(shell, "utf8");
+    if (originalShell.includes('throw new InvalidOperationException("workstation_initialization_failed")')) {
+      try {
+        writeFileSync(shell, originalShell.replace('throw new InvalidOperationException("workstation_initialization_failed")', 'ShowError("workstation_initialization_failed")'));
+        assert.throws(run, /hardcoded UI text.*workstation_initialization_failed/, "a diagnostic sentinel remains forbidden in a UI sink");
+      } finally { writeFileSync(shell, originalShell); }
+    }
     const coverageFile = join(fixture, "src/Win7POS.Core/Reports/SalesReportEntry.cs");
     const coverageSource = readFileSync(coverageFile, "utf8");
     if (coverageSource.includes("CloudReplicaRequired")) {

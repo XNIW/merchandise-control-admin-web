@@ -1,0 +1,90 @@
+name: ASUS019 Windows history worker host
+
+on:
+  workflow_dispatch:
+    inputs:
+      qualified_run_id:
+        description: Successful canonical CI run for this exact source
+        required: true
+        type: string
+      qualified_artifact_id:
+        description: Immutable asus019-history-worker-v2-qualified artifact ID
+        required: true
+        type: string
+      expected_receipt_sha256:
+        description: Receipt SHA256 produced by the independent artifact verifier
+        required: true
+        type: string
+  push:
+    branches:
+      - codex/asus019-history-worker-host
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: asus019-worker-host-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  qualify-windows-host:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - name: Support existing repository evidence paths on disposable runner
+        run: git config --global core.longpaths true
+      - name: Checkout immutable host source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Setup qualified Node runtime
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - name: Install locked build toolchain
+        run: npm ci
+      - name: Verify canonical runtime artifact and deterministic external receipt
+        if: github.event_name == 'workflow_dispatch'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          QUALIFIED_RUN_ID: ${{ inputs.qualified_run_id }}
+          QUALIFIED_ARTIFACT_ID: ${{ inputs.qualified_artifact_id }}
+          EXPECTED_RECEIPT_SHA256: ${{ inputs.expected_receipt_sha256 }}
+        run: |
+          node scripts/testing/asus019-verify-worker-artifact.mjs --run-id $env:QUALIFIED_RUN_ID --artifact-id $env:QUALIFIED_ARTIFACT_ID --expected-receipt-sha256 $env:EXPECTED_RECEIPT_SHA256 --output-directory "$env:RUNNER_TEMP/history-worker-verified-source"
+          if ($LASTEXITCODE -ne 0) { throw 'Canonical runtime artifact verification failed.' }
+      - name: Build exact qualified worker and Windows deployment host
+        shell: pwsh
+        env:
+          EXPECTED_RECEIPT_SHA256: ${{ inputs.expected_receipt_sha256 }}
+        run: |
+          if ('${{ github.event_name }}' -ceq 'workflow_dispatch') {
+            pwsh -NoProfile -File scripts/build-payment-history-windows-host.ps1 -OutputDirectory "$env:RUNNER_TEMP/history-worker-package" -QualifiedWorker "$env:RUNNER_TEMP/history-worker-verified-source/history-worker.cjs" -RuntimeQualificationReceipt "$env:RUNNER_TEMP/history-worker-verified-source/runtime-qualification.json" -RuntimeQualificationReceiptSha256 $env:EXPECTED_RECEIPT_SHA256
+          } else {
+            pwsh -NoProfile -File scripts/build-payment-history-windows-host.ps1 -OutputDirectory "$env:RUNNER_TEMP/history-worker-package"
+          }
+          if ($LASTEXITCODE -ne 0) { throw 'Host package build failed.' }
+      - name: Exercise real memory limit, identity, ACL and owned cleanup
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File scripts/testing/asus019-worker-host-tests.ps1 -PackageDirectory "$env:RUNNER_TEMP/history-worker-package" -OutputDirectory "$env:RUNNER_TEMP/history-worker-host-qa"
+          if ($LASTEXITCODE -ne 0) { throw 'Host qualification failed.' }
+      - name: Preserve closed qualification result
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: history-worker-host-evidence-${{ github.sha }}
+          path: ${{ runner.temp }}/history-worker-host-qa/host-qualification.json
+          if-no-files-found: ignore
+      - name: Preserve installable hash-bound package
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: history-worker-windows-${{ github.sha }}
+          path: ${{ runner.temp }}/history-worker-package/
+          if-no-files-found: error
+          retention-days: 7

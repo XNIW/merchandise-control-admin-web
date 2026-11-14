@@ -42,15 +42,24 @@ def main():
     def recover(key):return {'run_id':desc['runId'],'apply_request_key':desc['applyRequestKey'],'recovery_request_key':key,'previous_review_digest':desc['previousReviewDigest']}
     report={'schema':'asus019-baseline-lock-v1','status':'FAIL','kind':kind,'syntheticOnly':True,'ownedLocalOnly':True,'coverage':'authenticated SQL engine lock windows; HTTP and WPF not claimed','clientSha':context['clientSha'],'descriptorSHA256':sha(descriptor_path.read_text()),'cases':[],'cleanup':[]}
     h=None
+    transaction_settings="SET LOCAL statement_timeout='8s'; SET LOCAL search_path=pg_catalog; SET LOCAL request.jwt.claim.role='service_role'; SET LOCAL request.jwt.claims='{\"role\":\"service_role\"}'; SET LOCAL lock_timeout='6s';\n"
     def start(side):
-        child=h.start(side);child.send("SET LOCAL request.jwt.claim.role='service_role'; SET LOCAL request.jwt.claims='{\"role\":\"service_role\"}'; SET LOCAL lock_timeout='6s';\n");return child
+        child=h.start(side);child.send(transaction_settings);return child
     def outcome(side,label,expression):
         h.children[side].send('CREATE FUNCTION pg_temp.capture_'+label.lower()+"() RETURNS jsonb LANGUAGE plpgsql AS $b$ DECLARE v jsonb; BEGIN v:="+expression+"; RETURN jsonb_build_object('sqlstate','00000','value',v); EXCEPTION WHEN OTHERS THEN RETURN jsonb_build_object('sqlstate',SQLSTATE,'code',CASE WHEN SQLERRM ~ '^payment_history_[a-z_]{1,90}$' THEN SQLERRM ELSE 'unclassified' END); END $b$;\n"+h.emit(side,label,",'result',pg_temp.capture_"+label.lower()+'()'))
     def result(side,label):
-        r=h.frame(side,label)['result'];check(r['sqlstate']=='00000','BASELINE_'+label+'_REJECTED');check(r['value'].get('ok') is True,'BASELINE_RESPONSE_INVALID');return r['value']['result']
-    def commit(side,label):h.children[side].send('COMMIT; BEGIN;\n'+h.emit(side,label));h.frame(side,label)
+        r=h.frame(side,label)['result']
+        if r['sqlstate']!='00000':report['operationFailure']={'label':label,'sqlstate':r['sqlstate'],'code':r.get('code','unclassified')}
+        check(r['sqlstate']=='00000','BASELINE_'+label+'_REJECTED');check(r['value'].get('ok') is True,'BASELINE_RESPONSE_INVALID');return r['value']['result']
+    def commit(side,label):
+        # SET LOCAL expires at COMMIT. Every new transaction needs the same
+        # authenticated gateway context and the original bounded timeouts.
+        h.children[side].send('COMMIT; BEGIN;\n'+transaction_settings+h.emit(side,label,",'role',auth.role(),'statementTimeout',current_setting('statement_timeout'),'lockTimeout',current_setting('lock_timeout'),'searchPath',current_setting('search_path')"))
+        context=h.frame(side,label)
+        check(context['role']=='service_role' and context['statementTimeout']=='8s' and context['lockTimeout']=='6s' and context['searchPath']=='pg_catalog','BASELINE_TRANSACTION_CONTEXT')
+        report.setdefault('transactionContexts',[]).append({'side':side,'label':label,'gatewayRoleRestored':True,'statementTimeout':'8s','lockTimeout':'6s','searchPath':'pg_catalog'})
     def query(label):
-        expression="jsonb_build_object('state',j.state,'actorSession',j.actor_session_id,'fence',j.lease_fence,'reviewClear',j.review_digest is null,'sourceRows',(select count(*) from public.payment_history_migration_movements where run_id=j.run_id),'receipts',case when j.receipt is not null and j.apply_request_key="+q(desc['applyRequestKey'])+"::uuid then 1 else 0 end,'bankReceipts',(select count(*) from public.payment_history_receipts where shop_id=j.shop_id),'intents',(select count(*) from app_private.payment_history_baseline_recovery_intents where shop_id=j.shop_id and run_id=j.run_id),'native',(select count(*) from public.pos_sales where shop_id=j.shop_id)+(select count(*) from public.pos_sale_stock_movements where shop_id=j.shop_id),'active',(select count(*) from public.payment_history_movement_versions where shop_id=j.shop_id and active),'receipt',j.receipt::text)"
+        expression="jsonb_build_object('state',j.state,'actorSession',j.actor_session_id,'fence',j.lease_fence,'reviewClear',j.review_digest is null,'sourceRows',(select count(*) from public.payment_history_migration_movements where run_id=j.run_id),'receipts',case when j.receipt is not null and j.apply_request_key="+q(desc['applyRequestKey'])+"::uuid then 1 else 0 end,'bankReceipts',(select count(*) from public.payment_history_receipts where shop_id=j.shop_id),'intents',(select count(*) from app_private.payment_history_baseline_recovery_intents where shop_id=j.shop_id and run_id=j.run_id),'native',(select count(*) from public.pos_sales where shop_id=j.shop_id)+(select count(*) from public.pos_sale_stock_movements where shop_id=j.shop_id),'active',(select count(*) from public.payment_history_movement_versions where shop_id=j.shop_id and active),'economicsSHA256',(select encode(extensions.digest(convert_to(coalesce(jsonb_agg(to_jsonb(v) order by to_jsonb(v)::text),'[]'::jsonb)::text,'UTF8'),'sha256'),'hex') from public.payment_history_movement_versions v where v.shop_id=j.shop_id and v.active),'receipt',j.receipt::text)"
         h.children['observer'].send(h.emit('observer',label,",'state',(select "+expression+' from public.payment_history_migration_runs j where j.shop_id='+q(shop)+'::uuid and j.run_id='+q(desc['runId'])+'::uuid)'));return h.frame('observer',label)['state']
     def wait(waiter,blocker):
         deadline=min(h.deadline,time.monotonic()+3);i=0
@@ -77,20 +86,20 @@ def main():
             outcome('first','APPLY',call(original,'baseline_apply',apply));applied=result('first','APPLY');raw=applied_receipt('first','APPLY_RECEIPT',applied)
             outcome('second','RECOVER',call(fresh,'baseline_recover',recover(key1)));witness=wait('second','first');commit('first','FIRST_COMMITTED');recovered=result('second','RECOVER');ack(recovered,fresh,'committed');check(recovered['receipt_json']==raw,'BASELINE_ORIGINAL_RECEIPT_CHANGED')
             outcome('second','REPLAY',call(fresh,'baseline_recover',recover(key1)));again=result('second','REPLAY');check(again==recovered,'BASELINE_COMMITTED_REPLAY_CHANGED');commit('second','SECOND_COMMITTED')
-            after=query('AFTER');check(after['state']=='applied' and after['receipts']==1 and after['receipt']==raw and after['sourceRows']==0 and after['native']==0 and after['active']==before['active'] and after['bankReceipts']==before['bankReceipts'],'BASELINE_COMMITTED_COUNTS')
-            report['cases'].append({'id':'baseline-apply-before-current-session-recovery','status':'PASS','wait':witness,'originalReceiptSHA256':sha(raw),'canonicalBaselineReceipts':1,'newBankReceipts':0,'nativeRows':0,'activeEconomicsUnchanged':True})
+            after=query('AFTER');check(after['state']=='applied' and after['receipts']==1 and after['receipt']==raw and after['sourceRows']==0 and after['native']==0 and after['active']==before['active'] and after['economicsSHA256']==before['economicsSHA256'] and after['bankReceipts']==before['bankReceipts'],'BASELINE_COMMITTED_COUNTS')
+            report['cases'].append({'id':'baseline-apply-before-current-session-recovery','status':'PASS','wait':witness,'originalReceiptSHA256':sha(raw),'canonicalBaselineReceipts':1,'newBankReceipts':0,'nativeRows':0,'activeEconomicsUnchanged':True,'originalEconomicsSHA256':before['economicsSHA256']})
         else:
             outcome('first','RECOVER',call(fresh,'baseline_recover',recover(key1)));one=result('first','RECOVER');raw1=ack(one,fresh,'uncommitted');check(one['receipt_json'] is None,'BASELINE_UNCOMMITTED_RECEIPT')
             outcome('first','REPLAY',call(fresh,'baseline_recover',recover(key1)));check(result('first','REPLAY')==one,'BASELINE_FIRST_REPLAY_CHANGED')
             outcome('second','RECOVER',call(later,'baseline_recover',recover(key2)));witness=wait('second','first');commit('first','FIRST_COMMITTED');two=result('second','RECOVER');raw2=ack(two,later,'uncommitted');check(two['receipt_json'] is None,'BASELINE_SECOND_UNCOMMITTED_RECEIPT')
             outcome('second','REPLAY',call(later,'baseline_recover',recover(key2)));check(result('second','REPLAY')==two,'BASELINE_SECOND_REPLAY_CHANGED');commit('second','SECOND_COMMITTED')
-            after=query('AFTER');check(after['state']=='review_ready' and after['actorSession']==later['sessionId'] and after['reviewClear'] and after['intents']==2 and after['fence']==before['fence']+2 and after['receipts']==0 and after['native']==0 and after['active']==before['active'],'BASELINE_RECOVERY_COUNTS')
+            after=query('AFTER');check(after['state']=='review_ready' and after['actorSession']==later['sessionId'] and after['reviewClear'] and after['intents']==2 and after['fence']==before['fence']+2 and after['receipts']==0 and after['native']==0 and after['active']==before['active'] and after['economicsSHA256']==before['economicsSHA256'],'BASELINE_RECOVERY_COUNTS')
             # Finish this exact empty source through its current authenticated
             # actor/review/Apply. No unresolved server fixture or generic delete.
             outcome('second','REVIEW',call(later,'baseline_review',{'run_id':desc['runId']}));review=result('second','REVIEW');check(review['can_apply'] is True,'BASELINE_FINAL_REVIEW_BLOCKED')
             outcome('second','APPLY',call(later,'baseline_apply',{**apply,'review_digest':review['review_digest']}));completed=result('second','APPLY');raw=applied_receipt('second','FINAL_RECEIPT',completed);commit('second','FINAL_COMMITTED');final=query('FINAL')
-            check(final['state']=='applied' and final['receipts']==1 and final['receipt']==raw and final['active']==before['active'] and final['native']==0 and final['bankReceipts']==before['bankReceipts'],'BASELINE_FINAL_COUNTS')
-            report['cases'].append({'id':'baseline-two-current-session-recoveries','status':'PASS','wait':witness,'immutableRecoveryIntents':2,'leaseFenceIncrements':2,'receiptsDuringRecovery':0,'firstAckSHA256':sha(raw1),'secondAckSHA256':sha(raw2),'emptySourceCompleted':True,'newBankReceipts':0,'nativeRows':0,'activeEconomicsUnchanged':True})
+            check(final['state']=='applied' and final['receipts']==1 and final['receipt']==raw and final['active']==before['active'] and final['economicsSHA256']==before['economicsSHA256'] and final['native']==0 and final['bankReceipts']==before['bankReceipts'],'BASELINE_FINAL_COUNTS')
+            report['cases'].append({'id':'baseline-two-current-session-recoveries','status':'PASS','wait':witness,'immutableRecoveryIntents':2,'leaseFenceIncrements':2,'receiptsDuringRecovery':0,'firstAckSHA256':sha(raw1),'secondAckSHA256':sha(raw2),'emptySourceCompleted':True,'newBankReceipts':0,'nativeRows':0,'activeEconomicsUnchanged':True,'originalEconomicsSHA256':before['economicsSHA256']})
         report['status']='PASS'
     except BaseException as error:
         report['failureException']=type(error).__name__

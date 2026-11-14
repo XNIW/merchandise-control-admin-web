@@ -21,6 +21,7 @@ import {
 import {
   POS_OFFLINE_AUTHORIZATION_MAX_AGE_SECONDS,
   POS_POLICY_CONTRACT_VERSION,
+  POS_PERSISTENT_LOCAL_AUTHORIZATION_POLICY,
 } from "./pos-contract";
 
 type StaffAccountRow = Pick<
@@ -60,6 +61,7 @@ type PosFailureBody = {
 };
 
 type PosFirstLoginSuccessBody = {
+  localAuthorizationPolicy?: typeof POS_PERSISTENT_LOCAL_AUTHORIZATION_POLICY;
   code: "success";
   device: {
     shopDeviceId: string;
@@ -105,6 +107,7 @@ export type PosFirstLoginRequestMeta = {
 };
 
 type ParsedFirstLoginInput = {
+  localAuthorizationPolicy?: typeof POS_PERSISTENT_LOCAL_AUTHORIZATION_POLICY;
   appVersion?: string;
   credential: string;
   deviceIdentifier: string;
@@ -198,18 +201,22 @@ function parseFirstLoginInput(input: unknown): ParsedFirstLoginInput | null {
   const appVersion =
     normalizeLabel(stringField(device, "appVersion", "app_version"), 80) ||
     undefined;
+  const localAuthorizationPolicy = stringField(input, "localAuthorizationPolicy") || undefined;
 
   if (
     !SHOP_CODE_PATTERN.test(shopCode) ||
     !STAFF_CODE_PATTERN.test(staffCode) ||
     credential.length === 0 ||
     credential.length > MAX_CREDENTIAL_LENGTH ||
+    (localAuthorizationPolicy !== undefined &&
+      localAuthorizationPolicy !== POS_PERSISTENT_LOCAL_AUTHORIZATION_POLICY) ||
     deviceIdentifier.length === 0
   ) {
     return null;
   }
 
   return {
+    localAuthorizationPolicy,
     appVersion,
     credential,
     deviceIdentifier,
@@ -456,6 +463,7 @@ export async function handlePosFirstLoginWithClient(
   const trustedDeviceToken = generatePosSecret("device");
   const sessionToken = generatePosSecret("session");
   const committed = await commitPosFirstLogin(supabase, {
+    localAuthorizationPolicy: parsed.localAuthorizationPolicy,
     appVersion: parsed.appVersion,
     credentialVersion: staff.credential_version,
     deviceDisplayName: parsed.displayName,
@@ -468,7 +476,7 @@ export async function handlePosFirstLoginWithClient(
     },
     offlineAuthorizationMaxAgeSeconds:
       POS_OFFLINE_AUTHORIZATION_MAX_AGE_SECONDS,
-    offlineAuthorizationPolicyVersion: POS_POLICY_CONTRACT_VERSION,
+    offlineAuthorizationPolicyVersion: parsed.localAuthorizationPolicy ?? POS_POLICY_CONTRACT_VERSION,
     sessionTokenHash: hashPosSecret(sessionToken),
     sessionTtlSeconds: SESSION_TTL_SECONDS,
     shopId: shop.shop_id,
@@ -525,6 +533,9 @@ export async function handlePosFirstLoginWithClient(
 
   return {
     body: {
+      ...(committed.localAuthorizationPolicy
+        ? { localAuthorizationPolicy: committed.localAuthorizationPolicy }
+        : {}),
       code: "success",
       device: {
         shopDeviceId: committed.shopDeviceId,

@@ -66,6 +66,10 @@ create function pg_temp.stage_case(label text) returns uuid language plpgsql as 
 declare x jsonb;page jsonb;begin
  select v.value into x from corpus c,jsonb_array_elements(c.value->'cases') v where v.value->>'name'=label;
  if x is null then raise exception 'fixture_case_missing';end if;
+ -- Legacy corpus resumes publications that already existed before qualified admission.
+ -- This private test fixture does not expose an unqualified public-create path.
+ perform app_private.payment_history_local_prepare_v2((x->>'shop_id')::uuid,(x->>'device_id')::uuid,
+  (x-array['name','shop_id','device_id','pages','local_receipt_json','local_receipt_sha256','local_decision'])||jsonb_build_object('writer_epoch','1','protocol_version',2));
  perform app_private.payment_history_local_prepare_intent_v2((x->>'shop_id')::uuid,(x->>'device_id')::uuid,
   (x-array['name','shop_id','device_id','pages','local_receipt_json','local_receipt_sha256','local_decision'])||jsonb_build_object('writer_epoch','1','protocol_version',2,'local_nonce',md5('synthetic-nonce:'||(x->>'operation_id'))::uuid));
  for page in select value from jsonb_array_elements(x->'pages') loop

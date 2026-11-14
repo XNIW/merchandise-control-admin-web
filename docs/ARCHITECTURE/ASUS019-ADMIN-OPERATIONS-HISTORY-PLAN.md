@@ -1,5 +1,115 @@
 # ASUS019 — controllo operativo Admin e futuro storico web
 
+## Delta qualificazioni e gestione Master — implementazione 12–14 novembre
+
+Stessa Execution ACTIVE; nessuna nuova task. La gestione tecnica riusa il
+workbench e i pannelli trasferimento/cutover nella sede Master dello shop scelto.
+Master significa sessione SSR verificata e riga platform_admins attiva, non
+staff code o badge. Una delega operativa richiede il grant migrate canonico
+esplicito; il fallback shop_admin.full_access non qualifica operazioni tecniche.
+La baseline automatica POS mantiene il proprio motore e i propri controlli.
+
+Le qualificazioni usano payment_history_evidence e richiedono documento privato
+con hash/dimensioni verificati, attore qualificante, shop/esercente/alias,
+profilo/parser, hash file e intervallo raw inclusivo/esclusivo. Il documento
+provider rimane necessario per l'orario moderno. Vecchie attestazioni e testo
+libero non diventano qualifiche. Nessuna scelta da timezone PC o nome file.
+La nuova lettura device qualified_config è autenticata, chiusa, fresca e
+revocabile; non attribuisce autorità offline. Il client deve rianalizzare con
+la sola policy applicabile e confermare tramite il percorso economico canonico.
+
+La console ordinaria consuma le qualificazioni con il grant import e non crea
+più attestazioni verificate da testo libero. Ogni nuovo job Web/POS richiede
+prove qualificate anche nel review server; i journal già persistiti conservano
+la propria provenienza. Il Master usa una selezione esplicita di lane verificata
+dal server, così un cookie staff concomitante non cambia il soggetto operante.
+
+Per la nuova Apply locale, qualification contiene config_digest,
+resolver_fingerprint ed evidence_ids UUID ordinati. Lo stesso contenuto è
+legato al RequestFingerprint e all'header della publication, quindi al root
+immutabile. Ogni pagina e l'autorizzatore finale ricontrollano lo stato online;
+una revoca attende il drain dei grant pendenti, senza usare il TTL come prova
+di mancato commit. Nuove Apply senza qualificazione sono negate, mentre
+receipt, reconcile e publication legacy già esistenti restano compatibili.
+local_scope_bindings deriva soltanto dalle baseline applied dello stesso POS e
+dalle relative prove correnti: nessuna equivalenza dedotta da alias o nomi.
+
+Parser C# getnet-ooxml-v1 e parser Web getnet-ooxml-web-v1 restano distinti.
+La nuova publication qualifica parser_version esplicito del movimento originale;
+history-pos-normalized-v2 non viene equiparato automaticamente a un parser XLSX.
+Lo stesso alias canonico può usare prove indipendenti applicabili a ciascuna
+versione, selezionate dagli ID qualificati del piano.
+
+L'adapter POS Web riusa il solo motore draft/review/commit, ledger e ricevute
+canonici; la lettura, upload XLSX e job sono legati alla lease POS v6 attuale.
+Nessun nuovo controllo di scadenza PIN, paywall, cutover automatico o ledger.
+
+La migrazione additiva stage_vector_v2, approvata esplicitamente nell'Execution,
+trasporta al massimo quattro sottobatch da massimo200 righe della stessa fase.
+Ogni sottobatch attraversa il motore v1 invariato; transazione, nonce e ACK sono
+unici per vettore e ogni errore annulla l'intero vettore. Nessun finish nel
+vettore, budget globale120s e limiti memoria invariati. sql_elapsed_ms misura il
+tempo SQL reale originale e resta identico nel replay della stessa richiesta.
+
+I gate locali sono salvati in C:/Dev/U19MasterHistory01; il primo foundation
+completo conserva un FAIL dovuto ai sette file WECHAT CRLF nel checkout Windows
+(hash LF identici ai blob canonici), senza modifica delle migrazioni storiche.
+Own SQL, volume con route HTTP/Storage/Worker CJS reali, combinazione client,
+bundle e consegna restano NOT_RUN finché non attestati dal loro candidato.
+Nessun DDL live o deploy viene qualificato dalla sola implementazione.
+
+## Addendum 13 novembre (14 UTC) — volume del gateway baseline
+
+Stessa Execution ACTIVE. Upload reale già verificato; FAIL successivo durante
+stage_objects conservato, nessun retry live. Indagine isolata su main ca9f239:
+gzip soltanto nel trasporto Node24/gateway, HMAC dei byte wire prima di una
+decompressione nativa limitata, wire e decoded8MiB. Contratti SQL/main Worker,
+200righe/6MiB,15s/120s, heartbeat20s e autorizzazione finanziaria restano identici.
+La qualifica usa fixture CLR sintetica espansa, workerd nativo e RPC posseduta
+senza Supabase; dati aggregati reali danno soltanto target25947righe/20274917B.
+Confronto controllato e security in corso, senza attribuire il timeout reale a
+gzip né trasferire PASS da prove di byte a prestazioni cloud. Evidence privata
+C:/Dev/U19BaselineVolume01. Nessun rollout/DDL/servicerestart o nuovo writer.
+
+Successore14novembre: prove temporizzate precedenti contese, non qualifica.
+Anche gzip raggiunge timeout120666ms nel modello, FAIL conservato. Contratto v2
+esplicitamente autorizzato da root: max4 chunk canonici≤200 per vettore, sola
+fase/fence, ordine invariato, totale6MiB, ACK vincolato, nessun fallback v1.
+Wrapper SQL additivo nella tranche Master; nessun incremento di120s/15s o memoria.
+Signal e diagnostiche Worker estesi fino a RPC; causa processo separata da
+migration_failed, ring redatto512KiB nel path status esistente. Packaging v2
+richiede artifact CJS già qualificato e ricevuta hashata esterna che lega source
+immutabile/tree, artifact e prove SQL/volume; gate v1/frozen kit preservati.
+Nessun PASS di stub attribuito a gateway+SQL reale, host installato o baseline.
+
+Finali locali:90/90 mirati, typecheck/lint, bundle Node24, parsing PowerShell e
+diff-check PASS; dettagli e FAIL precedenti nell'evidence task/U19BaselineVolume01.
+Recovery daemon ristretto a claim migration con nonce/body immutabili e3backoff
+2/5/15s dentro l'unico120s pre-claim. --once, auth, contratto e stage non ricevono
+quel recovery. Nessun riavvio del cronometro, nessun rollout o qualifica live.
+
+## Addendum 12 novembre — PUT e importazione utilizzabile
+
+Stessa Execution ACTIVE. Diagnostico PR153/main7d94271 pubblicato1a7c6e27:
+osservazione naturale della stessa baseline503 in put_storage_source, TypeError.
+Nel runtime workerd il trasporto di prodotto con redirect:error fallisce prima
+dell'invio. Il successore manual rifiuta tutti i3xx senza inoltro; test locale
+con byte sintetici, target posseduto, status2xx/3xx/4xx/5xx e AbortSignal.
+RED originale conservato, finale foundation1654PASS/0FAIL/7SKIP, security,
+typecheck e lint mirato PASS. Gate remoti e rollout successore NOT_RUN.
+Nessun DDL, rebuild Windows, indebolimento del controllo origine o cambio chiave.
+La causa degli arresti Node resta da isolare separatamente.
+
+Sequenza richiesta: riconciliare originali/ledger/filtro/replica senza doppioni;
+guidare scegli/verifica/conferma/risultato con stato per operazione e generation
+fence; riusare soltanto prove qualificate, applicabili e non revocate; separare
+declined da errori parser, calendario da copertura provata e netto di regolamento
+da vendite. Gestione tecnica nella sede Master, con autorizzazione server e
+audit; import e consultazione POS rimangono disponibili. Prima di estendere
+writer web verificare l'adapter draft/review/commit esistente. Getnet C mancante:
+preview consentita, nessun apply moderno finché non esiste prova temporale valida.
+Ogni successore deve avere propri gate, pacchetto e verifica dell'installato.
+
 La consegna corrente segue l'ultimo addendum di convergenza: cassa quotidiana e
 storico bilaterale. I precedenti riferimenti agli altri domini restano inventario
 storico e non ampliano questa Execution.
@@ -334,6 +444,14 @@ PR135/151/TASK146 aggiornati, coda storica TASK146 conservata esattamente.
 
 
 </details>
+
+## Diagnostica del trasferimento — stessa Execution, 12 novembre
+
+Il client248 resta installato e qualificato. Baseline reale upload_created: archivio/backup verificati, oggetto Storage assente, zero movimenti cloud. Dashboard aggiornata Healthy; nella finestra17:02–18:02 Santiago Storage mostra object-info400 e signed-upload200, nessun PUT. Causa ancora non dimostrata.
+
+Il successore server registra nei soli errori source fase, codice chiuso e durata nel campo stage del logger route-rejection esistente, che conserva envelope e request ID generato dal server. La sua implementazione e la sua guardia rimangono esatte rispetto5ff8577; nessuna nuova emissione console o allowlist. Callback e guasti del logger non cambiano l’esito. Nessun header, URL firmato, credenziale, contenuto o identità economica entra nel log. Risposte HTTP, timeout15s, doppia autenticazione, hash, origine/oggetto, non-overwrite e verifica Worker invariati.
+
+Validazione finale locale: foundation1653PASS/0FAIL/7SKIP (1660totali),41/41mirati inclusi i controlli sicurezza, scanner sicurezza/typecheck/lint mirato PASS. FAIL intermedi conservati: due confronti VM, poi TypeError fra realm; primo foundation1651/1/7 per console fuori canale e secondo1632/21/7 per nuova dipendenza del logger condiviso e corpo non identico. Risolto riusando il sink originale senza modificarlo né cambiare assert/allowlist. La prima CI43308989789/Cloudflare43308989713 di eb26 conserva il relativo FAIL; nuovo sorgente congelato e gate propri necessari prima del deploy. Nessun DDL o installer Windows per questo delta, nessun DONE.
 
 <details>
 <summary>Checkpoint precedente171130Z conservato come storia</summary>

@@ -3,10 +3,12 @@ import {DEVICE_HISTORY_OPERATIONS,validateDeviceHistoryRequest,validateDeviceHis
 import {LOCAL_COMMIT_OPERATIONS,validateLocalCommitRequest,validateLocalCommitResult,type LocalCommitOperation} from "./local-commit-contract";
 import {LOCAL_OUTCOME_OPERATIONS,validateLocalOutcomeDelivery,validateLocalOutcomeAbort,validateLocalOutcomeAbortResult} from "./local-outcome-delivery-contract";
 import {BASELINE_OPERATIONS,validateBaselineRequest,projectBaselineSqlResult,type BaselineOperation} from "./local-baseline-contract";
+import {QUALIFICATION_DEVICE_OPERATIONS,validateQualifiedConfigRequest,validateQualifiedConfigResult} from "./qualified-config-contract";
+import {DEVICE_WEB_OPERATIONS,validateDeviceWebRequest,projectDeviceWebResult} from "./device-web-contract";
 
 export type DeviceHistoryScope={shopId:string;deviceId:string;staffId:string;sessionId:string;credentialVersion:number};
 const commits=LOCAL_COMMIT_OPERATIONS.filter(op=>op!=="local_deliver");
-export const COMPOSED_DEVICE_OPERATIONS=[...DEVICE_HISTORY_OPERATIONS,...commits,...LOCAL_OUTCOME_OPERATIONS,...BASELINE_OPERATIONS] as readonly string[];
+export const COMPOSED_DEVICE_OPERATIONS=[...DEVICE_HISTORY_OPERATIONS,...commits,...LOCAL_OUTCOME_OPERATIONS,...BASELINE_OPERATIONS,...QUALIFICATION_DEVICE_OPERATIONS,...DEVICE_WEB_OPERATIONS] as readonly string[];
 export const isComposedHistoryV2=(op:string)=>!DEVICE_HISTORY_OPERATIONS.includes(op as DeviceHistoryOperation)&&COMPOSED_DEVICE_OPERATIONS.includes(op);
 function localScope(p:Record<string,unknown>,scope:DeviceHistoryScope){
  if(typeof p.operation_id!=="string"||typeof p.content_digest!=="string")throw Error("history_input_invalid");
@@ -14,6 +16,8 @@ function localScope(p:Record<string,unknown>,scope:DeviceHistoryScope){
  return {...scope,operationId:p.operation_id,contentDigest:p.content_digest};
 }
 export function validateComposedDeviceRequest(op:string,value:unknown,scope:DeviceHistoryScope):Record<string,unknown>{
+ if(op.startsWith("web_"))return validateDeviceWebRequest(op,value);
+ if(op==="qualified_config")return validateQualifiedConfigRequest(value);
  if(BASELINE_OPERATIONS.includes(op as BaselineOperation))return validateBaselineRequest(op as BaselineOperation,value);
  if(LOCAL_OUTCOME_OPERATIONS.includes(op as "local_abort"|"local_reconcile")){
   if(!value||typeof value!=="object"||Array.isArray(value))throw Error("history_input_invalid");
@@ -25,6 +29,8 @@ export function validateComposedDeviceRequest(op:string,value:unknown,scope:Devi
  throw Error("history_input_invalid");
 }
 export function projectComposedDeviceResult(op:string,value:unknown,payload:Record<string,unknown>,scope:DeviceHistoryScope){
+ if(op.startsWith("web_"))return projectDeviceWebResult(op,value,payload);
+ if(op==="qualified_config")return validateQualifiedConfigResult(value,scope.shopId);
  if(BASELINE_OPERATIONS.includes(op as BaselineOperation))return projectBaselineSqlResult(op as BaselineOperation,value,{...scope,
   runId:typeof payload.run_id==="string"?payload.run_id:undefined,recoveryRequestKey:payload.recovery_request_key as string|undefined,
   applyRequestKey:payload.apply_request_key as string|undefined,previousReviewDigest:payload.previous_review_digest as string|undefined});

@@ -1,5 +1,24 @@
 # MerchandiseControl Admin Web - Master Plan
 
+## ASUS019 — successore PUT e addendum importazione, 12 novembre
+
+Execution ACTIVE. Il diagnostico PR153 è unito in7d94271 e pubblicato come
+1a7c6e27: la stessa baseline pendente fallisce in put_storage_source con TypeError.
+Riproduzione nel runtime workerd: redirect:error non è supportato e impedisce
+l'invio. Il successore usa manual e accetta solo2xx; ogni3xx resta rifiutato senza
+seguire Location. Origine firmata, byte, hash, cancellazione, timeout15s e
+non-overwrite restano invariati. Nessuna modifica al gateway Node o al DDL.
+Test nativo RED conservato; finale locale1654PASS/0FAIL/7SKIP su1661, typecheck,
+lint mirato e security scan PASS. Gate remoti/deploy del successore NOT_RUN.
+Gli arresti del servizio Node restano un residuo distinto, con causa non provata.
+
+L'ultimo addendum utente resta nella stessa task: riconciliazione mensile privata,
+importazione POS guidata e stati terminali separati, configurazioni qualificate
+e revocabili entro scope, riepilogo senza falsi zeri, gestione tecnica Master
+autorizzata sul server e sync bilaterale. Nessuna scelta temporale automatica:
+Getnet C manca e blocca l'apply moderno. Preservare cassa248/v6, ledger, writer
+authority, DPI200% e storia delle prove. Nuovi gate UX/installer NOT_RUN.
+
 Addendum ASUS019 del 10 novembre in EXECUTION: pubblicazione automatica dei
 commit storici POS, ricevute e replica alle altre postazioni. Gap e contratto
 nel [piano canonico](ARCHITECTURE/ASUS019-ADMIN-OPERATIONS-HISTORY-PLAN.md), stessa
@@ -286,6 +305,14 @@ PR135/151/TASK146 aggiornati, coda storica TASK146 conservata esattamente.
 
 
 </details>
+
+## Diagnostica del trasferimento — stessa Execution, 12 novembre
+
+Il client248 resta installato e qualificato. Baseline reale upload_created: archivio/backup verificati, oggetto Storage assente, zero movimenti cloud. Dashboard aggiornata Healthy; nella finestra17:02–18:02 Santiago Storage mostra object-info400 e signed-upload200, nessun PUT. Causa ancora non dimostrata.
+
+Il successore server registra nei soli errori source fase, codice chiuso e durata nel campo stage del logger route-rejection esistente, che conserva envelope e request ID generato dal server. La sua implementazione e la sua guardia rimangono esatte rispetto5ff8577; nessuna nuova emissione console o allowlist. Callback e guasti del logger non cambiano l’esito. Nessun header, URL firmato, credenziale, contenuto o identità economica entra nel log. Risposte HTTP, timeout15s, doppia autenticazione, hash, origine/oggetto, non-overwrite e verifica Worker invariati.
+
+Validazione finale locale: foundation1653PASS/0FAIL/7SKIP (1660totali),41/41mirati inclusi i controlli sicurezza, scanner sicurezza/typecheck/lint mirato PASS. FAIL intermedi conservati: due confronti VM, poi TypeError fra realm; primo foundation1651/1/7 per console fuori canale e secondo1632/21/7 per nuova dipendenza del logger condiviso e corpo non identico. Risolto riusando il sink originale senza modificarlo né cambiare assert/allowlist. La prima CI43308989789/Cloudflare43308989713 di eb26 conserva il relativo FAIL; nuovo sorgente congelato e gate propri necessari prima del deploy. Nessun DDL o installer Windows per questo delta, nessun DONE.
 
 <details>
 <summary>Checkpoint precedente171130Z conservato come storia</summary>
@@ -6303,5 +6330,55 @@ handoff al coordinatore TASK146 dopo lettura del suo task/codice; nessun test
 mobile attribuito ai gate Windows. Scala Windows 200% mantenuta; 100/125 differiti,
 Win7 fisico indisponibile, prova provider C moderna mancante. Execution ACTIVE,
 nessun DONE. Questo aggiornamento è solo documentale: runtime/Admin invariato.
+
+</details>
+
+## ASUS019 — indagine volume baseline, 13 novembre (14 UTC)
+
+Stessa Execution ACTIVE, ramo isolato da main ca9f239. Il FAIL reale conservato
+ha upload verificato e timeout durante stage_objects:6000oggetti/0movimenti.
+Prototipo circoscritto al trasporto: gzip Node24 se minore del JSON, HMAC sui byte
+wire prima del decoder nativo workerd; limiti wire/decoded8MiB indipendenti.
+Operazioni,200righe/6MiB,15s/120s, heartbeat20s e SQL/main Worker invariati.
+La prova sintetica preliminare su25947movimenti/20274917byte NDJSON riconcilia
+tutti i chunk e finish:72174835byte identity/1818712gzip. Non è prova della
+causa live. Gate nativi/security/volume finali ancora in corso, evidence separata
+C:/Dev/U19BaselineVolume01; RED e FAIL preservati. Nessun retry baseline reale,
+DB live, migrazione, deploy o riavvio del servizio effettuato da questa indagine.
+
+Addendum corrente14novembre: il confronto precedente era conteso con UI/portable
+e non qualifica prestazioni. Identity FAIL122365ms; gzip FAIL120666ms nel modello
+registrato: nessun timeout trasformato in PASS. Root autorizza il contratto
+additivo stage_vector_v2, max4 sottobatch canonici≤200, stessa fase/fence/ordinali,
+transazione vettore atomica e totale6MiB/decoded8MiB. SQL è posseduto dalla tranche
+Master; Worker verifica l'ACK e non fa fallback al server vecchio. Il controller
+120s raggiunge RPC/download/reader; terminal fail usa il fence originale e solo
+il segnale processo. Diagnostiche chiuse misurano fasi/RPC/byte/RSS/cancellazione,
+gateway, DB roundtrip e SQL originario distinti. Host passa soltanto un path
+status per il ring512KiB atomico, conservando chiavi/DPAPI/ACL e limiti.
+Mirati esclusivi84/84, typecheck02/lint02/CJSbundle/CSCnet48-x64 PASS sul WIP;
+nuovi guard packaging e prova processo CJS in qualifica finale. Pacchetto v2
+richiede ricevuta esterna del verifier CI con source/tree/artifact/raw hash e
+gate SQL/volume reali: nessuna ricevuta creata automaticamente dal builder.
+Gate SQL+gateway/volume reale,5/5 SCM remoto, consegna e baseline live restano
+NOT_RUN per questa tranche; il solo processo Running non attesta continuità.
+
+Gate locali finali del delta14novembre:90/90 mirati PASS (2328ms), typecheck e
+lint final02 PASS, bundle Node24 finale PASS, parsing5file PowerShell PASS e
+diff-check PASS. Include processo CJS reale con fatal redatto persistente e22
+guard packaging sintetici solo in memoria. Lint final01 FAIL del nome locale
+module nel probe VM conservato e corretto senza indebolire assert/soglie.
+Qualifica completa SQL/volume/host e consegna rimangono gate separati pendenti;
+root ha autorizzato soltanto freeze/commit locale di questa tranche, nessun push.
+
+
+<details>
+<summary>Raccordi storici del main 8e466108 preservati nel merge documentale</summary>
+
+Addendum ASUS019 del 10 novembre in EXECUTION: pubblicazione automatica dei
+commit storici POS, ricevute e replica alle altre postazioni. Gap e contratto
+nel [piano canonico](ARCHITECTURE/ASUS019-ADMIN-OPERATIONS-HISTORY-PLAN.md), stessa
+task/evidence e rami cloud135/151; qualifica/consegna136 separata. Nuovo delta
+in implementazione, gate NOT_RUN, nessun rollout/cutover o DONE.
 
 </details>
