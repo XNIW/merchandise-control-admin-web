@@ -1199,7 +1199,7 @@ declare v jsonb;g bigint;c bigint;t bigint;n bigint;k text;s text;begin
 end;$$;
 
 create or replace function public.payment_history_device_v1(p_shop_id uuid,p_shop_device_id uuid,p_staff_id uuid,p_pos_session_id uuid,p_device_token_hash text,p_session_token_hash text,p_credential_version integer,p_operation text,p_payload jsonb default '{}') returns jsonb
-language plpgsql volatile security definer set search_path='' as $declare result jsonb;prior public.payment_history_local_write_grants;begin
+language plpgsql volatile security definer set search_path='' as $$declare result jsonb;prior public.payment_history_local_write_grants;begin
  if p_operation='local_write_grant' then
   perform app_private.payment_history_local_device_actor_v2(p_shop_id,p_shop_device_id,p_staff_id,p_pos_session_id,p_device_token_hash,p_session_token_hash,p_credential_version,
    case when p_payload->>'kind'='Undo' then 'cancel' else 'import' end);
@@ -1217,4 +1217,4 @@ language plpgsql volatile security definer set search_path='' as $declare result
   update public.payment_history_local_write_grants set admission_kind='Undo' where shop_id=p_shop_id and shop_device_id=p_shop_device_id and operation_id=(p_payload->>'operation_id')::uuid;
  end if;
  return result;
-end;$;
+end;$$;
