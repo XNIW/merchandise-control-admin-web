@@ -12,7 +12,7 @@ export async function POST(request:Request){
   const value:unknown=JSON.parse(new TextDecoder("utf-8",{fatal:true}).decode(Buffer.concat(parts,size)));
   if(!value||typeof value!=="object"||Array.isArray(value))throw new HistoryRequestError("history_input_invalid",400);const input=value as Record<string,unknown>;
   if(Object.keys(input).length!==4||Object.keys(input).some(k=>!["shop_id","lane","operation","payload"].includes(k))||typeof input.shop_id!=="string"||typeof input.lane!=="string"||!Object.hasOwn(TRANSFER_OPERATIONS,input.lane)||typeof input.operation!=="string")throw new HistoryRequestError("history_input_invalid",400);
-  const access=await demandHistoryAccess(input.shop_id),lane=input.lane as TransferLane,result=await transferRequest(access,lane,input.operation,input.payload as Json);
+  const access=await demandHistoryAccess(input.shop_id,{master:request.headers.get("x-history-master")==="1"}),lane=input.lane as TransferLane,result=await transferRequest(access,lane,input.operation,input.payload as Json);
   return response({ok:true,result:input.operation==="upload_create"?await historyUploadUrl(access,result):result});
  }catch(error){return response({ok:false,code:error instanceof HistoryRequestError?error.code:"history_input_invalid",...(error instanceof TransferApplyRejectedError?{outcome:"rejected"}:{})},error instanceof HistoryRequestError?error.status:400);}
 }

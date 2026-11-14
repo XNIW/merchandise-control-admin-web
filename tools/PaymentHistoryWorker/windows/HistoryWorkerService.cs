@@ -84,8 +84,11 @@ internal sealed class HistoryWorkerService : ServiceBase
                 if (plain.Length < 32 || plain.Length > 256) throw new InvalidOperationException();
                 string secret = new UTF8Encoding(false, true).GetString(plain);
                 Dictionary<string, string> env = EnvironmentFor(Path.GetDirectoryName(worker));
+                string diagnostics = Path.Combine(Path.GetDirectoryName(statusPath), "worker-diagnostics.ndjson");
+                DemandPath(diagnostics);
                 env.Add("PAYMENT_HISTORY_WORKER_GATEWAY_URL", url);
                 env.Add("PAYMENT_HISTORY_WORKER_GATEWAY_SECRET", secret);
+                env.Add("HISTORY_WORKER_DIAGNOSTICS_FILE", diagnostics);
                 lock (gate)
                 {
                     if (stopped.WaitOne(0)) return;

@@ -7,16 +7,16 @@ import {loadHistoryMovementPage} from "@/lib/payment-history/movement-loader";
 const button="rounded-lg border border-current/30 px-3 py-2 text-sm disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-4";
 const field="block w-full rounded-lg border border-current/30 bg-transparent p-2";
 const initial:HistoryMovementQuery={from_date:null,to_date:null,include_inactive:false,page_size:50,after:null};
-export function HistoryMovementReader({shopId,locale,canRead,canExport,refreshSignature}:{shopId:string;locale:SupportedLocale;canRead:boolean;canExport:boolean;refreshSignature:string}){
+export function HistoryMovementReader({shopId,locale,canRead,canExport,refreshSignature,masterMode=false}:{masterMode?:boolean;shopId:string;locale:SupportedLocale;canRead:boolean;canExport:boolean;refreshSignature:string}){
  const copy=historyMovementCopy(locale),[draft,setDraft]=useState({from:"",to:"",audit:false});
  const [query,setQuery]=useState(initial),[previous,setPrevious]=useState<HistoryMovementQuery[]>([]),[nonce,setNonce]=useState(0);
  const [view,setView]=useState<{scope:string;query:HistoryMovementQuery;result:HistoryMovementRead}|null>(null);
  const [state,setState]=useState<"loading"|"current"|"retained"|"denied"|"invalid">("loading"),[exporting,setExporting]=useState(false);
  const sequence=useRef(0),exportController=useRef<AbortController|null>(null);
  const call=useCallback(async(operation:string,payload:HistoryMovementQuery,signal:AbortSignal)=>{
-  const response=await fetch("/api/shop/payment-history",{method:"POST",credentials:"same-origin",cache:"no-store",signal,headers:{"Content-Type":"application/json","X-History-Request":"1"},body:JSON.stringify({shop_id:shopId,operation,payload})});
+  const response=await fetch("/api/shop/payment-history",{method:"POST",credentials:"same-origin",cache:"no-store",signal,headers:{"Content-Type":"application/json","X-History-Request":"1",...(masterMode?{"X-History-Master":"1"}:{})},body:JSON.stringify({shop_id:shopId,operation,payload})});
   const body=await response.json();if(!response.ok||body.ok!==true)throw Error(response.status===401||response.status===403?"history_access_denied":typeof body.code==="string"?body.code:"history_unavailable");return body.result;
- },[shopId]);
+ },[shopId,masterMode]);
  useEffect(()=>{
   const current=++sequence.current,controller=new AbortController();
   if(canRead){

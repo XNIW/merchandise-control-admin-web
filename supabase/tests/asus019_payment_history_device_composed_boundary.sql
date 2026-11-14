@@ -116,6 +116,10 @@ $$;
 create function pg_temp.stage_public(label text) returns uuid language plpgsql as $$
 declare x jsonb;page jsonb;begin
  x:=pg_temp.case_input(label);
+ -- Legacy corpus resumes publications that already existed before qualified admission.
+ -- This private test fixture does not expose an unqualified public-create path.
+ perform app_private.payment_history_local_prepare_v2((x->>'shop_id')::uuid,(x->>'device_id')::uuid,
+  (x-array['name','shop_id','device_id','pages','local_receipt_json','local_receipt_sha256','local_decision'])||jsonb_build_object('writer_epoch','1','protocol_version',2));
  perform pg_temp.composed(label,'local_prepare',(x-array['name','shop_id','device_id','pages','local_receipt_json','local_receipt_sha256','local_decision'])||
   jsonb_build_object('writer_epoch','1','protocol_version',2,'local_nonce',md5('synthetic-nonce:'||(x->>'operation_id'))::uuid));
  for page in select value from jsonb_array_elements(x->'pages') loop

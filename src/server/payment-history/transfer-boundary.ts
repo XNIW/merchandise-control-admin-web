@@ -1,7 +1,8 @@
 import "server-only";
 import type {Json} from "@/lib/supabase/database.types";
 import {createSupabaseAdminClient} from "@/lib/supabase/admin";
-import {demandHistoryAccess,historyRequest,HistoryRequestError} from "./request-boundary";
+import {demandHistoryAccess,HistoryRequestError} from "./request-boundary";
+import {technicalHistoryRequest} from "./qualification-boundary";
 import {closedHistoryObject as closed,historyObject as record} from "./replica-contract";
 import {demandDigest,demandUuid} from "./ledger-contract";
 import {validateHistoryResult} from "./wire-contract";
@@ -61,7 +62,7 @@ export class TransferApplyRejectedError extends HistoryRequestError {
 }
 export async function transferRequest(access:Access,lane:TransferLane,operation:string,payload:Json){
  if(!Object.hasOwn(TRANSFER_OPERATIONS,lane)||!(TRANSFER_OPERATIONS[lane] as readonly string[]).includes(operation))throw new HistoryRequestError("history_operation_invalid",400);
- const fresh=await historyRequest(access,"capabilities");if(!record(fresh.capabilities)||fresh.capabilities.migrate!==true)throw new HistoryRequestError("history_access_denied",403);
+ await technicalHistoryRequest(access,"access");
  const staff=access.principalKind==="pos_staff_manager"?access.principal:null,session=staff?.staffWebSession;
  if(staff&&!session)throw new HistoryRequestError("history_session_expired",403);
  const db=access.principalKind==="personal_account"?access.supabase:createSupabaseAdminClient();if(!db)throw new HistoryRequestError("history_unavailable",503);
@@ -71,5 +72,5 @@ export async function transferRequest(access:Access,lane:TransferLane,operation:
  const id=access.principalKind==="personal_account"?access.principal.userId:access.principal.staff.staffId;
  if(!record(data)||Object.keys(data).length!==4||data.ok!==true||data.shop_id!==access.selectedShop.shopId||!record(data.actor)||Object.keys(data.actor).some(k=>!["kind","id","session_id","credential_version"].includes(k))||data.actor.kind!==access.principalKind||data.actor.id!==id||typeof data.actor.session_id!=="string"||session&&(data.actor.session_id!==session.sessionId||data.actor.credential_version!==session.credentialVersion)||Buffer.byteLength(JSON.stringify(data))>4194304)throw new HistoryRequestError("history_response_invalid",503);
  let result:Record<string,unknown>;try{result=validateTransferResult(lane,operation,data.result,access.selectedShop.shopId);}catch{throw new HistoryRequestError("history_response_invalid",503);}
- const current=await historyRequest(access,"capabilities");if(!record(current.capabilities)||current.capabilities.migrate!==true)throw new HistoryRequestError("history_access_denied",403);return result;
+ await technicalHistoryRequest(access,"access");return result;
 }

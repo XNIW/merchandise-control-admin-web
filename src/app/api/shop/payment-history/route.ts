@@ -13,7 +13,7 @@ export async function POST(request:Request){
   if(!body||typeof body!=="object"||Array.isArray(body))throw new HistoryRequestError("history_input_invalid",400);
   const input=body as Record<string,unknown>;
   if(typeof input.shop_id!=="string"||typeof input.operation!=="string"||!HISTORY_OPERATIONS.includes(input.operation as HistoryOperation)||Object.keys(input).some(k=>!["shop_id","operation","payload"].includes(k)))throw new HistoryRequestError("history_input_invalid",400);
-  const access=await demandHistoryAccess(input.shop_id),operation=input.operation as HistoryOperation;
+  const access=await demandHistoryAccess(input.shop_id,{master:request.headers.get("x-history-master")==="1"}),operation=input.operation as HistoryOperation;
   const result=await historyRequest(access,operation,(input.payload??{}) as Json);
   return response({ok:true,result:operation==="upload_create"?await historyUploadUrl(access,result):result});
  }catch(error){return response({ok:false,code:error instanceof HistoryRequestError?error.code:"history_input_invalid"},error instanceof HistoryRequestError?error.status:400);}

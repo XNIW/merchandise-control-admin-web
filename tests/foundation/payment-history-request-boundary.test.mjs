@@ -12,7 +12,7 @@ function setup(){
  const calls=[],access={status:"ready",principalKind:"pos_staff_manager",selectedShop:{shopId:id(1)},principal:{kind:"pos_staff_manager",roleKey:"pos_admin",staff:{staffId:id(2)},staffWebSession:{sessionId:id(3),sessionTokenHash:"sha256:"+"a".repeat(64),credentialVersion:7}}};
  let answer=(op)=>({data:{ok:true,shop_id:id(1),actor:{kind:access.principalKind,id:id(2),session_id:id(3),credential_version:7},result:op==="capabilities"?caps:{upload_id:id(4),state:"verified",file_name:"synthetic.xlsx",sha256:"a".repeat(64),byte_length:"100"}},error:null});
  const db={async rpc(name,args){calls.push({name,args});return answer(args.p_operation);}};
- const boundary=module("src/server/payment-history/request-boundary.ts",{"@/lib/supabase/admin":{createSupabaseAdminClient:()=>db},"@/server/shop-admin/data-access":{async resolveShopAdminDataAccess(options){calls.push({resolve:options});return access;}}});
+ const boundary=module("src/server/payment-history/request-boundary.ts",{"@/lib/supabase/admin":{createSupabaseAdminClient:()=>db},"@/lib/supabase/server":{createSupabaseServerClient:async()=>null},"@/server/platform-admin/authz":{authorizeCurrentPlatformAdmin:async()=>({status:"unauthorized"})},"@/server/shop-admin/data-access":{async resolveShopAdminDataAccess(options){calls.push({resolve:options});return access;}}});
  return {calls,access,boundary,setAnswer(fn){answer=fn;}};
 }
 

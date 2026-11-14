@@ -15,6 +15,8 @@ insert into public.shops(shop_id,shop_code,shop_name,shop_status) values('100000
 insert into public.staff_accounts(staff_id,shop_id,staff_code,display_name,role_key,status,credential_kind,credential_hash,credential_updated_at,credential_expires_at,must_change_credential,credential_version,credential_status)
  values('30000000-0000-4000-8000-000000003019','10000000-0000-4000-8000-000000003019','1001','Synthetic transfer admin','pos_admin','active','password','argon2id:synthetic-not-a-login',clock_timestamp(),clock_timestamp()+interval '1 hour',false,7,'active');
 insert into public.staff_role_permissions(shop_id,role_key,permission_key,enabled) values('10000000-0000-4000-8000-000000003019','pos_admin','shop_admin.full_access',true) on conflict(shop_id,role_key,permission_key) do update set enabled=true;
+-- Positive technical fixture uses a separate explicit grant; badge-only denial is covered independently.
+insert into public.payment_history_role_permissions(shop_id,role_key,capability,enabled) values('10000000-0000-4000-8000-000000003019','pos_admin','migrate',true) on conflict(shop_id,role_key,capability) do update set enabled=true;
 insert into public.staff_web_sessions(staff_web_session_id,shop_id,staff_id,session_token_hash,staff_credential_version,status,issued_at,expires_at)
  values('40000000-0000-4000-8000-000000003019','10000000-0000-4000-8000-000000003019','30000000-0000-4000-8000-000000003019','sha256:'||repeat('a',64),7,'active',now()-interval '1 minute',now()+interval '1 hour');
 insert into public.shop_devices(shop_device_id,shop_id,device_identifier,display_name,device_type,status) values('20000000-0000-4000-8000-000000003019','10000000-0000-4000-8000-000000003019','SYNTHETIC-TRANSFER-DEVICE','Synthetic device','pos','active');
@@ -59,6 +61,11 @@ select lives_ok($$select pg_temp.map_all((select (value->>'run_id')::uuid from t
 select is(pg_temp.migration('review',jsonb_build_object('run_id',(select value->>'run_id' from transfer_context where key='run')))->>'can_apply','false','mapping alone cannot cross the local-writer boundary');
 select throws_ok($$select pg_temp.cutover('freeze','{"writer_epoch":"1","complete_inventory":false,"reference":"synthetic inventory"}')$$,'40001','payment_history_freeze_not_ready','completeness cannot be inferred from login');
 select lives_ok($$select pg_temp.cutover('inventory',jsonb_build_object('device_id','20000000-0000-4000-8000-000000003019','hardware_reference_sha256',repeat('e',64),'disposition','active','protocol_version',1,'client_build_sha',repeat('a',40),'reference','synthetic physically inventoried protocol1 device'))$$,'active device is inventoried explicitly');
+-- A historical pre-issued v1 decision is seeded before its replay. Fresh Apply
+-- creation is denied by the independent qualified-admission regression suite.
+set local role postgres;
+insert into public.payment_history_local_write_grants(shop_id,shop_device_id,writer_epoch,operation_id,issued_at,expires_at) values('10000000-0000-4000-8000-000000003019','20000000-0000-4000-8000-000000003019',1,'82000000-0000-4000-8000-000000003019',clock_timestamp(),clock_timestamp()+interval '60 seconds');
+set local role service_role;
 insert into transfer_context values('grant',pg_temp.device('local_write_grant','{"writer_epoch":"1","operation_id":"82000000-0000-4000-8000-000000003019","kind":"Apply"}'));
 select ok((select (value->>'remaining_milliseconds')::integer between 10001 and 60000 from transfer_context where key='grant'),'local writing requires a bounded fresh server grant');
 select is(pg_temp.device('local_write_grant','{"writer_epoch":"1","operation_id":"82000000-0000-4000-8000-000000003019","kind":"Apply"}')->>'grant_id',(select value->>'grant_id' from transfer_context where key='grant'),'grant retry never extends its deadline');

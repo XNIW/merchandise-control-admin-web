@@ -95,11 +95,18 @@ const coverageDomainPath = join(posRoot, "src/Win7POS.Core/Reports/SalesReportEn
 if (existsSync(coverageDomainPath) && /enum SalesReportCoverageStatus\s*\{[^}]*\bCloudReplica(?:Required|Cached)\b/.test(maskCSharpComments(readFileSync(coverageDomainPath, "utf8")))) {
   coverageKeys.push("CloudReplicaRequired", "CloudReplicaCached");
 }
+const dailyCoveragePath = "src/Win7POS.Wpf/Pos/Dialogs/DailyReportViewModel.Analytical.cs";
+const dailyCoverageHelper = existsSync(join(posRoot, dailyCoveragePath)) &&
+  /private\s+static\s+string\s+CoverageText\(SalesReportContext context\)/.test(csharpSourceViews(readFileSync(join(posRoot, dailyCoveragePath), "utf8")).code);
 allowedPosDynamicKeyUsages.set("historyReport.coverage.", {
   requiredKeys: coverageKeys.map(key => `historyReport.coverage.${key}`),
   usages: [
-    { path: "src/Win7POS.Wpf/Pos/Dialogs/DailyReportViewModel.Analytical.cs", suffix: /^\s*\+\s*snapshot\.Coverage\.Status\s*\)/, count: 1 },
-    { path: "src/Win7POS.Wpf/Pos/Dialogs/DailyReportViewModel.Analytical.cs", suffix: /^\s*\+\s*_reportContext\.Snapshot\.Coverage\.Status\s*\)/, count: 1 },
+    ...(dailyCoverageHelper ? [
+      { path: dailyCoveragePath, suffix: /^\s*\+\s*context\.Snapshot\.Coverage\.Status\s*\)/, count: 1 },
+    ] : [
+      { path: dailyCoveragePath, suffix: /^\s*\+\s*snapshot\.Coverage\.Status\s*\)/, count: 1 },
+      { path: dailyCoveragePath, suffix: /^\s*\+\s*_reportContext\.Snapshot\.Coverage\.Status\s*\)/, count: 1 },
+    ]),
     { path: "src/Win7POS.Wpf/Pos/Dialogs/SalesRegisterViewModel.Analytical.cs", suffix: /^\s*\+\s*(?:_registerContext\.Snapshot|context\.Snapshot)\.Coverage\.Status\s*\)/, count: 2 },
   ],
 });
@@ -547,6 +554,7 @@ const technicalLiteralReasons = new Map([
   ["→", "icon-like navigation glyph"],
 ]);
 const scopedTechnicalCsharpLiterals = new Map([
+  ["src/Win7POS.Wpf/MainWindow.xaml.cs|workstation_initialization_failed", { context: /^\s*if\s*\(!model\.IsInitialized\)\s*throw new InvalidOperationException\("workstation_initialization_failed"\);\s*$/, reason: "internal workstation sentinel caught by the shell recovery boundary; never rendered as UI text" }],
   ["src/Win7POS.Wpf/Pos/PosWorkflowService.cs|historical_maintenance_active", { context: /throw new InvalidOperationException\("historical_maintenance_active"\)/, reason: "internal authorization sentinel; the access boundary renders localized failure copy" }],
   ["src/Win7POS.Wpf/Pos/Dialogs/PosOnlineFirstLoginDialog.xaml.cs|online_completion_operator_changed", { context: /throw new InvalidOperationException\("online_completion_operator_changed"\)/, reason: "internal authorization sentinel; the access boundary renders localized failure copy" }],
   ["src/Win7POS.Wpf/Pos/Dialogs/PosOnlineFirstLoginDialog.xaml.cs|online_completion_generation_changed", { context: /throw new InvalidOperationException\("online_completion_generation_changed"\)/, reason: "internal authorization sentinel; the access boundary renders localized failure copy" }],

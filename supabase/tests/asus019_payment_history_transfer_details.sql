@@ -9,6 +9,7 @@ insert into public.shops(shop_id,shop_code,shop_name,shop_status) values('100000
 insert into public.staff_accounts(staff_id,shop_id,staff_code,display_name,role_key,status,credential_kind,credential_hash,credential_updated_at,credential_expires_at,must_change_credential,credential_version,credential_status)
  values('20000000-0000-4000-8000-000000009019','10000000-0000-4000-8000-000000009019','1001','Synthetic device checker','pos_admin','active','password','argon2id:synthetic-not-a-login',clock_timestamp(),clock_timestamp()+interval '1 hour',false,7,'active');
 insert into public.staff_role_permissions(shop_id,role_key,permission_key,enabled) values('10000000-0000-4000-8000-000000009019','pos_admin','shop_admin.full_access',true) on conflict(shop_id,role_key,permission_key) do update set enabled=true;
+insert into public.payment_history_role_permissions(shop_id,role_key,capability,enabled) values('10000000-0000-4000-8000-000000009019','pos_admin','migrate',true) on conflict(shop_id,role_key,capability) do update set enabled=true;
 insert into public.staff_web_sessions(staff_web_session_id,shop_id,staff_id,session_token_hash,staff_credential_version,status,issued_at,expires_at)
  values('30000000-0000-4000-8000-000000009019','10000000-0000-4000-8000-000000009019','20000000-0000-4000-8000-000000009019','sha256:'||repeat('a',64),7,'active',now()-interval '1 minute',now()+interval '1 hour');
 insert into public.shop_devices(shop_device_id,shop_id,device_identifier,display_name,device_type,status)

@@ -2,6 +2,19 @@ name: ASUS019 Windows history worker host
 
 on:
   workflow_dispatch:
+    inputs:
+      qualified_run_id:
+        description: Successful canonical CI run for this exact source
+        required: true
+        type: string
+      qualified_artifact_id:
+        description: Immutable asus019-history-worker-v2-qualified artifact ID
+        required: true
+        type: string
+      expected_receipt_sha256:
+        description: Receipt SHA256 produced by the independent artifact verifier
+        required: true
+        type: string
   push:
     branches:
       - codex/asus019-history-worker-host
@@ -34,10 +47,27 @@ jobs:
           cache: npm
       - name: Install locked build toolchain
         run: npm ci
+      - name: Verify canonical runtime artifact and deterministic external receipt
+        if: github.event_name == 'workflow_dispatch'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          QUALIFIED_RUN_ID: ${{ inputs.qualified_run_id }}
+          QUALIFIED_ARTIFACT_ID: ${{ inputs.qualified_artifact_id }}
+          EXPECTED_RECEIPT_SHA256: ${{ inputs.expected_receipt_sha256 }}
+        run: |
+          node scripts/testing/asus019-verify-worker-artifact.mjs --run-id $env:QUALIFIED_RUN_ID --artifact-id $env:QUALIFIED_ARTIFACT_ID --expected-receipt-sha256 $env:EXPECTED_RECEIPT_SHA256 --output-directory "$env:RUNNER_TEMP/history-worker-verified-source"
+          if ($LASTEXITCODE -ne 0) { throw 'Canonical runtime artifact verification failed.' }
       - name: Build exact qualified worker and Windows deployment host
         shell: pwsh
+        env:
+          EXPECTED_RECEIPT_SHA256: ${{ inputs.expected_receipt_sha256 }}
         run: |
-          pwsh -NoProfile -File scripts/build-payment-history-windows-host.ps1 -OutputDirectory "$env:RUNNER_TEMP/history-worker-package"
+          if ('${{ github.event_name }}' -ceq 'workflow_dispatch') {
+            pwsh -NoProfile -File scripts/build-payment-history-windows-host.ps1 -OutputDirectory "$env:RUNNER_TEMP/history-worker-package" -QualifiedWorker "$env:RUNNER_TEMP/history-worker-verified-source/history-worker.cjs" -RuntimeQualificationReceipt "$env:RUNNER_TEMP/history-worker-verified-source/runtime-qualification.json" -RuntimeQualificationReceiptSha256 $env:EXPECTED_RECEIPT_SHA256
+          } else {
+            pwsh -NoProfile -File scripts/build-payment-history-windows-host.ps1 -OutputDirectory "$env:RUNNER_TEMP/history-worker-package"
+          }
           if ($LASTEXITCODE -ne 0) { throw 'Host package build failed.' }
       - name: Exercise real memory limit, identity, ACL and owned cleanup
         shell: pwsh
