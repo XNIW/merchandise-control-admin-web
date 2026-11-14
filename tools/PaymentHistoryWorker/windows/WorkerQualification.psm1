@@ -13,7 +13,7 @@ function Assert-HistoryWorkerRuntimeQualification {
   Demand ($gate -is [pscustomobject] -and $gate.status -is [string] -and $gate.status -ceq 'PASS' -and $gate.sourceSha -is [string] -and $gate.sourceSha -ceq $SourceSha -and (RunId $gate.runId) -and (Digest $gate.reportSha256))
  }
  $volume=$Receipt.realVolume
- Demand ($volume.workerSha256 -is [string] -and $volume.workerSha256 -ceq $WorkerSha256 -and $volume.syntheticOnly -is [bool] -and $volume.syntheticOnly -and $volume.sqlReal -is [bool] -and $volume.sqlReal -and $volume.nativeGateway -is [bool] -and $volume.nativeGateway)
+ Demand ($volume.workerSha256 -is [string] -and $volume.workerSha256 -ceq $WorkerSha256 -and $volume.syntheticOnly -is [bool] -and $volume.syntheticOnly -and $volume.sqlReal -is [bool] -and $volume.sqlReal -and $volume.realGateway -is [bool] -and $volume.realGateway -and $volume.gatewayRuntime -is [string] -and $volume.gatewayRuntime -ceq 'node24-native-route-adapter' -and $volume.sqlRuntime -is [string] -and $volume.sqlRuntime -ceq 'postgres-postgrest-owned-fixture')
  foreach($pair in @(@('rows',25947),@('movementBytes',20274917),@('analysisBudgetMs',120000),@('requestBudgetMs',15000),@('canonicalRowLimit',200),@('vectorChunkLimit',4))){
   $value=$volume.($pair[0]);Demand (($value -is [int] -or $value -is [long]) -and $value -eq $pair[1])
  }

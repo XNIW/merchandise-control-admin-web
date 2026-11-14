@@ -49,6 +49,38 @@ The installer requires the external receipt hash again and a hashed
 deployed `stage_vector_v2` gateway. Server/SQL precede the Node sender. This
 validation does not bypass the refusal to overwrite an installed service/key.
 
+The receipt is issued only after downloading the successful canonical CI
+artifact `asus019-history-worker-v2-qualified`. Run
+`node scripts/testing/asus019-verify-worker-artifact.mjs --run-id <run> --artifact-id <artifact> --output-directory <fresh-absolute-directory-outside-checkout>`
+from the clean frozen source checkout. It uses the already authenticated GitHub
+CLI with read-only REST calls; credentials never become arguments or output.
+It verifies the owning repository, canonical CI workflow/job/steps, successful
+attempt, exact source HEAD/tree/lockfile, artifact expiry and GitHub SHA256,
+then the four closed ZIP members and each source/report/CJS hash. SQL counts and
+file membership are recomputed from the frozen canonical replay source. Only
+then does it produce deterministic `runtime-qualification.json` bytes and their
+SHA256. Source data is the invented25947-row fixture; a free-standing PASS file
+is never an input.
+
+Dispatch the existing `asus019-worker-host.yml` on that same frozen source with
+`qualified_run_id`, `qualified_artifact_id`, `expected_receipt_sha256` from this
+verified result. The Windows workflow independently downloads/verifies the
+same artifact, regenerates the same receipt and compares its bytes' digest
+before packaging and the existing5case SCM qualification. It neither trusts a
+user-supplied receipt file nor needs a receipt from its own not-yet-run gate.
+The producer CI exports the exact CJS already exercised, source manifest,
+`volume-complete.json` and `sql-complete.json`; host packaging does not rebuild
+or substitute that worker. The older frozen v1 push path retains its own pin.
+
+The volume runtime is explicitly `node24-native-route-adapter` with real HTTP
+production gateway code and `postgres-postgrest-owned-fixture`. The receipt uses
+`realGateway:true`; it does not claim a full-volume Cloudflare/workerd run. The
+native workerd transport tests remain a separate source-bound qualification.
+Live Cloudflare/baseline convergence and the installed host are subsequent gates.
+GitHub's authoritative metadata/digest contract is documented in the
+[artifact REST API](https://docs.github.com/en/rest/actions/artifacts) and
+[workflow-run REST API](https://docs.github.com/en/rest/actions/workflow-runs).
+
 Build with `scripts/build-payment-history-windows-host.ps1` into a fresh absolute
 directory outside the checkout. The package includes hashes and no secrets.
 The isolated Windows CI test exercises the actual1GiB limit, descendant denial,
