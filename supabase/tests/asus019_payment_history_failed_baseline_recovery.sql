@@ -160,9 +160,16 @@ select throws_ok($$select pg_temp.recovery(2,pg_temp.successor_payload())$$,'400
 select is(pg_temp.run_snapshot(),(select value from state where key='active-third'),'deferred rebind preserves active lease, attempt, fence and absolute budget');
 select throws_ok($$select pg_temp.recovery(3,pg_temp.successor_payload()||jsonb_build_object('recovery_request_key','a0000000-0000-4000-8000-000000000004'))$$,'40001','payment_history_baseline_retry_pending','another login still defers from the explicit root without a missing intermediate entry');
 select lives_ok($$select pg_temp.stage_finish((select value from state where key='third-lease'))$$,'existing Worker protocol reaches review-ready with the same original archive');
-update public.payment_history_uploads set file_sha256=repeat('f',64);
-select throws_ok($$select pg_temp.recovery(2,pg_temp.successor_payload())$$,'40001','payment_history_baseline_recovery_conflict','technical successor cannot adopt a changed source hash');
-update public.payment_history_uploads set file_sha256=(select value#>>'{baselines,0,archiveSha256}' from corpus);
+-- Seed only a contradictory synthetic predecessor inside throws_ok's rollback
+-- scope: the real upload facts and their immutability trigger remain intact.
+select throws_ok($$
+ insert into app_private.payment_history_baseline_recovery_intents
+ select (jsonb_populate_record(null::app_private.payment_history_baseline_recovery_intents,to_jsonb(i)||
+  jsonb_build_object('request_key',pg_temp.retry_payload(99)->>'recovery_request_key',
+   'retry_failure',i.retry_failure||jsonb_build_object('source_sha256',repeat('f',64))))).*
+ from app_private.payment_history_baseline_recovery_intents i where request_key=(pg_temp.retry_payload(2)->>'recovery_request_key')::uuid;
+ select pg_temp.recovery(2,pg_temp.successor_payload()||jsonb_build_object('previous_recovery_request_key',pg_temp.retry_payload(99)->>'recovery_request_key'))
+$$,'40001','payment_history_baseline_recovery_conflict','technical successor cannot adopt a changed source hash');
 select lives_ok($$insert into state values('ack-successor',pg_temp.recovery(2,pg_temp.successor_payload()))$$,'same explicit intent rebinds after Worker completion without queueing');
 select ok(pg_temp.run_snapshot()->>'state'='review_ready' and pg_temp.run_snapshot()->>'attempts'='3','completed analysis is reused at the unchanged attempt ceiling');
 select ok((select a.retry_failure=b.retry_failure and a.retry_parent_request_key=b.request_key from app_private.payment_history_baseline_recovery_intents a
