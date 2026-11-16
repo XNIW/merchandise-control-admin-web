@@ -6,14 +6,28 @@ import {workerRequestSignature} from "../../src/server/payment-history/worker-si
 // privileged Supabase dependency never enter the dedicated worker bundle.
 export type WorkerTransportDiagnostic={event:"history.worker.transport";lane:"import"|"migration";operation:string;attempt:number;outcome:"received"|"failed"|"cancelled";will_retry:boolean;cancel_cause:"none"|"caller"|"attempt_deadline";elapsed_ms:number;encode_ms:number;wire_bytes:number;decoded_bytes:number;http_status:number;gateway_ms:number|null;db_round_trip_ms:number|null;sql_original_elapsed_ms:number|null;transport_outside_gateway_ms:number|null};
 export type WorkerClaimRecoveryDiagnostic={event:"history.worker.claim_recovery";lane:"migration";operation:"claim";recovery:number;backoff_ms:number;maximum_recoveries:3};
-export function createWorkerGatewayPort(endpoint:string,secret:string,allowLoopback=false,diagnostic?:(event:WorkerTransportDiagnostic|WorkerClaimRecoveryDiagnostic)=>void,recoverMigrationClaims=false){
+// Only an acquisition can return control to the daemon after transport doubt.
+// Owned stage/finish/fail requests keep their existing failure handling;
+// terminal gateway responses never receive acquisition recovery.
+export class WorkerAcquisitionUnavailableError extends Error{
+ constructor(readonly lane:"import"|"migration",readonly operation:"claim"|"claim_upload",code="history_worker_gateway_unavailable"){super(code);}
+}
+export function createWorkerGatewayPort(endpoint:string,secret:string,allowLoopback=false,diagnostic?:(event:WorkerTransportDiagnostic|WorkerClaimRecoveryDiagnostic)=>void,recoverAcquisitions=false){
  const url=new URL(endpoint);
  if(url.username||url.password||url.search||url.hash||url.pathname!=="/api/internal/payment-history/worker"||url.protocol!=="https:"&&!(allowLoopback&&url.protocol==="http:"&&["127.0.0.1","localhost"].includes(url.hostname))||Buffer.byteLength(secret)<32)throw Error("history_worker_configuration_missing");
  const sources=new Map<string,string>();
  return {
   memoryBytes:()=>process.memoryUsage().rss,
   async call(lane:"import"|"migration",operation:string,payload:Record<string,unknown>,signal?:AbortSignal){
-   signal?.throwIfAborted();
+   const acquisition=recoverAcquisitions&&(operation==="claim"||lane==="import"&&operation==="claim_upload");
+   function unavailable(code="history_worker_gateway_unavailable"){
+    return acquisition?new WorkerAcquisitionUnavailableError(lane,operation as "claim"|"claim_upload",code):Error(code);
+   }
+   function demandNotCancelled(){
+    if(signal?.aborted&&acquisition&&signal.reason instanceof Error&&signal.reason.message==="history_worker_timeout")throw unavailable("history_worker_timeout");
+    signal?.throwIfAborted();
+   }
+   demandNotCancelled();
    const encodeStarted=Date.now();
    const raw=Buffer.from(JSON.stringify({lane,operation,payload}));if(raw.length>8388608)throw Error("history_worker_payload_limit");
    const compressed=raw.length>=1024?gzipSync(raw):raw;
@@ -40,17 +54,20 @@ export function createWorkerGatewayPort(endpoint:string,secret:string,allowLoopb
      if(!response.body)throw Error("history_worker_response_invalid");
      const reader=response.body.getReader(),parts:Uint8Array[]=[];let size=0;
      try{while(true){const r=await reader.read();if(r.done)break;size+=r.value.length;if(size>8388608)throw Error("history_worker_response_limit");parts.push(r.value);}}finally{await reader.cancel();reader.releaseLock();}
-     try{reply=JSON.parse(Buffer.concat(parts,size).toString("utf8"));}catch{throw Error("history_worker_response_invalid");}audit("received");break;
+     try{reply=JSON.parse(Buffer.concat(parts,size).toString("utf8"));}catch{throw Error("history_worker_response_invalid");}
+     // A response delivered after cancellation cannot enter a fresh job budget.
+     demandNotCancelled();if(deadline.aborted)throw deadline.reason;
+     audit("received");break;
     }
     catch(error){
      const terminal=error instanceof Error&&["history_worker_rpc_rejected","history_worker_response_invalid","history_worker_response_limit"].includes(error.message);
-     const recover=recoverMigrationClaims&&lane==="migration"&&operation==="claim"&&!!signal&&!signal.aborted&&!terminal&&recoveries<3;
-     audit(requestSignal.aborted?"cancelled":"failed",!signal?.aborted&&!terminal&&(attempt===0||recover));signal?.throwIfAborted();if(terminal)throw error;
+     const recover=recoverAcquisitions&&lane==="migration"&&operation==="claim"&&!!signal&&!signal.aborted&&!terminal&&recoveries<3;
+     audit(requestSignal.aborted?"cancelled":"failed",!signal?.aborted&&!terminal&&(attempt===0||recover));if(terminal)throw error;demandNotCancelled();
      if(attempt===1){
-      if(!recover)throw Error("history_worker_gateway_unavailable");
+      if(!recover)throw unavailable();
       const backoff=[2000,5000,15000][recoveries++];
       try{diagnostic?.({event:"history.worker.claim_recovery",lane:"migration",operation:"claim",recovery:recoveries,backoff_ms:backoff,maximum_recoveries:3});}catch{/* Closed metadata sink only. */}
-      try{await delay(backoff,undefined,{signal});}catch(error){signal?.throwIfAborted();throw error;}signal?.throwIfAborted();attempt=-1;
+      try{await delay(backoff,undefined,{signal});}catch(error){demandNotCancelled();throw error;}demandNotCancelled();attempt=-1;
      }
     }
    }

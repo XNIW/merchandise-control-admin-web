@@ -1,5 +1,6 @@
 import "server-only";
 import {createHash} from "node:crypto";
+import {performance} from "node:perf_hooks";
 import {analyzeGetnetFiles} from "./getnet-analyzer";
 import {GETNET_WEB_LIMITS as L} from "./getnet-limits";
 import type {GetnetImportOptions} from "./getnet-contract";
@@ -35,17 +36,22 @@ export async function runHistoryWorkerOnce(port:HistoryWorkerPort,signal:AbortSi
    return {kind:"upload_rejected" as const};
   }
  }
+ const claimStarted=performance.now();
  const job=(await port.rpc("claim",{},signal)).job as Job|null;
+ signal.throwIfAborted();
  if(!job)return {kind:"idle" as const};
  demandUuid(job.job_id);demandUuid(job.shop_id);demandUuid(job.lease_token);
  const lease={job_id:job.job_id,lease_token:job.lease_token,lease_fence:job.lease_fence};
  const controller=new AbortController(),abort=()=>controller.abort(signal.reason);signal.addEventListener("abort",abort,{once:true});
- const deadline=setTimeout(()=>controller.abort(Error("history_analysis_timeout")),120000);
+ const remaining=Math.max(0,120000-(performance.now()-claimStarted));
+ const expire=()=>controller.abort(Error("history_analysis_timeout"));
+ const deadline=setTimeout(expire,remaining);if(remaining===0)expire();
  // Do not overlap heartbeat calls or publish after one fails.
  let heartbeat:Promise<void>|null=null;
  const interval=setInterval(()=>{if(!heartbeat){heartbeat=port.rpc("heartbeat",lease,controller.signal).then(()=>{},()=>{controller.abort(Error("history_worker_lease_lost"));}).finally(()=>{heartbeat=null;});}},20000);
  const memory=()=>{if(port.memoryBytes()>896*1024*1024)throw Error("history_worker_memory_limit");};
  try{
+  controller.signal.throwIfAborted();
   memory();
   if(!Array.isArray(job.uploads)||job.uploads.length<1||job.uploads.length>L.files||new Set(job.uploads.map(u=>u.upload_id)).size!==job.uploads.length)throw Error("history_sources_invalid");
   let bytesTotal=0;const inputs:{fileName:string;bytes:Buffer}[]=[];

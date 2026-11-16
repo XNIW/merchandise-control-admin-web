@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import {createHash} from "node:crypto";
 import test from "node:test";
+import {readFileSync} from "node:fs";
+import {createRequire} from "node:module";
+import {runInNewContext} from "node:vm";
+import ts from "typescript";
 import {load,inputs,options} from "./helpers/payment-history-harness.mjs";
 const {runHistoryWorkerOnce}=load("src/server/payment-history/job-worker.ts"),wire=load("src/server/payment-history/wire-contract.ts");
 const id=n=>`10000000-0000-4000-8000-${String(n).padStart(12,"0")}`;
@@ -27,6 +31,27 @@ test("mutated source is rejected before any financial staging",async()=>{const {
 test("cross-shop source path cannot be downloaded",async()=>{const {port,calls,job}=setup();job.uploads[0].object_key=`history/${id(99)}/${id(10)}`;let downloads=0;port.download=async()=>{downloads++;return inputs[0].bytes;};await runHistoryWorkerOnce(port,new AbortController().signal);assert.equal(downloads,0);assert.equal(calls.at(-1).payload.code,"history_upload_invalid");});
 test("memory guard fails before download and retains a closed diagnostic",async()=>{const {port,calls}=setup();port.memoryBytes=()=>1024*1024*1024;const r=await runHistoryWorkerOnce(port,new AbortController().signal);assert.equal(r.code,"history_worker_memory_limit");assert.equal(calls.some(c=>c.op==="stage"),false);});
 test("cancelled process never claims work",async()=>{const {port,calls}=setup(),controller=new AbortController();controller.abort();await assert.rejects(()=>runHistoryWorkerOnce(port,controller.signal));assert.equal(calls.length,0);});
+function controlledClaimClock(){
+ const m={exports:{}},require=createRequire(import.meta.url),delays=[];let clock=0;
+ runInNewContext(ts.transpileModule(readFileSync('src/server/payment-history/job-worker.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{module:m,exports:m.exports,Buffer,AbortController,Error,Date,setTimeout(_callback,ms){delays.push(ms);return 1;},clearTimeout(){},setInterval(){return 1;},clearInterval(){},require(name){if(name==='server-only')return {};if(name==='node:perf_hooks')return {performance:{now:()=>clock}};if(name.startsWith('./'))return load('src/server/payment-history/'+name.slice(2)+'.ts');return require(name);}});
+ return {run:m.exports.runHistoryWorkerOnce,delays,advance(ms){clock+=ms;}};
+}
+test('import claim time consumes the existing analysis budget instead of restarting120seconds after ACK',async()=>{
+ const x=setup(),clock=controlledClaimClock(),rpc=x.port.rpc;
+ x.port.rpc=async(op,payload)=>{if(op==='claim')clock.advance(30000);return rpc(op,payload);};
+ assert.equal((await clock.run(x.port,new AbortController().signal)).kind,'job_review_ready');assert.deepEqual(clock.delays,[90000]);
+});
+test('import claim ACK after its budget sends only fenced failure and never downloads, stages or finishes',async()=>{
+ const x=setup(),clock=controlledClaimClock(),rpc=x.port.rpc;let downloads=0;
+ x.port.rpc=async(op,payload)=>{if(op==='claim')clock.advance(120001);return rpc(op,payload);};x.port.download=async()=>{downloads++;assert.fail('Late claim must not download');};
+ const result=await clock.run(x.port,new AbortController().signal);
+ assert.equal(result.kind,'job_failed');assert.equal(result.code,'history_analysis_timeout');assert.equal(downloads,0);assert.deepEqual(x.calls.map(c=>c.op),['claim_upload','claim','fail']);assert.equal(x.calls.at(-1).payload.lease_token,x.job.lease_token);assert.deepEqual(clock.delays,[0]);
+});
+test('process abort racing the import claim ACK prevents any new analysis',async()=>{
+ const x=setup(),controller=new AbortController(),rpc=x.port.rpc;
+ x.port.rpc=async(op,payload)=>{const result=await rpc(op,payload);if(op==='claim')controller.abort(Error('history_worker_cancelled'));return result;};
+ await assert.rejects(()=>runHistoryWorkerOnce(x.port,controller.signal),/history_worker_cancelled/);assert.deepEqual(x.calls.map(c=>c.op),['claim_upload','claim']);
+});
 test("stale staging failure cannot be worked around by another commit or lease",async()=>{const {port,calls}=setup(),original=port.rpc;port.rpc=async(op,payload)=>{if(op==="stage"||op==="fail"){calls.push({op,payload});throw Error("database private sentinel");}return original(op,payload);};const r=await runHistoryWorkerOnce(port,new AbortController().signal);assert.equal(r.kind,"job_failed");assert.equal(r.code,"history_worker_failed");assert.equal(calls.some(c=>c.op==="finish"),false);assert.equal(calls.filter(c=>c.op==="claim").length,1);});
 test("upload verification hashes actual bytes and does not create a job",async()=>{const {port,calls,job}=setup(),upload={...job.uploads[0],shop_id:id(1),verification_token:id(4),verification_fence:"2"};port.rpc=async(op,payload)=>{calls.push({op,payload:clone(payload)});return op==="claim_upload"?{upload}:{ok:true};};const r=await runHistoryWorkerOnce(port,new AbortController().signal);assert.equal(r.kind,"upload_verified");assert.deepEqual(calls.map(c=>c.op),["claim_upload","verify_upload"]);assert.equal(calls[1].payload.sha256,hash(inputs[0].bytes));});
 test("upload length mismatch is rejected and cannot become verified",async()=>{const {port,calls,job}=setup(),upload={...job.uploads[0],byte_length:"1",shop_id:id(1),verification_token:id(4),verification_fence:"2"};port.rpc=async(op,payload)=>{calls.push({op,payload});return op==="claim_upload"?{upload}:{ok:true};};const r=await runHistoryWorkerOnce(port,new AbortController().signal);assert.equal(r.kind,"upload_rejected");assert.equal(calls.at(-1).op,"reject_upload");assert.equal(calls.at(-1).payload.retry,false);});

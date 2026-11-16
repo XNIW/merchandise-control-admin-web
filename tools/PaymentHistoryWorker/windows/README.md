@@ -21,6 +21,13 @@ a caught fatal code with discarded standard streams. An external kill or
 allocation abort still requires the host's actual exit code; an OOM cause is
 never inferred from a restart counter.
 
+The public host state `running` reports that the bounded child is alive, not
+that its gateway or an analysis is available. A daemon acquisition outage now
+keeps that child alive and records `history_worker_unavailable` with its closed
+lane/operation/code and 120 second cooldown in the diagnostic ring. The next
+ordinary claim after that interval still uses SQL lease eligibility and attempt
+limits. This event is not a successful analysis, ACK or baseline recovery.
+
 Before the child executes, an unnamed Windows Job Object limits private committed
 memory to1GiB for both process and job, and limits the job to one process. The
 existing worker retains its RSS896MiB check and Node heap640MiB budget. Windows
