@@ -64,7 +64,9 @@ select lives_ok($$select pg_temp.cutover('inventory',jsonb_build_object('device_
 -- A historical pre-issued v1 decision is seeded before its replay. Fresh Apply
 -- creation is denied by the independent qualified-admission regression suite.
 set local role postgres;
-insert into public.payment_history_local_write_grants(shop_id,shop_device_id,writer_epoch,operation_id,issued_at,expires_at) values('10000000-0000-4000-8000-000000003019','20000000-0000-4000-8000-000000003019',1,'82000000-0000-4000-8000-000000003019',clock_timestamp(),clock_timestamp()+interval '60 seconds');
+with grant_clock as materialized (select clock_timestamp() as issued_at)
+insert into public.payment_history_local_write_grants(shop_id,shop_device_id,writer_epoch,operation_id,issued_at,expires_at)
+select '10000000-0000-4000-8000-000000003019','20000000-0000-4000-8000-000000003019',1,'82000000-0000-4000-8000-000000003019',issued_at,issued_at+interval '60 seconds' from grant_clock;
 set local role service_role;
 insert into transfer_context values('grant',pg_temp.device('local_write_grant','{"writer_epoch":"1","operation_id":"82000000-0000-4000-8000-000000003019","kind":"Apply"}'));
 select ok((select (value->>'remaining_milliseconds')::integer between 10001 and 60000 from transfer_context where key='grant'),'local writing requires a bounded fresh server grant');
