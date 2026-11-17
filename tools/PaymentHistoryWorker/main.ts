@@ -1,6 +1,7 @@
 import {runHistoryWorkerOnce} from "../../src/server/payment-history/job-worker";
 import {runMigrationWorkerOnce} from "../../src/server/payment-history/migration-worker";
-import {createWorkerGatewayPort} from "./gateway-port";
+import {createWorkerGatewayPort,WorkerAcquisitionUnavailableError} from "./gateway-port";
+import {setTimeout as delay} from "node:timers/promises";
 import {createWorkerDiagnosticSink,redactedWorkerEvent} from "./diagnostics";
 const controller=new AbortController();let stopCause:"none"|"sigint"|"sigterm"="none";
 let diagnosticSink:(event:unknown)=>void=()=>{};
@@ -13,6 +14,7 @@ async function main(){
  const write=(event:unknown)=>{const safe=redactedWorkerEvent(event);if(safe){diagnosticSink(safe);process.stdout.write(JSON.stringify(safe)+"\n");}};
  const gateway=createWorkerGatewayPort(endpoint,secret,process.env.PAYMENT_HISTORY_ALLOW_LOOPBACK==="yes",write,!once);
  do{
+  try{
   const result=await runHistoryWorkerOnce({...gateway,rpc:(op,payload,signal)=>gateway.call("import",op,payload,signal)},controller.signal);
   let event:string=result.kind,code="code"in result?result.code:undefined;
   if(result.kind==="idle"){
@@ -21,6 +23,15 @@ async function main(){
    event=`migration_${migration.state}`;code="code"in migration?migration.code:undefined;
   }
   write({event,...(code?{code}:{})});
+  }catch(error){
+   if(once||controller.signal.aborted||!(error instanceof WorkerAcquisitionUnavailableError))throw error;
+   // An uncertain claim must not spin, extend an analysis deadline or reset a
+   // job. Wait a full lease interval before the normal SQL claim can select
+   // queued/expired work; SQL retains attempt limits and rejects active fences.
+   write({event:"history_worker_unavailable",lane:error.lane,operation:error.operation,code:error.message,backoff_ms:120000});
+   await delay(120000,undefined,{signal:controller.signal});
+   continue;
+  }
   if(once)break;
   await new Promise<void>(resolve=>{const stop=()=>{clearTimeout(timer);resolve();},timer=setTimeout(()=>{controller.signal.removeEventListener("abort",stop);resolve();},2000);controller.signal.addEventListener("abort",stop,{once:true});});
  }while(!controller.signal.aborted);

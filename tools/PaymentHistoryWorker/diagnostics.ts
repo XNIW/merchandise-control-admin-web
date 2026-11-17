@@ -25,6 +25,9 @@ export function redactedWorkerEvent(value:unknown):Record<string,unknown>|null{
  }else if(value.event==="history.worker.claim_recovery"){
   if(value.lane!=="migration"||value.operation!=="claim"||!Number.isInteger(value.recovery)||!number(value.recovery)||Number(value.recovery)<1||Number(value.recovery)>3||value.maximum_recoveries!==3||value.backoff_ms!==[2000,5000,15000][Number(value.recovery)-1])return null;
   result.lane=value.lane;result.operation=value.operation;result.recovery=value.recovery;result.backoff_ms=value.backoff_ms;result.maximum_recoveries=3;
+ }else if(value.event==="history_worker_unavailable"){
+  if(!choice(value.lane,["import","migration"])||!choice(value.operation,["claim","claim_upload"])||value.lane==="migration"&&value.operation!=="claim"||!choice(value.code,["history_worker_gateway_unavailable","history_worker_timeout"])||value.backoff_ms!==120000)return null;
+  result.lane=value.lane;result.operation=value.operation;result.code=value.code;result.backoff_ms=120000;
  }else if(value.event==="history_worker_exit"||value.event==="history_worker_stopped"){
   if(!choice(value.cause,["once","sigint","sigterm","unexpected"])||![0,1].includes(Number(value.exit_code))||typeof value.exit_code!=="number")return null;
   result.cause=value.cause;result.exit_code=value.exit_code;

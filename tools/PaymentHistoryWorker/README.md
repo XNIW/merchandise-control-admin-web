@@ -55,6 +55,23 @@ proof of the observed timeout's cause. Existing120s analysis/15s request timers,
 full byte/hash parity without injected latency. Every run needs a fresh output
 directory so previous failures cannot be overwritten.
 
+The existing owned Postgres volume runner also accepts `--sql-diagnostics true`.
+CI exposes it as `history_volume_diagnostics=true` together with
+`authenticated_history_only=true`. This mode keeps the original workload and
+deadlines, but records closed nested statement statistics and fresh read-only
+lookup plans. A mandatory preflight uses the existing local administrator only
+inside the proven disposable container to set the single instance tracking option.
+It changes no roles, grants, owners, function options or authentication. A real
+PostgREST GET replays the cached idle claim from the existing startup call in a
+read-only transaction; its nested lookup must be observed before any source upload
+or full workload starts. Cleanup restores the prior configuration file value or
+absence and verifies the same GET again. Errors retain only closed SQLSTATE/process
+categories. Unavailable tracking stops the probe; missing cost categories produce
+partial evidence, never a complete observation. Observer calls add measured time; their
+duration is never subtracted to claim a pass. Missing categories are unavailable,
+not zero cost, and fresh plans do not attest cached PL/pgSQL plans. Diagnostic
+evidence cannot qualify a Worker artifact or continue the authenticated gate.
+
 Local baseline staging now requires the additive `migration.stage_vector_v2`
 contract: one original fence, one phase,1..4 canonical chunks,1..200 rows/chunk,
 and at most6MiB total payload/8MiB decoded envelope. The SQL wrapper invokes the
@@ -73,6 +90,20 @@ starts while the original claim is uncertain. Terminal `fail` uses
 only the original fence and process signal through the existing15s transport
 bound; no finish follows cancellation. Process stop and failed migration remain
 distinct lifecycle events.
+
+If a daemon acquisition (`import.claim_upload`, `import.claim`, or
+`migration.claim`) still has no transport result, the process records
+`history_worker_unavailable` and waits 120 seconds without any gateway request.
+The cooldown is interrupted by process stop. It then uses the ordinary SQL
+claim, whose existing queued/expired-lease eligibility, attempt limits and fence
+checks remain authoritative; it never resets a job or revives a failed baseline.
+This unavailable state is not proof of successful preparation or continuous
+gateway availability. Auth/contract responses and errors from owned operations
+are not eligible for this daemon acquisition recovery; existing owned-operation
+failure handling is unchanged. `--once` still exits on failure. Late responses after caller or
+request cancellation are discarded. Import job analysis also subtracts the
+original claim's elapsed time from its 120 second budget rather than restarting
+that budget at the ACK. No SQL, replay retention or financial authority changes.
 
 Closed diagnostics separate gateway wall time, DB round trip (PostgREST plus
 SQL), and the SQL wrapper's actual `sql_elapsed_ms`. A replay returns the

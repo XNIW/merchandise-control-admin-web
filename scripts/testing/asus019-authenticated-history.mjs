@@ -9,6 +9,7 @@ import {fileURLToPath} from "node:url";
 import {setTimeout as delay} from "node:timers/promises";
 import {chromium} from "playwright";
 import {createClient} from "@supabase/supabase-js";
+import {Open} from "unzipper-esm";
 import {projectClientFailure,logClosedReport} from "./asus019-closed-history-report.mjs";
 import {ownedHistoryMediaType,putBrowserHistorySource} from "./asus019-browser-history-upload.mjs";
 import {readOwnedHistoryWorkbook} from "./asus019-owned-workbook.mjs";
@@ -111,14 +112,15 @@ try{
  const baselineProbeResponse=await fetch(endpoint+"/api/pos/payment-history",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({deviceId:actorA.deviceId,sessionId:actorA.sessionId,deviceToken:actorA.deviceToken,sessionToken:actorA.sessionToken,operation:"baseline_context",payload:{local_dataset_id:"synthetic-probe",data_revision:"0",restore_epoch:"0",restore_lineage_id:randomUUID()}}),signal:AbortSignal.timeout(15000)});
  const baselineProbe=await baselineProbeResponse.json();
  receipt.baselineContextProbe={status:baselineProbeResponse.status,code:/^history_[a-z_]+$/.test(baselineProbe.code??"")?baselineProbe.code:null,resultKeys:baselineProbe.ok===true?Object.keys(baselineProbe.result).filter(k=>/^[a-z_]{1,48}$/.test(k)):[],baselineKeys:baselineProbe.ok===true&&baselineProbe.result?.baseline?Object.keys(baselineProbe.result.baseline).filter(k=>/^[a-z_]{1,48}$/.test(k)):[]};
- const ownedWorker=start("worker",process.execPath,[join(evidence,"history-worker.cjs")],{...process.env,PAYMENT_HISTORY_WORKER_GATEWAY_SECRET:secret,PAYMENT_HISTORY_ALLOW_LOOPBACK:"yes",PAYMENT_HISTORY_WORKER_GATEWAY_URL:endpoint+"/api/internal/payment-history/worker"});
+ const workerEnv={...process.env,PAYMENT_HISTORY_WORKER_GATEWAY_SECRET:secret,PAYMENT_HISTORY_ALLOW_LOOPBACK:"yes",PAYMENT_HISTORY_WORKER_GATEWAY_URL:endpoint+"/api/internal/payment-history/worker"},workerLogs=["worker.private.log"];
+ let ownedWorker=start("worker",process.execPath,[join(evidence,"history-worker.cjs")],workerEnv);
  inspectFailure=()=>({
   runs:JSON.parse(sql(`SELECT coalesce(jsonb_agg(jsonb_build_object('state',state,'errorCode',CASE WHEN error_code ~ '^(history|getnet)_[a-z_]{1,90}$' THEN error_code ELSE NULL END)),'[]') FROM public.payment_history_migration_runs WHERE shop_id=${q(shopId)};`)),
   uploads:JSON.parse(sql(`SELECT coalesce(jsonb_agg(s),'[]') FROM (SELECT state,count(*)::int count FROM public.payment_history_uploads WHERE shop_id=${q(shopId)} GROUP BY state) s;`)),
   workerExit:ownedWorker.exitCode,
-  workerEvents:readFileSync(join(evidence,"worker.private.log"),"utf8").split("\n").flatMap(line=>{try{const e=JSON.parse(line);return /^[a-z_]{1,64}$/.test(e.event)&&(!e.code||/^(history|getnet)_[a-z_]{1,90}$/.test(e.code))?[{event:e.event,...(e.code?{code:e.code}:{})}]:[];}catch{return[];}}).slice(-8)
+  workerEvents:workerLogs.flatMap(file=>readFileSync(join(evidence,file),"utf8").split("\n")).flatMap(line=>{try{const e=JSON.parse(line);return /^[a-z_]{1,64}$/.test(e.event)&&(!e.code||/^(history|getnet)_[a-z_]{1,90}$/.test(e.code))?[{event:e.event,...(e.code?{code:e.code}:{})}]:[];}catch{return[];}}).slice(-8)
  });
- const clientContext={schema:"asus019-authenticated-history-v2",nonce,endpoint:endpoint+"/",clientSha:receipt.clientSha,shopId,staffId,credentialVersion:7,actorA,actorB,recoveryActors,recoveryApplyActor,recoverySessionsActor,extendedCases:true,faultCases:true,adminOrigin:true,conflictCases:true,recoveryRaces:true};
+ const clientContext={schema:"asus019-authenticated-history-v2",nonce,endpoint:endpoint+"/",clientSha:receipt.clientSha,shopId,staffId,credentialVersion:7,actorA,actorB,recoveryActors,recoveryApplyActor,recoverySessionsActor,extendedCases:true,faultCases:true,adminOrigin:true,conflictCases:true,recoveryRaces:true,failedBaselineRecovery:true};
  save("context.private.json",clientContext);
  const clientArgs=[join(clientRoot,"tests/Win7POS.Core.Tests/bin/Release/net10.0/Win7POS.Core.Tests.dll"),join(evidence,"context.private.json")];
  phase="client_baselines";let client=start("client","dotnet",clientArgs,process.env);
@@ -126,6 +128,53 @@ try{
   if(existsSync(join(evidence,"client-state.private.json"))){const state=JSON.parse(readFileSync(join(evidence,"client-state.private.json"),"utf8"));demand(state.nonce===nonce,"history_test_state_nonce");if(state.status==="FAIL"){receipt.clientFailure=projectClientFailure(state);throw Error("history_test_client_rejected");}if(state.phase===wanted)return state;}
   demand(client.exitCode===null,"history_test_client_early_exit");return null;
  },150000);}
+ phase="failed_baseline_upload_ready";const retryUpload=await state(phase),retrySource=retryUpload.descriptor;
+ const uuid=value=>typeof value==="string"&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(value);
+ demand(retrySource?.schema==="asus019-failed-baseline-v1"&&retrySource.nonce===nonce&&retrySource.shopId===shopId&&retrySource.deviceId===actorA.deviceId&&retrySource.originalSessionId===actorA.sessionId&&retrySource.runId===null&&
+  [retrySource.uploadId,retrySource.startRequestKey,retrySource.applyRequestKey].every(uuid)&&[retrySource.archiveSha,retrySource.manifestSha].every(h=>/^[0-9a-f]{64}$/.test(h)),"history_test_failed_baseline_source_scope");
+ // Stop only the owned synthetic process after verification and before the
+ // client starts its original run. The same unchanged bundle returns below;
+ // no active migration attempt, deadline or lease is paused or reset.
+ const originalUpload=await until(async()=>{const u=JSON.parse(sql(`SELECT jsonb_build_object('state',state,'sha',file_sha256,'objectKey',object_key,'bytes',byte_length::text) FROM public.payment_history_uploads WHERE shop_id=${q(shopId)} AND upload_id=${q(retrySource.uploadId)};`));
+  demand(!["rejected","expired"].includes(u.state),"history_test_failed_baseline_source_rejected");return u.state==="verified"?u:null;});
+ demand(originalUpload.state==="verified"&&originalUpload.sha===retrySource.archiveSha&&originalUpload.objectKey===`history/${shopId}/${retrySource.uploadId}`,"history_test_failed_baseline_verified_source");
+ demand(sql(`SELECT count(*) FROM public.payment_history_migration_runs WHERE state IN ('queued','analysing');`)==="0","history_test_failed_baseline_prestart_scope");
+ process.kill(ownedWorker.pid,"SIGTERM");const stoppedWorker=await Promise.race([ownedWorker.closed,delay(10000).then(()=>null)]);
+ demand(stoppedWorker?.code===0,"history_test_failed_baseline_worker_stop");
+ save("client-control.private.json",{nonce,phase:"failed_baseline_upload_ready_observed"});
+ phase="failed_baseline_ready";const retryStarted=await state(phase),retryRun=retryStarted.descriptor;
+ demand(retryRun?.schema===retrySource.schema&&uuid(retryRun.runId)&&Object.keys(retrySource).filter(k=>k!=="runId").every(k=>retryRun[k]===retrySource[k]),"history_test_failed_baseline_original_run");
+ demand(sql(`SELECT count(*) FROM public.payment_history_migration_runs WHERE state IN ('queued','analysing');`)==="1","history_test_failed_baseline_claim_scope");
+ const workerFixture=(operation,payload)=>JSON.parse(sql(`BEGIN;SET LOCAL request.jwt.claim.role='service_role';SET LOCAL request.jwt.claims='{"role":"service_role"}';SELECT public.payment_history_worker_gateway_v1(${q(randomUUID())},'migration',${q(operation)},${q(JSON.stringify(payload))}::jsonb);COMMIT;`));
+ const claimed=workerFixture("claim",{}).run;
+ demand(claimed?.run_id===retryRun.runId&&claimed.shop_id===shopId&&claimed.upload?.upload_id===retrySource.uploadId&&claimed.upload.file_sha256===retrySource.archiveSha,"history_test_failed_baseline_claim_identity");
+ const download=await createClient(runtime.url,runtime.serviceKey,{auth:{persistSession:false,autoRefreshToken:false}}).storage.from("payment-history-sources").download(originalUpload.objectKey);
+ demand(!download.error&&download.data,"history_test_failed_baseline_source_download");
+ const bytes=Buffer.from(await download.data.arrayBuffer());demand(sha(bytes)===retrySource.archiveSha&&String(bytes.length)===originalUpload.bytes,"history_test_failed_baseline_source_hash");
+ const zip=await Open.buffer(bytes),manifest=await zip.files.find(f=>f.path==="manifest.json")?.buffer(),scopes=await zip.files.find(f=>f.path==="scopes.ndjson")?.buffer();
+ demand(manifest&&sha(manifest)===retrySource.manifestSha&&scopes&&scopes.length>0,"history_test_failed_baseline_manifest_hash");
+ const firstScope=scopes.toString("utf8").split("\n")[0];demand(firstScope.length>0&&firstScope.length<65536,"history_test_failed_baseline_prefix");
+ const fence={run_id:claimed.run_id,lease_token:claimed.lease_token,lease_fence:claimed.lease_fence};
+ const prefix=workerFixture("stage_vector_v2",{...fence,phase:"stage_objects",chunks:[{rows:[{table:"scopes",ordinal:1,sourceOrdinal:1,line:firstScope}]}]});
+ demand(prefix.ok===true&&prefix.accepted_chunks===1&&prefix.last_ordinal===1,"history_test_failed_baseline_prefix_stage");
+ demand(workerFixture("fail",{...fence,code:"history_worker_timeout"}).ok===true,"history_test_failed_baseline_timeout");
+ const failedBefore=JSON.parse(sql(`SELECT jsonb_build_object('state',state,'error',error_code,'attempts',attempts,'objects',processed_objects,'movements',processed_movements,'fence',lease_fence::text,'requestKey',request_key) FROM public.payment_history_migration_runs WHERE shop_id=${q(shopId)} AND run_id=${q(retryRun.runId)};`));
+ demand(failedBefore.state==="failed"&&failedBefore.error==="history_worker_timeout"&&failedBefore.attempts===1&&failedBefore.objects===1&&failedBefore.movements===0&&failedBefore.requestKey===retrySource.startRequestKey,"history_test_failed_baseline_timeout_evidence");
+ ownedWorker=start("worker-retry",process.execPath,[join(evidence,"history-worker.cjs")],workerEnv);workerLogs.push("worker-retry.private.log");
+ save("client-control.private.json",{nonce,phase:"failed_baseline_ready_observed"});
+ phase="failed_baseline_recovered";const retryRecovered=await state(phase);
+ // This read is an oracle only: the real Core/Data synchronizer owns explicit
+ // retry, review, Apply, local receipt admission and replica acknowledgement.
+ const retryOracle=JSON.parse(sql(`SELECT jsonb_build_object('state',j.state,'attempts',j.attempts,'runId',j.run_id,'uploadId',j.source_upload_id,'requestKey',j.request_key,'applyRequestKey',j.apply_request_key,
+  'receipt',j.receipt,'revision',j.receipt->>'revision',
+  'auditCount',(SELECT count(*) FROM app_private.payment_history_baseline_recovery_intents i WHERE i.shop_id=j.shop_id AND i.run_id=j.run_id AND i.retry_failure IS NOT NULL),
+  'failurePreserved',EXISTS(SELECT 1 FROM app_private.payment_history_baseline_recovery_intents i WHERE i.shop_id=j.shop_id AND i.run_id=j.run_id AND i.retry_failure->>'error_code'='history_worker_timeout' AND i.retry_failure->>'attempts'='1' AND i.retry_failure->>'processed_objects'='1' AND i.retry_failure->>'source_sha256'=${q(retrySource.archiveSha)}))
+  FROM public.payment_history_migration_runs j WHERE j.shop_id=${q(shopId)} AND j.run_id=${q(retryRun.runId)};`));
+ demand(retryOracle.state==="applied"&&retryOracle.attempts===2&&retryOracle.runId===retryRun.runId&&retryOracle.uploadId===retrySource.uploadId&&retryOracle.requestKey===retrySource.startRequestKey&&retryOracle.applyRequestKey===retrySource.applyRequestKey&&retryOracle.auditCount===1&&retryOracle.failurePreserved===true,"history_test_failed_baseline_canonical_outcome");
+ demand(retryRecovered.status==="PASS_FAILED_BASELINE_RECOVERY"&&retryRecovered.intentState==="consumed"&&retryRecovered.intentCount===1&&retryRecovered.receiptSha256===sha(JSON.stringify(retryOracle.receipt))&&retryRecovered.replicaRevision===retryOracle.revision&&
+  Object.keys(retryRun).every(k=>retryRecovered.descriptor?.[k]===retryRun[k]),"history_test_failed_baseline_client_outcome");
+ receipt.cases.push({id:"explicit-failed-baseline-same-source-core-data-retry-receipt-replica",status:"PASS",sameRun:true,sameUpload:true,originalFailurePreserved:true,attempts:2,acknowledgedIntents:1});
+ save("client-control.private.json",{nonce,phase:"failed_baseline_recovered_observed"});
  for(const [ready,kind,suffix] of [["recovery_apply_ready","apply_recovery","apply"],["recovery_sessions_ready","two_recoveries","sessions"]]){
   phase=ready;const staged=await state(ready);demand(staged.descriptor?.nonce===nonce,"history_test_recovery_descriptor_scope");
   const descriptorFile=`baseline-lock-${suffix}.private.json`,closedFile=`baseline-recovery-${suffix}.json`;save(descriptorFile,{...staged.descriptor,kind});

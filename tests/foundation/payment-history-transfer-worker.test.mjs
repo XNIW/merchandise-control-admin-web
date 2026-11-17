@@ -75,6 +75,31 @@ test("claim signs only its scoped verified upload",async()=>{const x=gateway(),p
 function transport(fetch,extra={}){return module("tools/PaymentHistoryWorker/gateway-port.ts",{"../../src/server/payment-history/worker-signature":load("src/server/payment-history/worker-signature.ts")},{fetch,AbortSignal,...extra}).createWorkerGatewayPort("http://127.0.0.1/api/internal/payment-history/worker",secret,true);}
 const idleReply=()=>new Response(JSON.stringify({data:{ok:true,job:null},downloads:[]}));
 function recoveringTransport(fetch,backoff,events=[]){return module("tools/PaymentHistoryWorker/gateway-port.ts",{"../../src/server/payment-history/worker-signature":load("src/server/payment-history/worker-signature.ts"),"node:timers/promises":{setTimeout:backoff}},{fetch,AbortSignal}).createWorkerGatewayPort("http://127.0.0.1/api/internal/payment-history/worker",secret,true,event=>events.push(event),true);}
+for(const operation of ['claim_upload','claim'])test('daemon import '+operation+' classifies only bounded uncertain acquisition',async()=>{
+ const calls=[];const loaded=module('tools/PaymentHistoryWorker/gateway-port.ts',{'../../src/server/payment-history/worker-signature':load('src/server/payment-history/worker-signature.ts')},{fetch:async(_url,input)=>{calls.push(input);throw Error('private network sentinel');},AbortSignal});
+ const p=loaded.createWorkerGatewayPort('http://127.0.0.1/api/internal/payment-history/worker',secret,true,undefined,true);
+ await assert.rejects(()=>p.call('import',operation,{},new AbortController().signal),error=>error instanceof loaded.WorkerAcquisitionUnavailableError&&error.lane==='import'&&error.operation===operation&&error.message==='history_worker_gateway_unavailable');
+ assert.equal(calls.length,2);assert.equal(calls[0].headers['x-history-nonce'],calls[1].headers['x-history-nonce']);assert.ok(calls[0].body.equals(calls[1].body));
+ await assert.rejects(()=>p.call('import','finish',{},new AbortController().signal),error=>!(error instanceof loaded.WorkerAcquisitionUnavailableError));
+ const once=loaded.createWorkerGatewayPort('http://127.0.0.1/api/internal/payment-history/worker',secret,true);
+ await assert.rejects(()=>once.call('import',operation,{},new AbortController().signal),error=>!(error instanceof loaded.WorkerAcquisitionUnavailableError));
+});
+test('late claim ACK after process cancellation is discarded without recovery',async()=>{
+ const controller=new AbortController();let calls=0;
+ const p=recoveringTransport(async()=>{calls++;controller.abort(Error('history_worker_cancelled'));return idleReply();},async()=>assert.fail('No cancellation backoff'));
+ await assert.rejects(()=>p.call('import','claim',{},controller.signal),/history_worker_cancelled/);assert.equal(calls,1);
+});
+test('migration acquisition deadline remains a typed unavailable result without delivering its late ACK',async()=>{
+ const controller=new AbortController();let calls=0;
+ const loaded=module('tools/PaymentHistoryWorker/gateway-port.ts',{'../../src/server/payment-history/worker-signature':load('src/server/payment-history/worker-signature.ts')},{fetch:async()=>{calls++;controller.abort(Error('history_worker_timeout'));return idleReply();},AbortSignal});
+ const p=loaded.createWorkerGatewayPort('http://127.0.0.1/api/internal/payment-history/worker',secret,true,undefined,true);
+ await assert.rejects(()=>p.call('migration','claim',{},controller.signal),error=>error instanceof loaded.WorkerAcquisitionUnavailableError&&error.message==='history_worker_timeout');assert.equal(calls,1);
+});
+test('terminal authorization response cannot become retryable when acquisition deadline races it',async()=>{
+ const controller=new AbortController();let calls=0;
+ const p=recoveringTransport(async()=>{calls++;controller.abort(Error('history_worker_timeout'));return new Response('',{status:403});},async()=>assert.fail('No auth backoff'));
+ await assert.rejects(()=>p.call('migration','claim',{},controller.signal),/history_worker_rpc_rejected/);assert.equal(calls,1);
+});
 function controlledDeadline(){let expire;const delays=[];const run=module("src/server/payment-history/migration-worker.ts",{},{setTimeout(callback,ms){delays.push(ms);expire=callback;return 1;},clearTimeout(){}}).runMigrationWorkerOnce;return {run,delays,expire(){assert.equal(typeof expire,"function");expire();}};}
 test("daemon claim recovery retains the uncertain request identity and one pre-claim deadline",async()=>{
  const x=setup(),clock=controlledDeadline(),claims=[],delays=[];let attempts=0;
