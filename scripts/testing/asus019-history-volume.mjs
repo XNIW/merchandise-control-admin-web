@@ -11,7 +11,7 @@ import {createRequire} from 'node:module';
 import {createClient} from '@supabase/supabase-js';
 import {build} from 'esbuild';
 import {syntheticBaselineVolume} from '../../tests/foundation/helpers/payment-history-volume-fixture.mjs';
-import {closedDiagnosticFailure,createOwnedVolumeSqlDiagnostics} from './asus019-history-volume-sql-diagnostics.mjs';
+import {closedDiagnosticFailure,createOwnedVolumeSqlDiagnostics,readOnlyCachedGatewayGet} from './asus019-history-volume-sql-diagnostics.mjs';
 const args=process.argv.slice(2),options={};for(let i=0;i<args.length;i+=2){if(!['--owned-workdir','--evidence-dir','--sql-diagnostics'].includes(args[i])||!args[i+1]||options[args[i]])throw Error('history_volume_arguments');options[args[i]]=args[i+1];}
 if(options['--sql-diagnostics']!==undefined&&!['true','false'].includes(options['--sql-diagnostics']))throw Error('history_volume_arguments');
 const diagnosticOnly=options['--sql-diagnostics']==='true';
@@ -53,7 +53,7 @@ try{
   // Only this proven disposable container. The existing local admin changes
   // one instance setting; no roles, grants, authentication or function metadata.
   const diagnosticQuery=(text,{admin=false}={})=>{const r=spawnSync('docker',['exec','-i',runtime.containerID,'/nix/var/nix/profiles/default/bin/psql','-X','-w','-qAt','-v','ON_ERROR_STOP=1','-v','VERBOSITY=sqlstate','-U',admin?'supabase_admin':'postgres','-d','postgres'],{input:"SET statement_timeout='1s';SET lock_timeout='500ms';\n"+text,encoding:'utf8',timeout:3000,maxBuffer:131072});if(r.status!==0||r.error){const error=Error('history_volume_diagnostic_query_unavailable');error.diagnosticFailure=closedDiagnosticFailure({stderr:r.stderr,timedOut:r.error?.code==='ETIMEDOUT',status:r.status});throw error;}return r.stdout.trim();};
-  const rpcGet=async(parameters,options)=>{demand(options?.get===true,'history_volume_diagnostic_readonly_required');const r=await db.rpc('payment_history_worker_gateway_v1',parameters,{get:true}).abortSignal(AbortSignal.timeout(3000));return {data:r.data,errorCode:r.error?.code??(r.error?'UNAVAILABLE':null)};};
+  const rpcGet=(parameters,options)=>readOnlyCachedGatewayGet(db,parameters,options);
   sqlDiagnostics=createOwnedVolumeSqlDiagnostics({runtime,query:diagnosticQuery,rpcGet,save,serverSha:report.serverSha,workerSha256:report.workerSha256});
  }
  await build({entryPoints:['src/app/api/internal/payment-history/worker/route.ts'],bundle:true,platform:'node',target:'node24',format:'cjs',conditions:['react-server'],outfile:join(evidence,'gateway-route.cjs'),logLevel:'silent'});

@@ -8,10 +8,18 @@ const metrics=['calls','total_exec_time','rows','shared_blks_hit','shared_blks_r
 const labels=['object_movement_lookup','object_binding_lookup','object_file_lookup','movement_insert','parent_fk_check','run_counter_update','actor_guard','other_scoped'];
 const quote=value=>`'${String(value).replaceAll("'","''")}'`;
 const finite=value=>typeof value==='number'&&Number.isFinite(value)&&value>=0;
-const sqlStates=new Set(['42501','25001','25006','55P03','57014','42704','42883','0A000','08006','28P01','28000','22023']);
+const sqlStates=new Set(['42501','25001','25006','55P03','57014','42704','42883','0A000','08006','28P01','28000','22023','22P02']);
 export function closedDiagnosticFailure({stderr='',timedOut=false,status=null,sqlState,kind}={}){
  const candidate=sqlState??String(stderr).match(/\b(?:ERROR|FATAL):\s+([0-9A-Z]{5})\b/)?.[1],found=/^[0-9A-Z]{5}$/.test(candidate??'')?candidate:undefined;
  return {sqlState:sqlStates.has(found)?found:found?'OTHER_SQLSTATE':null,kind:['process_timeout','sql_rejected','process_failed','observation_failed'].includes(kind)?kind:timedOut?'process_timeout':found?'sql_rejected':Number.isInteger(status)&&status!==0?'process_failed':'observation_failed'};
+}
+
+// GET arguments are URL strings in the pinned PostgREST client. Serialize the
+// jsonb argument explicitly; passing an object would send [object Object].
+export async function readOnlyCachedGatewayGet(db,parameters,options){
+ if(options?.get!==true)throw Error('history_volume_diagnostic_readonly_required');
+ const reply=await db.rpc('payment_history_worker_gateway_v1',{...parameters,p_payload:JSON.stringify(parameters.p_payload)},{get:true}).abortSignal(AbortSignal.timeout(3000));
+ return {data:reply.data,errorCode:reply.error?.code??(reply.error?'UNAVAILABLE':null)};
 }
 
 // EXPLAIN can contain fixture values in conditions, aliases, expressions and

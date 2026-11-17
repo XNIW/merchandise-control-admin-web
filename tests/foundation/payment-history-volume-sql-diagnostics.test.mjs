@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {closedDiagnosticFailure,closeExplainPlan,statementDelta,createOwnedVolumeSqlDiagnostics,statementSnapshotSQL} from '../../scripts/testing/asus019-history-volume-sql-diagnostics.mjs';
+import {createClient} from '@supabase/supabase-js';
+import {readOnlyCachedGatewayGet,closedDiagnosticFailure,closeExplainPlan,statementDelta,createOwnedVolumeSqlDiagnostics,statementSnapshotSQL} from '../../scripts/testing/asus019-history-volume-sql-diagnostics.mjs';
 
 test('EXPLAIN export rebuilds a closed numerical tree and drops fixture values and query text',()=>{
  const secret='synthetic-marker-must-not-escape';
@@ -114,4 +115,16 @@ test('statement query is closed and accepts only expected extension schemas',()=
  assert.throws(()=>statementSnapshotSQL('extensions;drop schema public'),/extension_schema/);
  const query=statementSnapshotSQL('extensions');assert.match(query,/NOT toplevel/);assert.match(query,/for key share/);
  assert.doesNotMatch(query,/SELECT jsonb_build_object\([^;]*queryid/s);
+});
+
+test('real pinned SDK sends the cached gateway GET with exact JSON payload and no POST fallback',async()=>{
+ const calls=[],parameters={p_request_id:'10000000-0000-4000-8000-000000000001',p_lane:'migration',p_operation:'claim',p_payload:{}};
+ const db=createClient('http://127.0.0.1:54321','synthetic-key-not-a-credential',{auth:{persistSession:false,autoRefreshToken:false},global:{fetch:async(url,options)=>{
+  calls.push({url:new URL(url),options});return new Response('{"ok":true,"run":null}',{status:200,headers:{'content-type':'application/json'}});
+ }}});
+ const reply=await readOnlyCachedGatewayGet(db,parameters,{get:true});assert.deepEqual(reply,{data:{ok:true,run:null},errorCode:null});assert.equal(calls.length,1);
+ const {url,options}=calls[0];assert.equal(options.method,'GET');assert.equal(options.body,undefined);assert.equal(url.pathname,'/rest/v1/rpc/payment_history_worker_gateway_v1');
+ assert.deepEqual(Object.fromEntries(url.searchParams),{p_request_id:parameters.p_request_id,p_lane:'migration',p_operation:'claim',p_payload:'{}'});assert.deepEqual(JSON.parse(url.searchParams.get('p_payload')),parameters.p_payload);assert.equal(options.signal.aborted,false);
+ assert.deepEqual(parameters.p_payload,{});await assert.rejects(()=>readOnlyCachedGatewayGet(db,parameters,{get:false}),/readonly_required/);assert.equal(calls.length,1);
+ assert.deepEqual(closedDiagnosticFailure({sqlState:'22P02'}),{sqlState:'22P02',kind:'sql_rejected'});
 });
