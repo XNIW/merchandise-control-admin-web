@@ -1,5 +1,6 @@
 // Imported only by the existing owned volume runner. This is not a benchmark,
 // product migration or release qualification path. Never export query text.
+import {setTimeout as delay} from 'node:timers/promises';
 const gateway='public.payment_history_worker_gateway_v1(uuid,text,text,jsonb)';
 const tables=['payment_history_migration_runs','payment_history_migration_objects','payment_history_migration_movements'];
 const tableList=tables.map(name=>`'${name}'`).join(',');
@@ -7,6 +8,11 @@ const metrics=['calls','total_exec_time','rows','shared_blks_hit','shared_blks_r
 const labels=['object_movement_lookup','object_binding_lookup','object_file_lookup','movement_insert','parent_fk_check','run_counter_update','actor_guard','other_scoped'];
 const quote=value=>`'${String(value).replaceAll("'","''")}'`;
 const finite=value=>typeof value==='number'&&Number.isFinite(value)&&value>=0;
+const sqlStates=new Set(['42501','25001','25006','55P03','57014','42704','42883','0A000','08006','28P01','28000','22023']);
+export function closedDiagnosticFailure({stderr='',timedOut=false,status=null,sqlState,kind}={}){
+ const candidate=sqlState??String(stderr).match(/\b(?:ERROR|FATAL):\s+([0-9A-Z]{5})\b/)?.[1],found=/^[0-9A-Z]{5}$/.test(candidate??'')?candidate:undefined;
+ return {sqlState:sqlStates.has(found)?found:found?'OTHER_SQLSTATE':null,kind:['process_timeout','sql_rejected','process_failed','observation_failed'].includes(kind)?kind:timedOut?'process_timeout':found?'sql_rejected':Number.isInteger(status)&&status!==0?'process_failed':'observation_failed'};
+}
 
 // EXPLAIN can contain fixture values in conditions, aliases, expressions and
 // output lists. Reconstruct a closed tree; do not remove a few known bad keys.
@@ -69,7 +75,7 @@ export function statementSnapshotSQL(schema){
  if(!['extensions','public'].includes(schema))throw Error('history_volume_diagnostic_extension_schema');
  // Constants are normalized by pg_stat_statements. Alias/column structure
  // identifies the three distinct object lookups without relying on literals.
- return `WITH scoped AS (SELECT s.*,lower(regexp_replace(replace(s.query,'"',''),'[[:space:]]+',' ','g')) normalized FROM ${schema}.pg_stat_statements s WHERE dbid=(SELECT oid FROM pg_database WHERE datname=current_database()) AND NOT toplevel AND s.query NOT ILIKE '%pg_stat_statements%'),
+ return `WITH scoped AS (SELECT s.*,trim(lower(regexp_replace(replace(s.query,'"',''),'[[:space:]]+',' ','g'))) normalized FROM ${schema}.pg_stat_statements s WHERE dbid=(SELECT oid FROM pg_database WHERE datname=current_database()) AND NOT toplevel AND s.query NOT ILIKE '%pg_stat_statements%'),
  classified AS (SELECT *,CASE
  WHEN normalized LIKE '%payment_history_migration_objects x %' AND normalized LIKE '%x.object%' THEN 'object_binding_lookup'
  WHEN normalized LIKE '%payment_history_migration_objects f %' AND normalized LIKE '%f.object%' THEN 'object_file_lookup'
@@ -84,47 +90,88 @@ export function statementSnapshotSQL(schema){
  SELECT jsonb_build_object('statements',coalesce((SELECT jsonb_agg(to_jsonb(totals)) FROM totals),'[]'::jsonb),'statsReset',(SELECT stats_reset FROM ${schema}.pg_stat_statements_info),'dealloc',(SELECT dealloc FROM ${schema}.pg_stat_statements_info));`;
 }
 
-export function createOwnedVolumeSqlDiagnostics({runtime,query:runQuery,save,serverSha,workerSha256}){
+export function createOwnedVolumeSqlDiagnostics({runtime,query:runQuery,rpcGet,save,serverSha,workerSha256}){
  if(runtime.url!=='http://127.0.0.1:54321'||!/^[0-9a-f]{64}$/.test(runtime.containerID)||!/^r4-ci-preflight-[0-9a-f]{12}$/.test(runtime.project)||runtime.head!==serverSha)throw Error('history_volume_diagnostic_ownership');
- const result={schema:'asus019-owned-volume-sql-diagnostic-v1',diagnosticOnly:true,timingQualification:false,ownershipVerified:true,serverSha,workerSha256,limits:{analysisBudgetMs:120000,requestBudgetMs:15000,canonicalRowLimit:200,vectorChunkLimit:4},snapshots:[],freshPlans:[],errors:[],configurationRestored:false,cachedPlanObserved:false,observerTimeScope:'synchronous_sql_calls_only_no_nested_double_count'};
- let schema,priorConfig,changed=false,restorationRequired=false,finished=false;const attemptedCaptures=new Set();
+ const result={schema:'asus019-owned-volume-sql-diagnostic-v2',diagnosticOnly:true,timingQualification:false,ownershipVerified:true,serverSha,workerSha256,limits:{analysisBudgetMs:120000,requestBudgetMs:15000,canonicalRowLimit:200,vectorChunkLimit:4},snapshots:[],freshPlans:[],errors:[],configurationRestored:false,cachedPlanObserved:false,observerTimeScope:'synchronous_sql_calls_only_no_nested_double_count',preflight:{passed:false,stage:'not_started'},configurationScope:'single_owned_disposable_instance'};
+ let schema,priorConfig,priorInstance,writeAttempted=false,finished=false,warmNonce,warmInvalid=false,measurementStarted=false;const attemptedCaptures=new Set();
  const persist=()=>save('sql-diagnostics.json',result);
- const query=text=>{const started=performance.now();try{return runQuery(text);}finally{result.observerElapsedMs=(result.observerElapsedMs??0)+(performance.now()-started);result.observerQueryCount=(result.observerQueryCount??0)+1;}};
- const bounded=(operation,action)=>{try{return action();}catch{result.errors.push({operation,code:'diagnostic_observation_unavailable'});return undefined;}finally{persist();}};
+ const query=(text,admin=false)=>{const started=performance.now();try{return runQuery(text,{admin});}finally{result.observerElapsedMs=(result.observerElapsedMs??0)+(performance.now()-started);result.observerQueryCount=(result.observerQueryCount??0)+1;}};
+ const record=(operation,error)=>{result.errors.push({operation,code:'diagnostic_observation_unavailable',...closedDiagnosticFailure(error?.diagnosticFailure??{})});persist();};
+ const bounded=(operation,action)=>{try{return action();}catch(error){record(operation,error);return undefined;}finally{persist();}};
+ const demand=ok=>{if(!ok)throw Error('history_volume_diagnostic_preflight_failed');};
  const config=()=>JSON.parse(query(`SELECT coalesce(to_jsonb(proconfig),'[]'::jsonb) FROM pg_proc WHERE oid='${gateway}'::regprocedure;`));
  const invariants=()=>JSON.parse(query(`SELECT jsonb_build_object('definitionSha256',encode(extensions.digest(convert_to(prosrc,'UTF8'),'sha256'),'hex'),'accessSha256',encode(extensions.digest(convert_to(jsonb_build_array(proowner,proacl,prosecdef)::text,'UTF8'),'sha256'),'hex'),'otherConfigSha256',encode(extensions.digest(convert_to(coalesce((SELECT jsonb_agg(v ORDER BY v) FROM unnest(proconfig) v WHERE v NOT LIKE 'pg_stat_statements.track=%'),'[]'::jsonb)::text,'UTF8'),'sha256'),'hex')) FROM pg_proc WHERE oid='${gateway}'::regprocedure;`));
  function capture(label){
+  if(!result.preflight.passed)return;if(label==='before_analysis')measurementStarted=true;
   if(attemptedCaptures.has(label)||attemptedCaptures.size>=7)return;attemptedCaptures.add(label);result.snapshotAttempts=[...attemptedCaptures];
   bounded(label,()=>{const snapshot={label,tableStats:JSON.parse(query(tableStatsSQL))};if(schema)snapshot.statements=JSON.parse(query(statementSnapshotSQL(schema)));result.snapshots.push(snapshot);});
  }
- function prepare(){
+ function observeWarmResponse(nonce,data){
+  if(data?.ok!==true||data.run!==null||Object.keys(data).sort().join(',')!=='ok,run')return;
+  if(typeof nonce!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(nonce)||warmNonce&&warmNonce!==nonce){warmInvalid=true;return;}
+  warmNonce=nonce;
+ }
+ const instance=()=>JSON.parse(query(`SELECT jsonb_build_object('effective',current_setting('pg_stat_statements.track'),'autoEntries',(SELECT count(*) FROM pg_file_settings WHERE name='pg_stat_statements.track' AND sourcefile LIKE '%/postgresql.auto.conf'),'autoValue',(SELECT setting FROM pg_file_settings WHERE name='pg_stat_statements.track' AND sourcefile LIKE '%/postgresql.auto.conf' ORDER BY seqno DESC LIMIT 1),'autoValid',coalesce((SELECT bool_and(error IS NULL) FROM pg_file_settings WHERE name='pg_stat_statements.track' AND sourcefile LIKE '%/postgresql.auto.conf'),true),'pendingRestart',(SELECT pending_restart FROM pg_settings WHERE name='pg_stat_statements.track'),'otherSettingsSha256',(SELECT encode(extensions.digest(convert_to(coalesce(jsonb_agg(jsonb_build_array(sourcefile,name,setting,applied,error) ORDER BY seqno),'[]'::jsonb)::text,'UTF8'),'sha256'),'hex') FROM pg_file_settings WHERE name<>'pg_stat_statements.track'));`,true));
+ const validInstance=v=>v&&['all','top','none'].includes(v.effective)&&[0,1].includes(v.autoEntries)&&(v.autoEntries===0?v.autoValue===null:['all','top','none'].includes(v.autoValue))&&v.autoValid===true&&v.pendingRestart===false&&/^[0-9a-f]{64}$/.test(v.otherSettingsSha256);
+ async function readback(expected){
+  // Reload is asynchronous; bounded readback is not a canonical job retry.
+  for(let i=0;i<5;i++){await delay(100);const value=instance();if(validInstance(value)&&value.effective===expected)return value;}
+  throw Error('history_volume_diagnostic_readback_failed');
+ }
+ const cacheState=()=>JSON.parse(query(`SELECT jsonb_build_object('cacheMatches',coalesce((SELECT request_digest=encode(extensions.digest(convert_to(jsonb_build_object('lane','migration','operation','claim','payload','{}'::jsonb)::text,'UTF8'),'sha256'),'hex') AND response='{"ok":true,"run":null}'::jsonb AND created_at>clock_timestamp()-interval '1 hour' FROM public.payment_history_worker_requests WHERE request_id=${quote(warmNonce)}::uuid),false),'cacheRowSha256',(SELECT encode(extensions.digest(convert_to(to_jsonb(r)::text,'UTF8'),'sha256'),'hex') FROM public.payment_history_worker_requests r WHERE request_id=${quote(warmNonce)}::uuid),'requestCount',(SELECT count(*) FROM public.payment_history_worker_requests),'importActive',(SELECT count(*) FROM public.payment_history_jobs WHERE state IN('queued','analysing')),'migrationActive',(SELECT count(*) FROM public.payment_history_migration_runs WHERE state IN('queued','analysing')),'uploadActive',(SELECT count(*) FROM public.payment_history_uploads WHERE state IN('uploaded','verifying')));`));
+ const cacheCounters=()=>JSON.parse(query(`WITH cache_rows AS (SELECT calls,to_jsonb(s)->>'stats_since' AS since FROM ${schema}.pg_stat_statements s WHERE dbid=(SELECT oid FROM pg_database WHERE datname=current_database()) AND NOT toplevel AND trim(lower(regexp_replace(replace(query,'"',''),'[[:space:]]+',' ','g'))) LIKE 'select *%from public.payment_history_worker_requests where request_id%' AND query NOT ILIKE '%pg_stat_statements%'),epochs AS (SELECT since,count(*) AS members FROM cache_rows GROUP BY since) SELECT jsonb_build_object('calls',coalesce((SELECT sum(calls) FROM cache_rows),0),'statementEntries',(SELECT count(*) FROM cache_rows),'epochsAvailable',coalesce((SELECT bool_and(since IS NOT NULL) FROM cache_rows),true),'epochs',coalesce((SELECT jsonb_agg(jsonb_build_object('since',since,'members',members) ORDER BY since NULLS FIRST) FROM epochs),'[]'::jsonb),'statsReset',(SELECT stats_reset FROM ${schema}.pg_stat_statements_info),'dealloc',(SELECT dealloc FROM ${schema}.pg_stat_statements_info));`,true));
+ const validCacheCohort=c=>Number.isSafeInteger(c.statementEntries)&&c.statementEntries>=0&&c.epochsAvailable===true&&Array.isArray(c.epochs)&&c.epochs.every(e=>typeof e.since==='string'&&Number.isSafeInteger(e.members)&&e.members>0)&&c.epochs.reduce((n,e)=>n+e.members,0)===c.statementEntries&&(c.statementEntries!==0||c.calls===0);
+ async function canary(label,expectedDelta){
+  demand(warmNonce&&!warmInvalid&&typeof rpcGet==='function');
+  const before=cacheState();demand(before.cacheMatches);if(label==='trackingCanary')demand(before.importActive===0&&before.migrationActive===0&&before.uploadActive===0);
+  const counts=cacheCounters(),started=performance.now();
+  const response=await rpcGet({p_request_id:warmNonce,p_lane:'migration',p_operation:'claim',p_payload:{}},{get:true});
+  result.canaryRpcElapsedMs=(result.canaryRpcElapsedMs??0)+(performance.now()-started);
+  if(response.errorCode){const error=Error('history_volume_diagnostic_canary_failed');error.diagnosticFailure={sqlState:response.errorCode};throw error;}
+  demand(response.data?.ok===true&&response.data.run===null&&Object.keys(response.data).sort().join(',')==='ok,run');
+  const afterCounts=cacheCounters(),after=cacheState(),delta=afterCounts.calls-counts.calls;
+  result[label]={status:'FAIL',mode:'POSTGREST_GET_CACHED_GATEWAY_READ_ONLY',originalWarmRequestBound:true,cacheAndQueuesUnchanged:JSON.stringify(before)===JSON.stringify(after),expectedNestedDelta:expectedDelta,observedNestedDelta:finite(delta)?delta:null,counterCohortBefore:counts,counterCohortAfter:afterCounts,notWorkerHmacReplay:true};persist();
+  demand(JSON.stringify(before)===JSON.stringify(after)&&typeof counts.statsReset==='string'&&counts.statsReset===afterCounts.statsReset&&finite(counts.dealloc)&&counts.dealloc===afterCounts.dealloc&&finite(counts.calls)&&finite(afterCounts.calls)&&finite(delta)&&delta===expectedDelta&&validCacheCohort(counts)&&validCacheCohort(afterCounts)&&(counts.statementEntries===0||counts.statementEntries===afterCounts.statementEntries&&JSON.stringify(counts.epochs)===JSON.stringify(afterCounts.epochs)));
+  result[label].status='PASS';persist();
+ }
+ async function prepare(){
   persist();
-  bounded('prepare',()=>{
+  try{
+   result.preflight.stage='owned_catalog';
    result.catalog=JSON.parse(query(catalogSQL));
    const extension=JSON.parse(query("SELECT coalesce((SELECT jsonb_build_object('schema',n.nspname,'installed',true) FROM pg_extension e JOIN pg_namespace n ON n.oid=e.extnamespace WHERE e.extname='pg_stat_statements'),'{\"installed\":false}'::jsonb);"));
    result.extensionInstalled=extension.installed;
-   if(!extension.installed||!['extensions','public'].includes(extension.schema)){result.nestedTracking='unavailable';return;}
+   demand(extension.installed&&['extensions','public'].includes(extension.schema));schema=extension.schema;
    // Test the actual view before changing metadata. Do not install/restart/reset.
    query(`SELECT count(*) FROM ${extension.schema}.pg_stat_statements;`);
    priorConfig=config();
    if(!Array.isArray(priorConfig)||priorConfig.some(v=>typeof v!=='string'||!/^search_path=""$|^pg_stat_statements\.track=(all|top|none)$/.test(v)))throw Error('history_volume_diagnostic_function_config');
    result.priorGatewayConfig=priorConfig;
    result.priorGatewayInvariants=invariants();
-   restorationRequired=true;
-   query(`ALTER FUNCTION ${gateway} SET pg_stat_statements.track='all';`);changed=true;
-   const installed=config();result.diagnosticGatewayConfig=installed;
+   demand(warmNonce&&!warmInvalid);
+   result.preflight.stage='preexisting_local_admin';
+   result.adminCapabilities=JSON.parse(query("SELECT jsonb_build_object('expectedPreexistingRole',current_user='supabase_admin','superuser',(SELECT rolsuper FROM pg_roles WHERE rolname=current_user),'canSet',has_parameter_privilege(current_user,'pg_stat_statements.track','SET'),'canAlterSystem',has_parameter_privilege(current_user,'pg_stat_statements.track','ALTER SYSTEM'));",true));
+   demand(Object.values(result.adminCapabilities).every(v=>v===true));
+   result.preflight.stage='read_prior_instance';const observedInstance=instance();result.priorInstance=observedInstance;demand(validInstance(observedInstance));priorInstance=observedInstance;
+   result.rpcRoleOverrides=JSON.parse(query("SELECT coalesce(jsonb_agg(jsonb_build_object('roleClass',CASE WHEN d.setrole=0 THEN 'database_default' WHEN r.rolname='authenticator' THEN 'connection_role' WHEN r.rolname='service_role' THEN 'rpc_role' ELSE 'function_owner' END,'databaseScoped',d.setdatabase<>0,'value',CASE WHEN split_part(v,'=',2) IN('all','top','none') THEN split_part(v,'=',2) ELSE 'other' END)),'[]'::jsonb) FROM pg_db_role_setting d LEFT JOIN pg_roles r ON r.oid=d.setrole CROSS JOIN LATERAL unnest(d.setconfig) v WHERE d.setdatabase IN(0,(SELECT oid FROM pg_database WHERE datname=current_database())) AND (d.setrole=0 OR r.rolname IN('authenticator','service_role','postgres')) AND v LIKE 'pg_stat_statements.track=%';",true));
+   result.preflight.stage='enable_instance_tracking';
+   if(priorInstance.autoEntries!==1||priorInstance.autoValue!=='all'){writeAttempted=true;query("ALTER SYSTEM SET pg_stat_statements.track='all';",true);}
+   demand(query('SELECT pg_reload_conf();',true)==='t');
+   result.preflight.stage='tracking_readback';result.diagnosticInstance=await readback('all');
+   demand(result.diagnosticInstance.otherSettingsSha256===priorInstance.otherSettingsSha256);
+   result.diagnosticGatewayConfig=config();
    result.diagnosticGatewayInvariants=invariants();
-   if(JSON.stringify(result.priorGatewayInvariants)!==JSON.stringify(result.diagnosticGatewayInvariants))throw Error('history_volume_diagnostic_function_changed');
-   if(!installed.includes('pg_stat_statements.track=all')||installed.filter(v=>!v.startsWith('pg_stat_statements.track=')).join('\n')!==priorConfig.filter(v=>!v.startsWith('pg_stat_statements.track=')).join('\n'))throw Error('history_volume_diagnostic_function_config');
-   schema=extension.schema;result.nestedTracking='configured_not_yet_observed';result.configurationScope='gateway_function_entry_exit';
-  });
+   demand(JSON.stringify(result.priorGatewayInvariants)===JSON.stringify(result.diagnosticGatewayInvariants)&&JSON.stringify(priorConfig)===JSON.stringify(result.diagnosticGatewayConfig));
+   result.preflight.stage='real_rpc_read_only_canary';await canary('trackingCanary',1);
+   result.preflight={passed:true,stage:'complete'};result.nestedTracking='observed_read_only_rpc_canary';persist();
+  }catch(error){record(result.preflight.stage,error);throw Error('history_volume_diagnostic_preflight_failed');}
  }
  function onVector(data){
   if(data.phase==='stage_objects'&&data.last_ordinal===25955)capture('objects_complete');
   if(data.phase==='stage_movements'&&[6400,12800,19200,25600].includes(data.last_ordinal))capture('movements_'+data.last_ordinal);
  }
  function finish(runId,shopId){
-  if(finished)return;finished=true;
+  if(finished||!measurementStarted)return;finished=true;
   capture('after_measurement');
   result.intervals=[];
   for(let i=1;i<result.snapshots.length;i++){const a=result.snapshots[i-1],b=result.snapshots[i];if(a.statements&&b.statements)result.intervals.push({from:a.label,to:b.label,...statementDelta(a.statements,b.statements)});}
@@ -137,11 +184,22 @@ export function createOwnedVolumeSqlDiagnostics({runtime,query:runQuery,save,ser
   });
   persist();
  }
- function restore(){
-  bounded('restore',()=>{
-   if(restorationRequired){const previous=priorConfig.find(v=>v.startsWith('pg_stat_statements.track='));query(`ALTER FUNCTION ${gateway} ${previous?`SET pg_stat_statements.track=${quote(previous.split('=')[1])}`:'RESET pg_stat_statements.track'};`);const restored=config();result.restoredGatewayConfig=restored;result.restoredGatewayInvariants=invariants();result.configurationRestored=JSON.stringify(restored.slice().sort())===JSON.stringify(priorConfig.slice().sort())&&JSON.stringify(result.priorGatewayInvariants)===JSON.stringify(result.restoredGatewayInvariants);if(!result.configurationRestored)throw Error('history_volume_diagnostic_restore');}
-   else result.configurationRestored=!changed;
-  });
+ async function restore(){
+  let stage='restore_instance_setting';
+  try{
+   if(priorInstance){
+    if(writeAttempted)query(priorInstance.autoEntries===0?'ALTER SYSTEM RESET pg_stat_statements.track;':`ALTER SYSTEM SET pg_stat_statements.track=${quote(priorInstance.autoValue)};`,true);
+    demand(query('SELECT pg_reload_conf();',true)==='t');stage='restore_readback';
+    result.restoredInstance=await readback(priorInstance.effective);demand(JSON.stringify(result.restoredInstance)===JSON.stringify(priorInstance));
+    result.restoredGatewayConfig=config();result.restoredGatewayInvariants=invariants();
+    demand(JSON.stringify(result.restoredGatewayConfig)===JSON.stringify(priorConfig)&&JSON.stringify(result.restoredGatewayInvariants)===JSON.stringify(result.priorGatewayInvariants));
+    stage='restored_real_rpc_canary';await canary('restoredCanary',priorInstance.effective==='all'?1:0);result.configurationRestored=true;
+   }else{result.configurationRestored=!writeAttempted;result.restorationAction='no_configuration_write_attempted';}
+  }catch(error){record(stage,error);}finally{
+   const completeCoverage=measurementStarted&&result.classificationCoverage?.length===6&&result.classificationCoverage.every(c=>c.status==='observed');
+   result.status=!result.preflight.passed||!result.configurationRestored||result.errors.length>0?'DIAGNOSTIC_OBSERVATION_FAILED':completeCoverage?'DIAGNOSTIC_OBSERVATION_COLLECTED':'DIAGNOSTIC_OBSERVATION_PARTIAL';persist();
+  }
+  return result.status;
  }
- return {prepare,capture,onVector,finish,restore};
+ return {observeWarmResponse,prepare,capture,onVector,finish,restore};
 }

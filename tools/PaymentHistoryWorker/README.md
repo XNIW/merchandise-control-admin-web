@@ -59,8 +59,15 @@ The existing owned Postgres volume runner also accepts `--sql-diagnostics true`.
 CI exposes it as `history_volume_diagnostics=true` together with
 `authenticated_history_only=true`. This mode keeps the original workload and
 deadlines, but records closed nested statement statistics and fresh read-only
-lookup plans. It sets statement tracking only on the disposable gateway function
-and restores its prior configuration. Observer calls add measured time; their
+lookup plans. A mandatory preflight uses the existing local administrator only
+inside the proven disposable container to set the single instance tracking option.
+It changes no roles, grants, owners, function options or authentication. A real
+PostgREST GET replays the cached idle claim from the existing startup call in a
+read-only transaction; its nested lookup must be observed before any source upload
+or full workload starts. Cleanup restores the prior configuration file value or
+absence and verifies the same GET again. Errors retain only closed SQLSTATE/process
+categories. Unavailable tracking stops the probe; missing cost categories produce
+partial evidence, never a complete observation. Observer calls add measured time; their
 duration is never subtracted to claim a pass. Missing categories are unavailable,
 not zero cost, and fresh plans do not attest cached PL/pgSQL plans. Diagnostic
 evidence cannot qualify a Worker artifact or continue the authenticated gate.
