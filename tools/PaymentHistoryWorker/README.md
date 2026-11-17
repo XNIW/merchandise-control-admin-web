@@ -55,6 +55,16 @@ proof of the observed timeout's cause. Existing120s analysis/15s request timers,
 full byte/hash parity without injected latency. Every run needs a fresh output
 directory so previous failures cannot be overwritten.
 
+The existing owned Postgres volume runner also accepts `--sql-diagnostics true`.
+CI exposes it as `history_volume_diagnostics=true` together with
+`authenticated_history_only=true`. This mode keeps the original workload and
+deadlines, but records closed nested statement statistics and fresh read-only
+lookup plans. It sets statement tracking only on the disposable gateway function
+and restores its prior configuration. Observer calls add measured time; their
+duration is never subtracted to claim a pass. Missing categories are unavailable,
+not zero cost, and fresh plans do not attest cached PL/pgSQL plans. Diagnostic
+evidence cannot qualify a Worker artifact or continue the authenticated gate.
+
 Local baseline staging now requires the additive `migration.stage_vector_v2`
 contract: one original fence, one phase,1..4 canonical chunks,1..200 rows/chunk,
 and at most6MiB total payload/8MiB decoded envelope. The SQL wrapper invokes the

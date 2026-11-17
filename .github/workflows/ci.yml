@@ -21,6 +21,11 @@ on:
         description: Immutable public Win7POS commit for the owned authenticated history harness
         type: string
         required: false
+      history_volume_diagnostics:
+        description: Diagnostic-only SQL cost observations in the owned volume job; no qualification or authenticated continuation
+        type: boolean
+        default: false
+        required: false
 
 permissions:
   contents: read
@@ -36,7 +41,7 @@ env:
 jobs:
   database:
     name: Database migrations and pgTAP
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.authenticated_history_only != true }}
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.authenticated_history_only != true && inputs.history_volume_diagnostics != true }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
 
@@ -82,7 +87,7 @@ jobs:
 
   verify:
     name: Verify
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.database_replay_only != true && inputs.authenticated_history_only != true }}
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.database_replay_only != true && inputs.authenticated_history_only != true && inputs.history_volume_diagnostics != true }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
 
@@ -149,7 +154,7 @@ jobs:
   task-094-staging-e2e:
     name: TASK-094 staging E2E
     needs: [verify, database]
-    if: github.event_name == 'workflow_dispatch' && inputs.database_replay_only != true && inputs.authenticated_history_only != true
+    if: github.event_name == 'workflow_dispatch' && inputs.database_replay_only != true && inputs.authenticated_history_only != true && inputs.history_volume_diagnostics != true
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: cloudflare-staging
@@ -209,11 +214,12 @@ jobs:
 
   authenticated-history:
     name: ASUS019 owned authenticated history services
-    if: github.event_name == 'workflow_dispatch' && inputs.authenticated_history_only == true
+    if: github.event_name == 'workflow_dispatch' && (inputs.authenticated_history_only == true || inputs.history_volume_diagnostics == true)
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
       ASUS019_CLIENT_SHA: ${{ inputs.history_client_sha }}
+      ASUS019_AUTHENTICATED_HISTORY_ONLY: ${{ inputs.authenticated_history_only }}
       OPENAI_API_KEY: ci-local-placeholder
       S3_ACCESS_KEY: ci-local-placeholder
       S3_HOST: ci-local-placeholder.invalid
@@ -235,6 +241,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          test "$ASUS019_AUTHENTICATED_HISTORY_ONLY" = true
           [[ "$ASUS019_CLIENT_SHA" =~ ^[0-9a-f]{40}$ ]]
       - name: Checkout exact public client
         uses: actions/checkout@v4
@@ -282,7 +289,9 @@ jobs:
           node scripts/testing/asus019-history-volume.mjs
           --owned-workdir "$RUNNER_TEMP/asus019-history-local"
           --evidence-dir "$RUNNER_TEMP/asus019-history-volume"
+          --sql-diagnostics "${{ inputs.history_volume_diagnostics }}"
       - name: Authenticated service and browser roundtrip
+        if: ${{ inputs.history_volume_diagnostics != true }}
         timeout-minutes: 12
         run: >-
           node scripts/testing/asus019-authenticated-history.mjs
@@ -290,6 +299,7 @@ jobs:
           --client-repo "$GITHUB_WORKSPACE/client"
           --evidence-dir "$RUNNER_TEMP/asus019-authenticated-history"
       - name: Preserve the exact qualified dedicated Worker artifact
+        if: ${{ inputs.history_volume_diagnostics != true }}
         uses: actions/upload-artifact@v4
         with:
           name: asus019-history-worker-v2-qualified
@@ -307,6 +317,7 @@ jobs:
             ${{ runner.temp }}/asus019-history-database/extension-diagnostics.json
             ${{ runner.temp }}/asus019-history-database/history-concurrency.json
             ${{ runner.temp }}/asus019-history-volume/complete.json
+            ${{ runner.temp }}/asus019-history-volume/sql-diagnostics.json
             ${{ runner.temp }}/asus019-authenticated-history/authenticated-history.json
             ${{ runner.temp }}/asus019-authenticated-history/baseline-recovery-apply.json
             ${{ runner.temp }}/asus019-authenticated-history/baseline-recovery-sessions.json
