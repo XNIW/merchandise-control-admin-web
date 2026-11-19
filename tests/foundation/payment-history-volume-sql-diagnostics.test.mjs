@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createClient} from '@supabase/supabase-js';
 import {readFileSync} from 'node:fs';
+import {createHash} from 'node:crypto';
 import {readOnlyCachedGatewayGet,closedDiagnosticFailure,closeExplainPlan,statementDelta,createOwnedVolumeSqlDiagnostics,statementSnapshotSQL,functionSnapshotSQL,functionDelta,positivePayloadProbeSQL,positivePayloadReadbackSQL,closePositivePayloadOutput,fullSealSelect,fullSealProbeSQL,fullSealReadbackSQL,closeFullSealOutput} from '../../scripts/testing/asus019-history-volume-sql-diagnostics.mjs';
 import {measuredDeviceRequest} from '../../scripts/testing/asus019-history-volume-finalization.mjs';
 
@@ -355,6 +356,8 @@ function positiveRecords(){
 }
 function failedFinalization(){return {applyAttempts:1,steps:[{phase:'baseline_apply',httpStatus:500,sqlState:'57014'}],canonical:{state:'review_ready',runtimeRevision:'0',receiptPresent:false,applyKeyPresent:false,batches:0,movements:0,changeSets:0,replicaEvents:0,sourceSnapshots:0,acks:0,ackCount:0}};}
 
+const seedLabels=['transaction','statement_limit','lock_limit','context','scope_guard','keys','key_primary','source_count','uuid_collision','full_prerequisites','evidence_insert','merchant_insert','batch_insert','movement_insert','positive_seed_guard','receipt_insert','revisions_insert','cardinality_guard','seed_guard_result','prepare_select'];
+const seedMarker=(label,end)=>`A19_SEED_${label.toUpperCase()}_${end}`;
 function sealFixtureOutput(){
  const metadata={...positiveRecords()[0].metadata,receipts:0,acks:0};
  const definitions=['replica_payload','replica_entity_digest','replica_field_hash','revision_seal'].map((label,i)=>({label,sha256:String(i).repeat(64)}));
@@ -362,10 +365,11 @@ function sealFixtureOutput(){
  const guard={phase:'seed_guard',batches:1,movements:25947,revisions:25947,joinedMovements:25947,unionEntities:25948,receipt:1,fkReferencesCoherent:true,constraintModeUnchanged:true,statementTimeoutMs:8000,lockTimeoutMs:6000};
  const estimated=[{Plan:{'Node Type':'WindowAgg','Plan Rows':25948,'Plan Width':128,Plans:[{'Node Type':'Sort','Sort Key':['private fixture expression'],'Startup Cost':1,'Total Cost':2,Plans:[{'Node Type':'Append','Plan Rows':25948}]}]}}];
  const analyzed=structuredClone(estimated);Object.assign(analyzed[0].Plan,{'Actual Rows':25948,'Actual Loops':1});analyzed[0]['Execution Time']=1700;
- const prefix=[before,functions,guard].map(JSON.stringify).join('\n')+'\nA19_SEAL_PLAIN_BEGIN\n'+JSON.stringify(estimated,null,2)+'\nA19_SEAL_PLAIN_END\nA19_SEAL_ANALYZE_BEGIN\n';
+ const seedFrames=seedLabels.map(label=>seedMarker(label,'BEGIN')+'\n'+(label==='seed_guard_result'?JSON.stringify(guard)+'\n':'')+seedMarker(label,'END')+'\n').join('');
+ const prefix=[before,functions].map(JSON.stringify).join('\n')+'\n'+seedFrames+'A19_SEAL_PLAIN_BEGIN\n'+JSON.stringify(estimated,null,2)+'\nA19_SEAL_PLAIN_END\nA19_SEAL_ANALYZE_BEGIN\n';
  const output=prefix+JSON.stringify(analyzed,null,2)+'\nA19_SEAL_ANALYZE_END\n'+[{phase:'rollback_complete',completed:true},after,functions].map(JSON.stringify).join('\n');
  const readback=[after,functions,{phase:'connection_cleanup',activeConnections:0}].map(JSON.stringify).join('\n');
- return {metadata,definitions,prefix,output,readback,guard,estimated,analyzed};
+ return {metadata,definitions,prefix,output,readback,guard,estimated,analyzed,seedFrames};
 }
 
 test('full seal probe binds the exact seven-column SELECT and preserves original constraint mode and limits',()=>{
@@ -384,6 +388,23 @@ test('full seal probe binds the exact seven-column SELECT and preserves original
  assert.ok(script.indexOf('insert into public.payment_history_receipts')<script.indexOf('insert into public.payment_history_revisions'));
  assert.match(script,/q.shop_id=r.shop_id and q.operation_id=r.operation_id where q.operation_id is null/);
  assert.ok(fullSealReadbackSQL(positiveRun).includes(`application_name='a19-seal-full-${positiveRun}'`));
+ const unframed=script.replace(/^\\echo A19_SEED_[A-Z_]+_(?:BEGIN|END)\n/gm,'');
+ assert.equal(createHash('sha256').update(unframed).digest('hex'),'11cd32e358b79bcb9b0395295053dd9d8a26975b0dd685fd34f57ce31c2d35f6');
+ assert.equal((script.match(/^\\echo A19_SEED_/gm)||[]).length,40);
+});
+
+test('seed frames require all twenty ordered pairs and preserve the active statement boundary on partial output',()=>{
+ const o=sealFixtureOutput(),closed=closeFullSealOutput(o.output);assert.equal(closed.seedStatements.state,'COMPLETE');assert.deepEqual(closed.seedStatements.completed,seedLabels);assert.equal(closed.seedStatements.lastCompleted,'prepare_select');assert.equal(closed.seedStatements.active,null);
+ const prefix=o.prefix.slice(0,o.prefix.indexOf(seedMarker('movement_insert','END'))),partial=closeFullSealOutput(prefix);
+ assert.equal(partial.invalidLines,0);assert.equal(partial.seedStatements.state,'OPEN_STATEMENT');assert.equal(partial.seedStatements.active,'movement_insert');assert.equal(partial.seedStatements.lastCompleted,'batch_insert');assert.equal(partial.plans.estimated,undefined);
+ const empty=closeFullSealOutput('');assert.equal(empty.seedStatements.state,'NOT_OBSERVED');assert.equal(empty.seedStatements.active,null);assert.equal(empty.seedStatements.lastCompleted,null);
+});
+test('missing, truncated, duplicate, reordered and unknown seed markers fail closed without exporting raw text',()=>{
+ const original=sealFixtureOutput().output,begin=seedMarker('movement_insert','BEGIN'),end=seedMarker('movement_insert','END');
+ const cases=[original.replace(begin+'\n',''),original.replace(end+'\n',''),original.replace(seedMarker('prepare_select','END')+'\n',''),original.replace(begin,begin+'\n'+begin),original.replace(begin,seedMarker('revisions_insert','BEGIN')),original.replace(begin,begin.slice(0,-3)),original.replace(begin,'A19_SEED_PRIVATE_SECRET_BEGIN')];
+ for(const value of cases){const closed=closeFullSealOutput(value);assert.ok(closed.invalidLines>0);assert.notEqual(closed.seedStatements.state,'COMPLETE');assert.equal(JSON.stringify(closed).includes('PRIVATE_SECRET'),false);}
+ const none=closeFullSealOutput(original.replace(/^A19_SEED_[A-Z_]+_(?:BEGIN|END)\n/gm,''));assert.equal(none.seedStatements.state,'INVALID_MARKERS');assert.ok(none.invalidLines>0);
+ const raw=closeFullSealOutput('PRIVATE SQL actor values');assert.equal(raw.invalidLines,1);assert.equal(JSON.stringify(raw).includes('PRIVATE'),false);
 });
 
 test('full seal plan projection retains structural costs but no expressions, literals or fabricated node timing',()=>{
@@ -394,10 +415,10 @@ test('full seal plan projection retains structural costs but no expressions, lit
  assert.equal(closeFullSealOutput('raw sensitive SQL').invalidLines,1);
 });
 
-async function fullProbeFixture({failure,emptyPartial=false,cleanupSession=false,metadataDrift=false,definitionDrift=false,beforeDrift=false}={}){
+async function fullProbeFixture({failure,emptyPartial=false,seedPartial=false,cleanupSession=false,metadataDrift=false,definitionDrift=false,beforeDrift=false}={}){
  const f=fixture(),original=f.options.query,o=sealFixtureOutput();let calls=0,reads=0;
  f.options.query=(sql,options)=>{
-  if(options?.positiveProbe){calls++;assert.equal(sql,fullSealProbeSQL(positiveRun));if(failure){const e=Error('PRIVATE PROBE ERROR');e.diagnosticFailure=failure;e.diagnosticPartialOutput=emptyPartial?'':o.prefix;throw e;}return o.output;}
+  if(options?.positiveProbe){calls++;assert.equal(sql,fullSealProbeSQL(positiveRun));if(failure){const e=Error('PRIVATE PROBE ERROR');e.diagnosticFailure=failure;e.diagnosticPartialOutput=emptyPartial?'':seedPartial?o.prefix.slice(0,o.prefix.indexOf(seedMarker('movement_insert','END'))):o.prefix;throw e;}return o.output;}
   if(sql===fullSealReadbackSQL(positiveRun)){reads++;const parsed=o.readback.split('\n').map(JSON.parse);if(beforeDrift)parsed[0].metadata.run.stagedMovements=25946;if(reads>1){if(cleanupSession)parsed[2].activeConnections=1;if(metadataDrift)parsed[0].metadata.receipts=1;if(definitionDrift)parsed[1].definitions[0].sha256='f'.repeat(64);}return parsed.map(JSON.stringify).join('\n');}
   return original(sql,options);
  };
@@ -427,6 +448,11 @@ test('transport timeout without stdout leaves ANALYZE count unknown while provin
  const {f,d,counts}=await fullProbeFixture({failure:{kind:'process_timeout'},emptyPartial:true});
  await d.fullSealProbe(positiveRun,failedFinalization(),completedWorker);await d.restore();
  const item=f.saved.at(-1).value.fullSealProbe;assert.equal(item.probeStarted,true);assert.equal(item.analyzeAttempts,null);assert.equal(item.maximumAnalyzeAttempts,1);assert.equal(item.estimatedPlanCaptured,false);assert.equal(item.cleanupVerified,true);assert.equal(item.status,'FAIL');assert.deepEqual(counts(),{calls:1,reads:2});
+});
+test('SQL timeout after seed BEGIN preserves that boundary, unknown ANALYZE and primary Apply while cleanup still runs',async()=>{
+ const {f,d,counts}=await fullProbeFixture({failure:{kind:'sql_rejected',sqlState:'57014'},seedPartial:true}),primary=failedFinalization(),before=structuredClone(primary);
+ await d.fullSealProbe(positiveRun,primary,completedWorker);await d.restore();const out=f.saved.at(-1).value,item=out.fullSealProbe;
+ assert.deepEqual(primary,before);assert.equal(item.status,'FAIL');assert.equal(item.observation.seedStatements.active,'movement_insert');assert.equal(item.observation.seedStatements.lastCompleted,'batch_insert');assert.equal(item.analyzeAttempts,null);assert.equal(item.cleanupVerified,true);assert.equal(out.configurationRestored,true);assert.deepEqual(counts(),{calls:1,reads:2});
 });
 test('full seal prerequisites reject incomplete Worker, repeated Apply, wrong failure, publication or changed staging before seed',async()=>{
  for(const change of [v=>v.applyAttempts=2,v=>v.steps.push({...v.steps[0]}),v=>v.steps[0].sqlState='42501',v=>v.canonical.receiptPresent=true,v=>v.canonical.runtimeRevision='1']){

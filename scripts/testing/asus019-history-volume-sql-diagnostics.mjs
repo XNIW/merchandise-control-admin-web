@@ -344,6 +344,26 @@ const sealFunctionsSQL=`SELECT jsonb_build_object('phase','function_definitions'
 const fullSealMetadata=positivePayloadSQL.slice(positivePayloadSQL.lastIndexOf("select jsonb_build_object('phase','after_rollback'"))
  .replace("'runtime',", "'receipts',(select count(*) from public.payment_history_receipts where shop_id='10000000-0000-4000-8000-000000693019'),'acks',(select count(*) from public.payment_history_replica_acks where shop_id='10000000-0000-4000-8000-000000693019'),'runtime',");
 function fullSealScope(runId){if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(runId??''))throw Error('history_volume_diagnostic_probe_scope');return `a19-seal-full-${runId}`;}
+const seedFrameAnchors=[
+ ['transaction','begin;\n'],['statement_limit',"set local statement_timeout='8s';"],['lock_limit',"set local lock_timeout='6s';"],
+ ['context','create temp table seal_full_context as select'],['scope_guard','do $guard$\nbegin'],['keys','create temp table seal_full_keys as'],
+ ['key_primary','alter table pg_temp.seal_full_keys add primary key'],['source_count','do $guard$ begin if (select count(*) from pg_temp.seal_full_keys)'],
+ ['uuid_collision','do $collision$ begin'],['full_prerequisites','do $full_guard$ begin'],['evidence_insert','insert into public.payment_history_evidence('],
+ ['merchant_insert','insert into public.payment_history_merchants('],['batch_insert','insert into public.payment_history_batches('],
+ ['movement_insert','insert into public.payment_history_movement_versions('],['positive_seed_guard','do $guard$ begin if (select count(*) from public.payment_history_movement_versions'],
+ ['receipt_insert','insert into public.payment_history_receipts('],['revisions_insert','insert into public.payment_history_revisions('],
+ ['cardinality_guard','do $cardinality$ begin'],['seed_guard_result',"select jsonb_build_object('phase','seed_guard'"],['prepare_select','prepare a19_seal_full(uuid,bigint) as '],
+];
+const seedFrameLabels=seedFrameAnchors.map(([label])=>label);
+function frameFullSealSeed(script){
+ // Fixed source anchors, not a general SQL splitter. Preserve every SQL byte,
+ // including whitespace and DO blocks; psql emits only the allowlisted labels.
+ const starts=seedFrameAnchors.map(([,anchor])=>{const at=script.indexOf(anchor);if(at<0||script.indexOf(anchor,at+1)!==-1)throw Error('history_volume_diagnostic_seed_anchor');return at;});
+ const end=script.indexOf('\\echo A19_SEAL_PLAIN_BEGIN');
+ if(starts.some((at,i)=>i>0&&at<=starts[i-1])||end<=starts.at(-1))throw Error('history_volume_diagnostic_seed_anchor');
+ const framed=starts.map((at,i)=>{const fragment=script.slice(at,starts[i+1]??end);if(!fragment.endsWith('\n'))throw Error('history_volume_diagnostic_seed_anchor');const label=seedFrameLabels[i].toUpperCase();return `\\echo A19_SEED_${label}_BEGIN\n${fragment}\\echo A19_SEED_${label}_END\n`;});
+ return script.slice(0,starts[0])+framed.join('')+script.slice(end);
+}
 export function fullSealReadbackSQL(runId){
  const application=fullSealScope(runId);
  return fullSealMetadata.replaceAll('__OWNED_SYNTHETIC_RUN_UUID__',runId)+'\n'+sealFunctionsSQL+`\nSELECT jsonb_build_object('phase','connection_cleanup','activeConnections',(SELECT count(*) FROM pg_stat_activity WHERE datname=current_database() AND application_name='${application}'));`;
@@ -371,7 +391,7 @@ export function fullSealProbeSQL(runId){
 end $full_guard$;
 insert into public.payment_history_evidence`);
  const metadata=fullSealMetadata.replaceAll('__OWNED_SYNTHETIC_RUN_UUID__',runId);
- return `SET application_name='${application}';
+ const script=`SET application_name='${application}';
 ${metadata.replace("'after_rollback'","'before'")}
 ${sealFunctionsSQL}
 ${seed}
@@ -403,13 +423,23 @@ select jsonb_build_object('phase','rollback_complete','completed',true);
 ${metadata}
 ${sealFunctionsSQL}
 `;
+ return frameFullSealSeed(script);
 }
 export function closeFullSealOutput(text){
  const records=[],plans={};let invalidLines=0,open=null,buffer=[],next=0;
+ const seedStatements={state:'NOT_OBSERVED',expected:seedFrameLabels.length,completed:[],active:null,lastCompleted:null,invalidMarkers:0};
  const markers=['A19_SEAL_PLAIN_BEGIN','A19_SEAL_PLAIN_END','A19_SEAL_ANALYZE_BEGIN','A19_SEAL_ANALYZE_END'];
  for(const line of String(text??'').split('\n').filter(s=>s.trim())){
   const trimmed=line.trim();
-  if(markers.includes(trimmed)){
+  if(trimmed.startsWith('A19_SEED_')){
+   const expected=seedFrameLabels[seedStatements.completed.length],begin=expected?`A19_SEED_${expected.toUpperCase()}_BEGIN`:null,end=expected?`A19_SEED_${expected.toUpperCase()}_END`:null;
+   if(open||next!==0||seedStatements.invalidMarkers>0){seedStatements.invalidMarkers++;invalidLines++;}
+   else if(trimmed===begin&&seedStatements.active===null){seedStatements.active=expected;seedStatements.state='OPEN_STATEMENT';}
+   else if(trimmed===end&&seedStatements.active===expected){seedStatements.completed.push(expected);seedStatements.lastCompleted=expected;seedStatements.active=null;seedStatements.state=seedStatements.completed.length===seedFrameLabels.length?'COMPLETE':'BETWEEN_STATEMENTS';}
+   else{seedStatements.invalidMarkers++;invalidLines++;}
+   if(seedStatements.invalidMarkers)seedStatements.state='INVALID_MARKERS';
+  }else if(markers.includes(trimmed)){
+   if(trimmed===markers[0]&&seedStatements.state!=='COMPLETE'){seedStatements.invalidMarkers++;seedStatements.state='INVALID_MARKERS';invalidLines++;}
    if(trimmed!==markers[next]){invalidLines++;continue;}next++;
    if(trimmed.endsWith('_BEGIN')){open=trimmed.includes('PLAIN')?'estimated':'analyzed';buffer=[];}
    else{try{plans[open]=closeExplainPlan(JSON.parse(buffer.join('\n')));}catch{invalidLines++;}open=null;buffer=[];}
@@ -430,7 +460,7 @@ export function closeFullSealOutput(text){
    else throw Error();records.push(out);
   }catch{invalidLines++;}
  }
- return {records,plans,invalidLines,partialPlan:open,completedPlanFrames:next};
+ return {records,plans,invalidLines,partialPlan:open,completedPlanFrames:next,seedStatements};
 }
 
 export function createOwnedVolumeSqlDiagnostics({runtime,query:runQuery,rpcGet,save,serverSha,workerSha256,pause=delay,monotonicNow=()=>performance.now()}){
@@ -623,7 +653,7 @@ export function createOwnedVolumeSqlDiagnostics({runtime,query:runQuery,rpcGet,s
   if(!result.preflight.passed||workerAnalysis?.status!=='PASS_WORKER_ANALYSIS'||finalization?.applyAttempts!==1||failed?.length!==1||failed[0].sqlState!=='57014'||failed[0].httpStatus!==500||c?.state!=='review_ready'||c.runtimeRevision!=='0'||c.receiptPresent!==false||c.applyKeyPresent!==false||!['batches','movements','changeSets','replicaEvents','sourceSnapshots','acks','ackCount'].every(k=>c[k]===0)){item.reason='original_worker_apply_or_canonical_prerequisite_unavailable';persist();return;}
   item.status='FAIL';item.afterOriginalFailedApply=true;let before,definitions,probeStarted=false;
   const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
-  const closeReadback=text=>{const closed=closeFullSealOutput(text);demand(closed.invalidLines===0&&closed.completedPlanFrames===0&&closed.records.length===3&&closed.records[0].phase==='after_rollback'&&closed.records[1].phase==='function_definitions'&&closed.records[2].phase==='connection_cleanup');return closed;};
+  const closeReadback=text=>{const closed=closeFullSealOutput(text);demand(closed.invalidLines===0&&closed.seedStatements.state==='NOT_OBSERVED'&&closed.completedPlanFrames===0&&closed.records.length===3&&closed.records[0].phase==='after_rollback'&&closed.records[1].phase==='function_definitions'&&closed.records[2].phase==='connection_cleanup');return closed;};
   const remember=closed=>{item.observation=closed;item.estimatedPlanCaptured=!!closed.plans.estimated;item.analyzedPlanCaptured=!!closed.plans.analyzed;item.analyzeAttempts=closed.completedPlanFrames>=3?1:null;};
   try{
    // Validate source binding before any seed or EXPLAIN can be emitted.
@@ -633,7 +663,7 @@ export function createOwnedVolumeSqlDiagnostics({runtime,query:runQuery,rpcGet,s
    let output;probeStarted=true;
    try{output=query(script,false,true);}catch(error){remember(closeFullSealOutput(error?.diagnosticPartialOutput));item.failure=closedDiagnosticFailure(error?.diagnosticFailure??{});throw error;}
    const closed=closeFullSealOutput(output);remember(closed);
-   demand(closed.invalidLines===0&&closed.partialPlan===null&&closed.completedPlanFrames===4&&closed.plans.estimated&&closed.plans.analyzed&&closed.records.length===6);
+   demand(closed.invalidLines===0&&closed.seedStatements.state==='COMPLETE'&&closed.partialPlan===null&&closed.completedPlanFrames===4&&closed.plans.estimated&&closed.plans.analyzed&&closed.records.length===6);
    demand(same(closed.records.map(r=>r.phase),['before','function_definitions','seed_guard','rollback_complete','after_rollback','function_definitions']));
    demand(same(closed.records[0].metadata,before)&&same(closed.records[4].metadata,before)&&same(closed.records[1].definitions,definitions)&&same(closed.records[5].definitions,definitions));
    demand(closed.plans.analyzed.plan['Actual Rows']===25948&&closed.plans.analyzed.plan['Actual Loops']===1&&finite(closed.plans.analyzed['Execution Time']));
