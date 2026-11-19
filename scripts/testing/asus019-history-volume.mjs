@@ -129,7 +129,7 @@ try{
   await build({stdin:{contents:"export {projectBaselineSqlResult} from './src/server/payment-history/local-baseline-contract';export {validateDeviceHistoryResult} from './src/server/payment-history/replica-contract';",resolveDir:root},bundle:true,platform:'node',target:'node24',format:'cjs',conditions:['react-server'],outfile:join(evidence,'volume-validation.cjs'),logLevel:'silent'});
   const validation=createRequire(import.meta.url)(join(evidence,'volume-validation.cjs'));
   let finalizationError;
-  try{await finalizeVolumeBaseline({request:(operation,payload)=>{if(operation==='baseline_apply')report.financialApply=true;return measuredDeviceRequest({db,scope,operation,payload,steps:report.finalization.steps});},manifest:m,shop,runId:run.run_id,context,applyKey:randomUUID(),snapshotKey:randomUUID(),clientSha,
+  try{await finalizeVolumeBaseline({request:(operation,payload)=>{if(operation==='baseline_apply')report.financialApply=true;return measuredDeviceRequest({db,scope,operation,payload,steps:report.finalization.steps,phase:report.finalization.phase});},manifest:m,shop,runId:run.run_id,context,applyKey:randomUUID(),snapshotKey:randomUUID(),clientSha,
    validateBaseline:validation.projectBaselineSqlResult,validateReplica:validation.validateDeviceHistoryResult,report:report.finalization});}catch(error){finalizationError=error;}
   const published=observeFinalizationCanonical({originalError:finalizationError,report:report.finalization,read:()=>JSON.parse(sql(`SELECT jsonb_build_object('state',j.state,'applyKeyPresent',j.apply_request_key IS NOT NULL,'receiptPresent',j.receipt IS NOT NULL,
    'runtimeRevision',(SELECT revision::text FROM public.payment_history_runtime WHERE shop_id=${q(shop)}),

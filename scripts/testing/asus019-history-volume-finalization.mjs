@@ -14,12 +14,12 @@ export function verifyFinalizationSqlBudget(metadata){
 
 // One request, including on 57014/HTTP500. The original upstream status/code is
 // retained before throwing; neither an abort nor the outer catch overwrites it.
-export async function measuredDeviceRequest({db,scope,operation,payload,steps}){
+export async function measuredDeviceRequest({db,scope,operation,payload,steps,phase=operation}){
  const started=performance.now();let reply;
  try{reply=await db.rpc('payment_history_device_http_v2',{...scope,p_operation:operation,p_payload:payload}).abortSignal(AbortSignal.timeout(15000));}
- catch{steps.push({operation,status:'FAIL',elapsedMs:performance.now()-started,httpStatus:null,sqlState:null,kind:'transport_unavailable'});throw Error('history_volume_finalization_transport');}
+ catch{steps.push({phase,operation,status:'FAIL',elapsedMs:performance.now()-started,httpStatus:null,sqlState:null,kind:'transport_unavailable'});throw Error('history_volume_finalization_transport');}
  const elapsedMs=performance.now()-started,ok=!reply.error&&reply.data?.ok===true&&reply.data.shop_id===scope.p_shop_id&&reply.data.device_id===scope.p_shop_device_id;
- steps.push({operation,status:ok?'PASS':'FAIL',elapsedMs,httpStatus:Number.isInteger(reply.status)?reply.status:null,
+ steps.push({phase,operation,status:ok?'PASS':'FAIL',elapsedMs,httpStatus:Number.isInteger(reply.status)?reply.status:null,
   sqlState:typeof reply.error?.code==='string'&&/^[0-9A-Z]{5}$/.test(reply.error.code)?reply.error.code:null,kind:ok?'response':reply.error?'rpc_error':'admission_rejected'});
  demand(ok,'finalization_rpc_failed');demand(elapsedMs<15000,'finalization_request_budget');return reply.data.result;
 }
@@ -38,12 +38,17 @@ export function observeFinalizationCanonical({read,report,originalError}){
 }
 
 export async function finalizeVolumeBaseline({request,manifest,shop,runId,context,applyKey,snapshotKey,clientSha,validateBaseline,validateReplica,report}){
- const started=performance.now(),rows=25947,batches=1,pageSize=500;
- Object.assign(report,{status:'RUNNING',syntheticOnly:true,clientSha,clientShaPurpose:'ACK metadata and frozen reference only; no CLR or WPF execution in this gate',rows,applyAttempts:0,applyOutcome:'NOT_RUN',phase:'baseline_review',receipt:'NOT_RUN',replica:'NOT_RUN'});
+ const started=performance.now(),rows=25947,batches=1,pageSize=200;
+ Object.assign(report,{status:'RUNNING',syntheticOnly:true,clientSha,clientShaPurpose:'ACK metadata and frozen reference only; no CLR or WPF execution in this gate',rows,applyAttempts:0,applyOutcome:'NOT_RUN',applyRequestKey:applyKey,phase:'baseline_receipt_preflight',preflightReceipt:'NOT_RUN',receipt:'NOT_RUN',replica:'NOT_RUN'});
  demand(/^[0-9a-f]{40}$/.test(clientSha)&&uuid(applyKey)&&uuid(snapshotKey)&&uuid(runId),'finalization_scope');
  const scope={shopId:shop,deviceId:manifest.deviceId,runId,datasetId:context.dataset_id,writerEpoch:context.writer_epoch,
   localDatasetId:manifest.localDatasetId,localRevision:manifest.dataRevision,restoreEpoch:manifest.restoreEpoch,restoreLineageId:manifest.restoreLineageId};
  try{
+  // Match c401: recover any existing receipt before reviewing/applying this
+  // same operation. This fresh synthetic run must have none.
+  const before=await request('baseline_receipt',{request_key:applyKey});validateBaseline('baseline_receipt',before,scope);
+  demand(before.receipt===null,'finalization_preexisting_receipt');report.preflightReceipt={status:'PASS',receiptAbsent:true};
+  report.phase='baseline_review';
   const review=await request('baseline_review',{run_id:runId});validateBaseline('baseline_review',review,scope);
   demand(review.can_apply===true&&digest(review.review_digest),'finalization_review_blocked');report.reviewDigest=review.review_digest;
   report.phase='baseline_apply';report.applyAttempts++;report.applyOutcome='OUTCOME_UNKNOWN';

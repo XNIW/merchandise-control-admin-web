@@ -25,26 +25,30 @@ function fixture(change=()=>{}){
   calls.push({operation,payload});let value;
   if(operation==='baseline_review')value={can_apply:true,review_digest:'a'.repeat(64)};
   else if(operation==='baseline_apply')value=structuredClone(receipt);
-  else if(operation==='baseline_receipt')value={receipt:structuredClone(receipt)};
+  else if(operation==='baseline_receipt')value={receipt:calls.some(c=>c.operation==='baseline_apply')?structuredClone(receipt):null};
   else if(operation==='snapshot_start')value={cursor:id(99),dataset_id:dataset,revision:'1',writer_epoch:'1',checksum,movements:25947,batches:1,mode:'snapshot'};
   else if(operation==='page'){
-   const part=entities.slice(ordinal,ordinal+500);ordinal+=part.length;const done=ordinal===entities.length;
+   const part=entities.slice(ordinal,ordinal+200);ordinal+=part.length;const done=ordinal===entities.length;
    value={cursor:payload.cursor,next_cursor:done?null:id(100000+ordinal),done,dataset_id:dataset,revision:'1',writer_epoch:'1',checksum,movements:25947,batches:1,entities:part};
   }else if(operation==='replica_ack')value={acknowledged:true,revision:'1',writer_epoch:'1'};
   else throw Error('Unexpected operation');change(operation,value,payload);return value;
  };
  return {calls,report,run:()=>finalizeVolumeBaseline({request,manifest,shop,runId,context,applyKey,snapshotKey,clientSha,validateBaseline:projectBaselineSqlResult,validateReplica:validateDeviceHistoryResult,report})};
 }
-test('full-volume finalization validates production receipt/entity contracts, all52pages and independent checksum before ACK',async()=>{
- const f=fixture();await f.run();assert.equal(f.report.status,'PASS_FULL_VOLUME_FINALIZATION');assert.equal(f.report.applyAttempts,1);assert.equal(f.report.applyOutcome,'ACKNOWLEDGED');assert.equal(f.report.replica.movements,25947);assert.equal(f.report.replica.pages,52);assert.equal(f.report.receipt.sha256,f.report.receipt.readbackSha256);
+test('full-volume finalization matches c401 receipt-first order and130pages of200, validating contracts and checksum before ACK',async()=>{
+ const f=fixture();await f.run();assert.equal(f.report.status,'PASS_FULL_VOLUME_FINALIZATION');assert.equal(f.report.applyAttempts,1);assert.equal(f.report.applyOutcome,'ACKNOWLEDGED');assert.equal(f.report.replica.movements,25947);assert.equal(f.report.replica.pages,130);assert.equal(f.report.replica.pageSize,200);assert.equal(f.report.receipt.sha256,f.report.receipt.readbackSha256);
+ assert.deepEqual(f.calls.slice(0,4).map(c=>c.operation),['baseline_receipt','baseline_review','baseline_apply','baseline_receipt']);assert.equal(f.report.preflightReceipt.receiptAbsent,true);
+ assert.deepEqual(f.calls.filter(c=>c.operation==='baseline_receipt').map(c=>c.payload.request_key),[applyKey,applyKey]);
+ assert.equal(f.calls.find(c=>c.operation==='snapshot_start').payload.page_size,200);
  assert.deepEqual(f.calls.filter(c=>c.operation==='baseline_apply').map(c=>c.payload.request_key),[applyKey]);
  const ack=f.calls.at(-1);assert.equal(ack.operation,'replica_ack');assert.equal(ack.payload.checksum,checksum);assert.equal(ack.payload.client_build_sha,clientSha);
  assert.equal(JSON.stringify(f.report).includes('gross_clp'),false);
 });
 for(const [name,change,phase] of [
+ ['preexisting receipt',(op,v)=>{if(op==='baseline_receipt'&&v.receipt===null)v.receipt=structuredClone(receipt);},'baseline_receipt_preflight'],
  ['blocked review',(op,v)=>{if(op==='baseline_review')v.can_apply=false;},'baseline_review'],
  ['foreign receipt',(op,v)=>{if(op==='baseline_apply')v.source_run_id=id(90);},'baseline_apply'],
- ['changed receipt readback',(op,v)=>{if(op==='baseline_receipt')v.receipt.operation_id=id(90);},'baseline_receipt'],
+ ['changed receipt readback',(op,v)=>{if(op==='baseline_receipt'&&v.receipt!==null)v.receipt.operation_id=id(90);},'baseline_receipt'],
  ['partial snapshot',(op,v)=>{if(op==='snapshot_start')v.movements--;},'snapshot_start'],
  ['repeated page entity',(op,v)=>{if(op==='page')v.entities=[v.entities[0],...v.entities];},'page'],
  ['changed entity digest',(op,v)=>{if(op==='page')v.entities=[{...v.entities[0],digest:'b'.repeat(64)},...v.entities.slice(1)];},'page'],
@@ -62,7 +66,7 @@ test('actual PostgREST client retains HTTP500/57014 and never retries the Apply'
 test('failed Apply retains unknown outcome and phase without receipt/page requests',async()=>{
  const f=fixture(operation=>{if(operation==='baseline_apply')throw Error('history_volume_finalization_rpc_failed');});
  await assert.rejects(f.run,/finalization_rpc_failed/);assert.equal(f.report.status,'FAIL');assert.equal(f.report.phase,'baseline_apply');assert.equal(f.report.applyOutcome,'OUTCOME_UNKNOWN');
- assert.equal(f.report.applyAttempts,1);assert.deepEqual(f.calls.map(c=>c.operation),['baseline_review','baseline_apply']);assert.equal(f.report.receipt,'NOT_RUN');assert.equal(f.report.replica,'NOT_RUN');
+ assert.equal(f.report.applyAttempts,1);assert.deepEqual(f.calls.map(c=>c.operation),['baseline_receipt','baseline_review','baseline_apply']);assert.equal(f.report.receipt,'NOT_RUN');assert.equal(f.report.replica,'NOT_RUN');
 });
 test('RED preserves the original failure and one rollback metadata read, even if that read fails',()=>{
  for(const failRead of [false,true]){
