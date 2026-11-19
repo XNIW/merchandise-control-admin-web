@@ -288,6 +288,7 @@ jobs:
         run: >-
           node scripts/testing/asus019-history-volume.mjs
           --owned-workdir "$RUNNER_TEMP/asus019-history-local"
+          --client-repo "$GITHUB_WORKSPACE/client"
           --evidence-dir "$RUNNER_TEMP/asus019-history-volume"
           --sql-diagnostics "${{ inputs.history_volume_diagnostics }}"
       - name: Authenticated service and browser roundtrip

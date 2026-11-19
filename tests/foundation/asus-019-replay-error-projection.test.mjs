@@ -2,6 +2,38 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import test from "node:test";
 
+test("reviewed migrations may extend only an explicitly named earlier test without losing membership or assertions", () => {
+  const script = String.raw`
+import copy,hashlib,importlib.util
+from pathlib import Path
+p=Path('scripts/ci/mobile-recovery-local-replay.py').resolve()
+spec=importlib.util.spec_from_file_location('reviewed_replay',p);m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
+files=m.reviewed_extension_test_files(m.REVIEWED_EXTENSIONS)
+assert len(files)==33 and len(m.REVIEWED_EXTENSIONS)==37
+assert 67+len(files)==100 and 4375+sum(x['additionalAssertions'] for x in m.REVIEWED_EXTENSIONS.values())==5608
+for name in ['20261119072331_payment_history_seal_revision_direct_ids_v1.sql','20261119061612_payment_history_field_hash_ascii_v1.sql','20261119012919_payment_history_baseline_apply_bulk_v1.sql','20261119041341_payment_history_migration_movement_point_lookup_v1.sql']:
+ source=(Path('supabase/migrations')/name).read_bytes().replace(b'\r\n',b'\n')
+ assert hashlib.sha256(source).hexdigest()==m.REVIEWED_EXTENSIONS[name]['sha256']
+base={'01':{'testFile':'pipeline.sql','additionalAssertions':32},
+      '02':{'testFile':'pipeline.sql','additionalAssertions':23,'extendsTestOf':'01'}}
+assert m.reviewed_extension_test_files(base)=={'pipeline.sql'}
+for change in [{'extendsTestOf':None},{'extendsTestOf':'missing'},{'extendsTestOf':'02'},
+               {'testFile':'foreign.sql'},{'additionalAssertions':0},{'additionalAssertions':-1}]:
+ changed=copy.deepcopy(base);changed['02'].update(change)
+ try:m.reviewed_extension_test_files(changed)
+ except ValueError:pass
+ else:raise AssertionError('unreviewed membership or assertion reduction accepted')
+changed=copy.deepcopy(base);changed['01']['extendsTestOf']='02'
+try:m.reviewed_extension_test_files(changed)
+except ValueError:pass
+else:raise AssertionError('later parent accepted')
+print('reviewed-test-extension PASS')
+`;
+  const result = spawnSync(process.platform === "win32" ? "python" : "python3", ["-B", "-c", script], { encoding: "utf8", timeout: 10_000 });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout.trim(), "reviewed-test-extension PASS");
+});
+
 test("ASUS-019 prefix diagnostics expose only closed categories and preserve the failure envelope", () => {
   const script = String.raw`
 import importlib.util,json
@@ -32,7 +64,7 @@ if True:
  assert sink[-1]['category']=='IO_ERROR'
 print('closed-prefix-projection PASS')
 `;
-  const result = spawnSync(process.platform === "win32" ? "python" : "python3", ["-c", script], { encoding: "utf8", timeout: 10_000 });
+  const result = spawnSync(process.platform === "win32" ? "python" : "python3", ["-B", "-c", script], { encoding: "utf8", timeout: 10_000 });
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.stdout.trim(), "closed-prefix-projection PASS");
 });
@@ -56,7 +88,7 @@ for code in ['payment_history_local_correction_unverified','payment_history_loca
  assert value['domainCodes']==[code] and 'PRIVATE_SENTINEL' not in json.dumps(value)
 print('closed-pgtap-projection PASS')
 `;
-  const result = spawnSync(process.platform === "win32" ? "python" : "python3", ["-c", script], { encoding: "utf8", timeout: 10_000 });
+  const result = spawnSync(process.platform === "win32" ? "python" : "python3", ["-B", "-c", script], { encoding: "utf8", timeout: 10_000 });
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.stdout.trim(), "closed-pgtap-projection PASS");
 });
