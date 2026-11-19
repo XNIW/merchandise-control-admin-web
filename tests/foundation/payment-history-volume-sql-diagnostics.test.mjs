@@ -30,7 +30,7 @@ test('statement intervals preserve nested overlap and invalidate reset, eviction
 });
 
 function fixture({previousFunction=null,functionCanaryMissing=false,previous=null,failSnapshot=false,adminDenied=false,nestedMissing=false,cacheMiss=false,missingCounters=false,completeCategories=false,resetCanaryEntry=false}={}){
- const calls=[],saved=[],rpcCalls=[],nonce='12345678-1234-4234-8234-123456789012';let auto=previous,functionAuto=previousFunction,gatewayCalls=0,cryptoCalls=0,counter=0,snapshotCount=0,counterReads=0;
+ const calls=[],saved=[],rpcCalls=[],nonce='12345678-1234-4234-8234-123456789012';let auto=previous,functionAuto=previousFunction,gatewayCalls=0,cryptoCalls=0,counter=0,snapshotCount=0,counterReads=0,clock=0;
  const config=['search_path=""'];
  const invariants={definitionSha256:'a'.repeat(64),accessSha256:'b'.repeat(64),otherConfigSha256:'c'.repeat(64)};
  const effective=()=>auto??'top',functionEffective=()=>functionAuto??'none';
@@ -53,7 +53,7 @@ function fixture({previousFunction=null,functionCanaryMissing=false,previous=nul
   throw Error('unhandled fixture SQL');
  };
  const rpcGet=async(parameters,options)=>{rpcCalls.push({parameters,options});assert.deepEqual(options,{get:true});assert.deepEqual(parameters,{p_request_id:nonce,p_lane:'migration',p_operation:'claim',p_payload:{}});if(effective()==='all'&&!nestedMissing)counter++;if(functionEffective()!=='none')gatewayCalls++;if(functionEffective()==='all'&&!functionCanaryMissing)cryptoCalls++;return {data:{ok:true,run:null},errorCode:null};};
- const options={runtime:{url:'http://127.0.0.1:54321',containerID:'d'.repeat(64),project:'r4-ci-preflight-'+'e'.repeat(12),head:'f'.repeat(40)},serverSha:'f'.repeat(40),workerSha256:'0'.repeat(64),query,rpcGet,pause:async()=>{},save:(name,value)=>saved.push({name,value:structuredClone(value)})};
+ const options={runtime:{url:'http://127.0.0.1:54321',containerID:'d'.repeat(64),project:'r4-ci-preflight-'+'e'.repeat(12),head:'f'.repeat(40)},serverSha:'f'.repeat(40),workerSha256:'0'.repeat(64),query,rpcGet,pause:async ms=>{clock+=ms;},monotonicNow:()=>clock,save:(name,value)=>saved.push({name,value:structuredClone(value)})};
  return {calls,saved,options,rpcCalls,nonce,getConfig:()=>config,getAuto:()=>auto,getFunctionAuto:()=>functionAuto};
 }
 
@@ -298,6 +298,33 @@ test('procedural-only tracking cannot pass the all-functions RPC preflight',asyn
  const f=fixture({functionCanaryMissing:true}),d=createOwnedVolumeSqlDiagnostics(f.options);d.observeWarmResponse(f.nonce,{ok:true,run:null});
  await assert.rejects(()=>d.prepare(),/preflight_failed/);assert.equal(f.saved.at(-1).value.preflight.passed,false);
  await d.restore();assert.equal(f.getFunctionAuto(),null);assert.equal(f.getAuto(),null);
+});
+
+test('idle flush window separates ten-second pending warm and GET counters without extra RPCs',async()=>{
+ const f=fixture(),query=f.options.query,rpc=f.options.rpcGet,visible={gateway:0,crypto:0},pending=[],samples=[];let clock=0;
+ const flush=()=>{for(let i=pending.length-1;i>=0;i--)if(pending[i].due<=clock){visible.gateway+=pending[i].gateway;visible.crypto+=pending[i].crypto;pending.splice(i,1);}};
+ f.options.monotonicNow=()=>clock;f.options.pause=async ms=>{clock+=ms;flush();};
+ f.options.query=(sql,options)=>{const raw=query(sql,options);if(sql!==functionSnapshotSQL())return raw;const value=JSON.parse(raw);samples.push({clock,...visible});for(const row of value.functions){const calls=row.label==='gateway_canary'?visible.gateway:row.label==='crypto_canary'?visible.crypto:0;Object.assign(row,{present:calls>0,calls:calls||null,total_time:calls||null,self_time:calls||null});}return JSON.stringify(value);};
+ f.options.rpcGet=async(args,options)=>{const answer=await rpc(args,options),mode=f.getFunctionAuto()??'none';pending.push({due:clock+10000,gateway:mode==='none'?0:1,crypto:mode==='all'?1:0});return answer;};
+ const d=createOwnedVolumeSqlDiagnostics(f.options);await d.prepareInstance();const warmAt=clock;pending.push({due:warmAt+10000,gateway:3,crypto:3});
+ // The old two equal readings at 1.1s and 2.2s would still contain zero.
+ assert.equal(pending.filter(p=>p.due<=warmAt+2200).length,0);
+ d.observeWarmResponse(f.nonce,{ok:true,run:null});await d.prepare();await d.restore();const out=f.saved.at(-1).value;
+ assert.equal(out.trackingCanary.functionBefore.functions.find(r=>r.label==='gateway_canary').calls,3);
+ for(const label of ['gateway_canary','crypto_canary']){assert.equal(out.trackingCanary.functions.functions.find(r=>r.label===label).calls,1);assert.equal(out.restoredCanary.functions.functions.find(r=>r.label===label).calls,0);}
+ assert.equal(out.configurationRestored,true);assert.equal(f.rpcCalls.length,2);assert.equal(out.functionSettlementWindows.length,4);
+ assert.ok(out.functionSettlementWindows.every(w=>w.idleWaitMs===11000&&w.samples===2&&w.elapsedMs===12100&&w.status==='STABLE_AFTER_IDLE_FLUSH_WINDOW'&&!w.timingQualification));
+ assert.equal(out.functionObserverElapsedMs,48400);assert.ok(samples.filter(s=>s.clock>warmAt).every(s=>s.clock>=warmAt+11000));
+ assert.equal(f.calls.some(s=>/pg_stat_(?:reset\w*|force_next_flush)\s*\(/.test(s)),false);
+});
+
+test('an incomplete monotonic idle wait prevents Apply before its first function snapshot',async()=>{
+ const f=fixture(),pause=f.options.pause;let armed=false,invoked=0;
+ f.options.pause=async ms=>pause(armed&&ms===11000?10999:ms);
+ const d=createOwnedVolumeSqlDiagnostics(f.options);d.observeWarmResponse(f.nonce,{ok:true,run:null});await d.prepare();d.capture('before_analysis');d.finish();armed=true;
+ await assert.rejects(()=>d.observeFinalization('baseline_apply',async()=>{invoked++;return {};}));assert.equal(invoked,0);
+ const window=f.saved.at(-1).value.functionSettlementWindows.at(-1);assert.equal(window.idleWaitMs,10999);assert.equal(window.samples,0);assert.equal(window.status,'FAIL');
+ armed=false;await d.restore();assert.equal(f.saved.at(-1).value.configurationRestored,true);
 });
 
 test('restoring either GUC is attempted even when the other restore fails',async()=>{

@@ -304,7 +304,7 @@ export function closePositivePayloadOutput(text){
  return {records,invalidLines};
 }
 
-export function createOwnedVolumeSqlDiagnostics({runtime,query:runQuery,rpcGet,save,serverSha,workerSha256,pause=delay}){
+export function createOwnedVolumeSqlDiagnostics({runtime,query:runQuery,rpcGet,save,serverSha,workerSha256,pause=delay,monotonicNow=()=>performance.now()}){
  if(runtime.url!=='http://127.0.0.1:54321'||!/^[0-9a-f]{64}$/.test(runtime.containerID)||!/^r4-ci-preflight-[0-9a-f]{12}$/.test(runtime.project)||runtime.head!==serverSha)throw Error('history_volume_diagnostic_ownership');
  const result={schema:'asus019-owned-volume-sql-diagnostic-v2',diagnosticOnly:true,timingQualification:false,ownershipVerified:true,serverSha,workerSha256,limits:{analysisBudgetMs:120000,requestBudgetMs:15000,canonicalRowLimit:200,vectorChunkLimit:4},snapshots:[],freshPlans:[],errors:[],configurationRestored:false,cachedPlanObserved:false,observerTimeScope:'synchronous_sql_calls_only_no_nested_double_count',preflight:{passed:false,stage:'not_started'},configurationScope:'single_owned_disposable_instance'};
  let schema,priorConfig,priorInstance,priorFunctionInstance,writeAttempted=false,functionWriteAttempted=false,instancePrepared=false,finished=false,warmNonce,warmInvalid=false,measurementStarted=false;const attemptedCaptures=new Set();
@@ -336,16 +336,21 @@ export function createOwnedVolumeSqlDiagnostics({runtime,query:runQuery,rpcGet,s
  const cacheCounters=()=>JSON.parse(query(`WITH cache_rows AS (SELECT calls,to_jsonb(s)->>'stats_since' AS since FROM ${schema}.pg_stat_statements s WHERE dbid=(SELECT oid FROM pg_database WHERE datname=current_database()) AND NOT toplevel AND trim(lower(regexp_replace(replace(query,'"',''),'[[:space:]]+',' ','g'))) LIKE 'select *%from public.payment_history_worker_requests where request_id%' AND query NOT ILIKE '%pg_stat_statements%'),epochs AS (SELECT since,count(*) AS members FROM cache_rows GROUP BY since) SELECT jsonb_build_object('calls',coalesce((SELECT sum(calls) FROM cache_rows),0),'statementEntries',(SELECT count(*) FROM cache_rows),'epochsAvailable',coalesce((SELECT bool_and(since IS NOT NULL) FROM cache_rows),true),'epochs',coalesce((SELECT jsonb_agg(jsonb_build_object('since',since,'members',members) ORDER BY since NULLS FIRST) FROM epochs),'[]'::jsonb),'statsReset',(SELECT stats_reset FROM ${schema}.pg_stat_statements_info),'dealloc',(SELECT dealloc FROM ${schema}.pg_stat_statements_info));`,true));
  const validCacheCohort=c=>Number.isSafeInteger(c.statementEntries)&&c.statementEntries>=0&&c.epochsAvailable===true&&Array.isArray(c.epochs)&&c.epochs.every(e=>typeof e.since==='string'&&Number.isSafeInteger(e.members)&&e.members>0)&&c.epochs.reduce((n,e)=>n+e.members,0)===c.statementEntries&&(c.statementEntries!==0||c.calls===0);
  async function settledFunctions(){
-  const started=performance.now();let previous;
+  const started=monotonicNow(),observation={minimumIdleWaitMs:11000,maximumSamples:3,sampleIntervalMs:1100,samples:0,status:'FAIL',timingQualification:false};let previous;
+  (result.functionSettlementWindows??=[]).push(observation);
   try{
+   // PG17.6 can defer idle-backend statistics for 10s, even though the
+   // minimum reporting interval is 1s. Earlier equal samples can be stale.
+   // This wait is observer time outside every measured RPC/Worker deadline.
+   await pause(11000);observation.idleWaitMs=monotonicNow()-started;demand(observation.idleWaitMs>=11000);
    for(let i=0;i<3;i++){
-    await pause(1100);const current=JSON.parse(query(functionSnapshotSQL()));
+    if(i>0)await pause(1100);const current=JSON.parse(query(functionSnapshotSQL()));observation.samples++;
     demand(functionDelta(current,current).valid);
-    if(previous&&JSON.stringify(previous)===JSON.stringify(current))return current;
+    if(previous&&JSON.stringify(previous)===JSON.stringify(current)){observation.status='STABLE_AFTER_IDLE_FLUSH_WINDOW';return current;}
     previous=current;
    }
    throw Error('history_volume_diagnostic_function_statistics_unsettled');
-  }finally{result.functionObserverElapsedMs=(result.functionObserverElapsedMs??0)+(performance.now()-started);}
+  }finally{observation.elapsedMs=monotonicNow()-started;result.functionObserverElapsedMs=(result.functionObserverElapsedMs??0)+observation.elapsedMs;}
  }
  async function canary(label,expectedDelta,functionMode){
   demand(warmNonce&&!warmInvalid&&typeof rpcGet==='function');
