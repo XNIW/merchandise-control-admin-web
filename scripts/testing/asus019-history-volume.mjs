@@ -12,11 +12,12 @@ import {createClient} from '@supabase/supabase-js';
 import {build} from 'esbuild';
 import {syntheticBaselineVolume} from '../../tests/foundation/helpers/payment-history-volume-fixture.mjs';
 import {closedDiagnosticFailure,createOwnedVolumeSqlDiagnostics,readOnlyCachedGatewayGet} from './asus019-history-volume-sql-diagnostics.mjs';
-const args=process.argv.slice(2),options={};for(let i=0;i<args.length;i+=2){if(!['--owned-workdir','--evidence-dir','--sql-diagnostics'].includes(args[i])||!args[i+1]||options[args[i]])throw Error('history_volume_arguments');options[args[i]]=args[i+1];}
+import {verifyFinalizationSqlBudget,measuredDeviceRequest,finalizeVolumeBaseline,observeFinalizationCanonical} from './asus019-history-volume-finalization.mjs';
+const args=process.argv.slice(2),options={};for(let i=0;i<args.length;i+=2){if(!['--owned-workdir','--evidence-dir','--sql-diagnostics','--client-repo'].includes(args[i])||!args[i+1]||options[args[i]])throw Error('history_volume_arguments');options[args[i]]=args[i+1];}
 if(options['--sql-diagnostics']!==undefined&&!['true','false'].includes(options['--sql-diagnostics']))throw Error('history_volume_arguments');
 const diagnosticOnly=options['--sql-diagnostics']==='true';
 const demand=(ok,code)=>{if(!ok)throw Error(code);},sha=v=>createHash('sha256').update(v).digest('hex'),root=process.cwd();
-demand(process.platform==='linux'&&process.versions.node.startsWith('24.')&&isAbsolute(options['--owned-workdir']??'')&&isAbsolute(options['--evidence-dir']??''),'history_volume_runtime');
+demand(process.platform==='linux'&&process.versions.node.startsWith('24.')&&isAbsolute(options['--owned-workdir']??'')&&isAbsolute(options['--evidence-dir']??'')&&isAbsolute(options['--client-repo']??''),'history_volume_runtime');
 const evidence=resolve(options['--evidence-dir']);demand(!existsSync(evidence)&&!evidence.startsWith(root+'/'),'history_volume_fresh_evidence');process.umask(0o077);mkdirSync(evidence,{mode:0o700});
 const save=(name,value)=>{const p=join(evidence,name),t=p+'.tmp';writeFileSync(t,JSON.stringify(value),{mode:0o600});renameSync(t,p);};
 const command=(program,argv,env=process.env)=>{const r=spawnSync(program,argv,{cwd:root,env,encoding:'utf8',timeout:120000,maxBuffer:8*1024*1024});demand(r.status===0&&!r.error,'history_volume_command_failed');return r.stdout;};
@@ -111,6 +112,35 @@ try{
  demand(sql(`SELECT count(*) FROM public.payment_history_batches WHERE shop_id=${q(shop)};`)==='0','history_volume_published_without_apply');
  report.counters=counters;report.transport={latencyMsPerGatewayRequest:300,encodedWorkerLinkBytesPerSecond:51200,storageLink:'actual-loopback',identityComparator:'NOT_RUN_THIS_GATE',heapMiB:640,processRssLimitBytes:1073741824};
  report.representativeness.encodedWireToMovementRatio=counters.encodedStagingBytes/fixture.metadata.movementBytes;
+ report.workerAnalysis={status:'PASS_WORKER_ANALYSIS',publishedBatchesBeforeApply:0,elapsedMs:measured.elapsedMs};
+ // Keep analysis and publication separate. A finalization failure cannot emit
+ // a qualified artifact, even when the unchanged120s Worker test passed.
+ if(!diagnosticOnly){
+  phase='finalization';report.finalization={status:'NOT_RUN',steps:[]};
+  const budget=JSON.parse(sql(`SELECT jsonb_build_object(
+   'authenticator',(SELECT split_part(c,'=',2) FROM pg_roles,unnest(rolconfig) c WHERE rolname='authenticator' AND c LIKE 'statement_timeout=%'),
+   'authenticated',(SELECT split_part(c,'=',2) FROM pg_roles,unnest(rolconfig) c WHERE rolname='authenticated' AND c LIKE 'statement_timeout=%'),
+   'serviceRole',(SELECT split_part(c,'=',2) FROM pg_roles,unnest(rolconfig) c WHERE rolname='service_role' AND c LIKE 'statement_timeout=%'),
+   'databaseOverrides',(SELECT count(*) FROM pg_db_role_setting s,unnest(s.setconfig) c WHERE s.setdatabase=(SELECT oid FROM pg_database WHERE datname=current_database()) AND s.setrole IN(0,(SELECT oid FROM pg_roles WHERE rolname='authenticator'),(SELECT oid FROM pg_roles WHERE rolname='service_role')) AND c LIKE 'statement_timeout=%'),
+   'functionOverrides',(SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace,unnest(p.proconfig) c WHERE n.nspname IN('public','app_private') AND p.proname LIKE 'payment_history_%' AND c LIKE 'statement_timeout=%'));`));
+  report.finalization.sqlBudget=verifyFinalizationSqlBudget(budget);
+  const clientSha=command('git',['-C',options['--client-repo'],'rev-parse','HEAD']).trim();
+  demand(/^[0-9a-f]{40}$/.test(clientSha)&&clientSha===process.env.ASUS019_CLIENT_SHA&&command('git',['-C',options['--client-repo'],'status','--porcelain']).trim()==='','history_volume_finalization_client_source');
+  await build({stdin:{contents:"export {projectBaselineSqlResult} from './src/server/payment-history/local-baseline-contract';export {validateDeviceHistoryResult} from './src/server/payment-history/replica-contract';",resolveDir:root},bundle:true,platform:'node',target:'node24',format:'cjs',conditions:['react-server'],outfile:join(evidence,'volume-validation.cjs'),logLevel:'silent'});
+  const validation=createRequire(import.meta.url)(join(evidence,'volume-validation.cjs'));
+  let finalizationError;
+  try{await finalizeVolumeBaseline({request:(operation,payload)=>{if(operation==='baseline_apply')report.financialApply=true;return measuredDeviceRequest({db,scope,operation,payload,steps:report.finalization.steps});},manifest:m,shop,runId:run.run_id,context,applyKey:randomUUID(),snapshotKey:randomUUID(),clientSha,
+   validateBaseline:validation.projectBaselineSqlResult,validateReplica:validation.validateDeviceHistoryResult,report:report.finalization});}catch(error){finalizationError=error;}
+  const published=observeFinalizationCanonical({originalError:finalizationError,report:report.finalization,read:()=>JSON.parse(sql(`SELECT jsonb_build_object('state',j.state,'applyKeyPresent',j.apply_request_key IS NOT NULL,'receiptPresent',j.receipt IS NOT NULL,
+   'runtimeRevision',(SELECT revision::text FROM public.payment_history_runtime WHERE shop_id=${q(shop)}),
+   'movements',(SELECT count(*) FROM public.payment_history_movement_versions WHERE shop_id=${q(shop)}),'batches',(SELECT count(*) FROM public.payment_history_batches WHERE shop_id=${q(shop)}),
+   'sourceSnapshots',(SELECT count(*) FROM public.payment_history_source_snapshots WHERE shop_id=${q(shop)}),
+   'replicaEvents',(SELECT count(*) FROM public.payment_history_replica_events WHERE shop_id=${q(shop)}),
+   'changeSets',(SELECT count(*) FROM public.payment_history_change_sets WHERE shop_id=${q(shop)}),
+   'acks',(SELECT count(*) FROM public.payment_history_replica_acks WHERE shop_id=${q(shop)} AND shop_device_id=${q(device)}),
+   'ackCount',(SELECT count(*) FROM public.payment_history_replica_acks a WHERE a.shop_id=j.shop_id AND a.shop_device_id=${q(device)} AND a.dataset_id=(j.receipt->>'dataset_id')::uuid AND a.revision=(j.receipt->>'revision')::bigint AND a.writer_epoch=(j.receipt->>'writer_epoch')::bigint AND a.checksum=${q(report.finalization.replica?.checksum??'')} AND a.protocol_version=1 AND a.client_build_sha=${q(clientSha)})) FROM public.payment_history_migration_runs j WHERE j.shop_id=${q(shop)} AND j.run_id=${q(run.run_id)};`))});
+  demand(published.state==='applied'&&published.applyKeyPresent&&published.receiptPresent&&published.runtimeRevision===report.finalization.receipt.revision&&published.movements===25947&&published.batches===1&&published.sourceSnapshots===1&&published.replicaEvents===25948&&published.changeSets===1&&published.acks===1&&published.ackCount===1,'history_volume_finalization_canonical_readback');
+ }
  // Diagnostic observations perturb timing and instance tracking. They
  // can never produce the exact PASS status or an artifact accepted for release.
  if(diagnosticOnly){report.status='DIAGNOSTIC_ONLY_MEASURED_PASS';save('complete.json',report);process.stdout.write(JSON.stringify({status:report.status,diagnosticOnly:true,timingQualification:false})+'\n');}
