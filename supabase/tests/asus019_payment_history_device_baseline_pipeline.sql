@@ -91,7 +91,7 @@ create function pg_temp.exercise_bulk_source(scenario text) returns jsonb langua
 declare f jsonb;d uuid;s uuid:=gen_random_uuid();credential uuid:=gen_random_uuid();upload uuid:=gen_random_uuid();
  device_hash text:='sha256:'||encode(extensions.digest(gen_random_uuid()::text,'sha256'),'hex');
  session_hash text:='sha256:'||encode(extensions.digest(gen_random_uuid()::text,'sha256'),'hex');
- started jsonb;lease jsonb;review jsonb;receipt jsonb;replay jsonb;key uuid:=gen_random_uuid();answer jsonb;
+ started jsonb;lease jsonb;review jsonb;receipt jsonb;replay jsonb;case_apply_key uuid:=gen_random_uuid();answer jsonb;
  before_count bigint;before_native bigint;before_revision bigint;before_changes bigint;
 begin
  select value into strict f from pg_temp.bulk_source where name=scenario;
@@ -100,7 +100,7 @@ begin
   -- The mixed case uses an original, normally committed baseline to provide
   -- five canonical identities, then submits another genuine six-fact source.
   if scenario='mixed' then
-   perform pg_temp.baseline('apply',value) from pg_temp.baseline_context where key='apply_payload';
+   perform pg_temp.baseline('apply',seed.value) from pg_temp.baseline_context seed where seed.key='apply_payload';
   end if;
   select count(*) into before_count from public.payment_history_movement_versions where shop_id='10000000-0000-4000-8000-000000003019';
   select count(*) into before_native from public.pos_sales where shop_id='10000000-0000-4000-8000-000000003019';
@@ -129,8 +129,8 @@ begin
   perform public.payment_history_migration_worker_v1('finish',jsonb_build_object('run_id',lease->>'run_id','lease_token',lease->>'lease_token','lease_fence',lease->>'lease_fence','raw_manifest',f->>'rawManifest','analysis_digest',f->>'analysisDigest'));
   review:=pg_temp.bulk_call(d,s,device_hash,session_hash,'review',jsonb_build_object('run_id',started->>'run_id'));
   if review->>'can_apply' is distinct from 'true' then raise exception 'bulk_fixture_review_not_applicable';end if;
-  receipt:=pg_temp.bulk_call(d,s,device_hash,session_hash,'apply',jsonb_build_object('run_id',started->>'run_id','request_key',key,'review_digest',review->>'review_digest'));
-  replay:=pg_temp.bulk_call(d,s,device_hash,session_hash,'apply',jsonb_build_object('run_id',started->>'run_id','request_key',key,'review_digest',review->>'review_digest'));
+  receipt:=pg_temp.bulk_call(d,s,device_hash,session_hash,'apply',jsonb_build_object('run_id',started->>'run_id','request_key',case_apply_key,'review_digest',review->>'review_digest'));
+  replay:=pg_temp.bulk_call(d,s,device_hash,session_hash,'apply',jsonb_build_object('run_id',started->>'run_id','request_key',case_apply_key,'review_digest',review->>'review_digest'));
   answer:=jsonb_build_object(
    'receiptCounts',jsonb_build_array(receipt->'new_active',receipt->'new_inactive',receipt->'duplicates',receipt->'new_batches'),
    'replayIdentical',receipt=replay,
