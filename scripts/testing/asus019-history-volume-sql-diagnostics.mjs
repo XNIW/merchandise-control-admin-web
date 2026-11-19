@@ -336,13 +336,21 @@ export function createOwnedVolumeSqlDiagnostics({runtime,query:runQuery,rpcGet,s
  const cacheCounters=()=>JSON.parse(query(`WITH cache_rows AS (SELECT calls,to_jsonb(s)->>'stats_since' AS since FROM ${schema}.pg_stat_statements s WHERE dbid=(SELECT oid FROM pg_database WHERE datname=current_database()) AND NOT toplevel AND trim(lower(regexp_replace(replace(query,'"',''),'[[:space:]]+',' ','g'))) LIKE 'select *%from public.payment_history_worker_requests where request_id%' AND query NOT ILIKE '%pg_stat_statements%'),epochs AS (SELECT since,count(*) AS members FROM cache_rows GROUP BY since) SELECT jsonb_build_object('calls',coalesce((SELECT sum(calls) FROM cache_rows),0),'statementEntries',(SELECT count(*) FROM cache_rows),'epochsAvailable',coalesce((SELECT bool_and(since IS NOT NULL) FROM cache_rows),true),'epochs',coalesce((SELECT jsonb_agg(jsonb_build_object('since',since,'members',members) ORDER BY since NULLS FIRST) FROM epochs),'[]'::jsonb),'statsReset',(SELECT stats_reset FROM ${schema}.pg_stat_statements_info),'dealloc',(SELECT dealloc FROM ${schema}.pg_stat_statements_info));`,true));
  const validCacheCohort=c=>Number.isSafeInteger(c.statementEntries)&&c.statementEntries>=0&&c.epochsAvailable===true&&Array.isArray(c.epochs)&&c.epochs.every(e=>typeof e.since==='string'&&Number.isSafeInteger(e.members)&&e.members>0)&&c.epochs.reduce((n,e)=>n+e.members,0)===c.statementEntries&&(c.statementEntries!==0||c.calls===0);
  async function settledFunctions(){
-  const started=monotonicNow(),observation={minimumIdleWaitMs:11000,maximumSamples:3,sampleIntervalMs:1100,samples:0,status:'FAIL',timingQualification:false};let previous;
+  const started=monotonicNow(),observation={minimumIdleWaitMs:11000,maximumIdleWaitAttempts:4,idleWaitAttempts:0,maximumSamples:3,sampleIntervalMs:1100,samples:0,status:'FAIL',timingQualification:false};let previous;
   (result.functionSettlementWindows??=[]).push(observation);
   try{
    // PG17.6 can defer idle-backend statistics for 10s, even though the
    // minimum reporting interval is 1s. Earlier equal samples can be stale.
    // This wait is observer time outside every measured RPC/Worker deadline.
-   await pause(11000);observation.idleWaitMs=monotonicNow()-started;demand(observation.idleWaitMs>=11000);
+   const deadline=started+11000;let observed=started;
+   demand(finite(started)&&finite(deadline)&&deadline>started);
+   for(let attempt=0;attempt<4&&observed<deadline;attempt++){
+    observation.idleWaitAttempts++;
+    await pause(Math.max(1,Math.ceil(deadline-observed)));
+    const current=monotonicNow();observation.idleWaitMs=current-started;
+    demand(finite(current)&&current>observed);observed=current;
+   }
+   demand(observed>=deadline&&observation.idleWaitMs>=11000);
    for(let i=0;i<3;i++){
     if(i>0)await pause(1100);const current=JSON.parse(query(functionSnapshotSQL()));observation.samples++;
     demand(functionDelta(current,current).valid);

@@ -318,12 +318,12 @@ test('idle flush window separates ten-second pending warm and GET counters witho
  assert.equal(f.calls.some(s=>/pg_stat_(?:reset\w*|force_next_flush)\s*\(/.test(s)),false);
 });
 
-test('an incomplete monotonic idle wait prevents Apply before its first function snapshot',async()=>{
+test('a nonadvancing monotonic idle wait prevents Apply before its first function snapshot',async()=>{
  const f=fixture(),pause=f.options.pause;let armed=false,invoked=0;
- f.options.pause=async ms=>pause(armed&&ms===11000?10999:ms);
+ f.options.pause=async ms=>pause(armed?0:ms);
  const d=createOwnedVolumeSqlDiagnostics(f.options);d.observeWarmResponse(f.nonce,{ok:true,run:null});await d.prepare();d.capture('before_analysis');d.finish();armed=true;
  await assert.rejects(()=>d.observeFinalization('baseline_apply',async()=>{invoked++;return {};}));assert.equal(invoked,0);
- const window=f.saved.at(-1).value.functionSettlementWindows.at(-1);assert.equal(window.idleWaitMs,10999);assert.equal(window.samples,0);assert.equal(window.status,'FAIL');
+ const window=f.saved.at(-1).value.functionSettlementWindows.at(-1);assert.equal(window.idleWaitMs,0);assert.equal(window.samples,0);assert.equal(window.status,'FAIL');
  armed=false;await d.restore();assert.equal(f.saved.at(-1).value.configurationRestored,true);
 });
 
@@ -398,4 +398,52 @@ test('unavailable function snapshot prevents the financial invocation before App
  f.options.query=(sql,options)=>armed&&sql===functionSnapshotSQL()?'null':original(sql,options);
  const d=createOwnedVolumeSqlDiagnostics(f.options);d.observeWarmResponse(f.nonce,{ok:true,run:null});await d.prepare();d.capture('before_analysis');d.finish();armed=true;
  await assert.rejects(()=>d.observeFinalization('baseline_apply',async()=>{requests++;return {};}));assert.equal(requests,0);armed=false;await d.restore();assert.equal(f.saved.at(-1).value.configurationRestored,true);
+});
+
+test('fractional early timer wake waits the monotonic remainder before all function snapshots',async()=>{
+ const f=fixture(),waits=[],query=f.options.query;let clock=0,windowStarted=null;
+ f.options.monotonicNow=()=>clock;
+ f.options.pause=async ms=>{waits.push(ms);if(ms===11000)windowStarted=clock;clock+=ms===11000?10999.736:ms;};
+ f.options.query=(sql,options)=>{if(sql===functionSnapshotSQL()&&windowStarted!==null)assert.ok(clock-windowStarted>=11000,'no function sample before the unchanged monotonic deadline');return query(sql,options);};
+ const d=createOwnedVolumeSqlDiagnostics(f.options);d.observeWarmResponse(f.nonce,{ok:true,run:null});
+ await d.prepare();await d.restore();const out=f.saved.at(-1).value;
+ assert.equal(out.configurationRestored,true);assert.equal(f.rpcCalls.length,2);assert.equal(out.functionSettlementWindows.length,4);
+ assert.ok(out.functionSettlementWindows.every(w=>w.minimumIdleWaitMs===11000&&w.maximumIdleWaitAttempts===4&&w.idleWaitAttempts===2&&w.idleWaitMs>=11000&&w.samples===2&&w.status==='STABLE_AFTER_IDLE_FLUSH_WINDOW'));
+ assert.equal(waits.filter(ms=>ms===1).length,4);
+ assert.equal(f.calls.some(sql=>/pg_stat_(?:reset\w*|force_next_flush)\s*\(/.test(sql)),false);
+});
+
+test('an exact or overshooting idle wait needs no residual pause',async()=>{
+ for(const extra of [0,0.25]){
+  const f=fixture(),waits=[];let clock=0;
+  f.options.monotonicNow=()=>clock;f.options.pause=async ms=>{waits.push(ms);clock+=ms+(ms===11000?extra:0);};
+  const d=createOwnedVolumeSqlDiagnostics(f.options);d.observeWarmResponse(f.nonce,{ok:true,run:null});await d.prepare();await d.restore();
+  const out=f.saved.at(-1).value;assert.equal(out.configurationRestored,true);
+  assert.ok(out.functionSettlementWindows.every(w=>w.idleWaitMs===11000+extra&&w.idleWaitAttempts===1&&w.samples===2));
+  assert.equal(waits.filter(ms=>ms===11000).length,4);assert.equal(waits.some(ms=>ms===1),false);assert.equal(f.rpcCalls.length,2);
+ }
+});
+
+test('an all-zero fake clock fails before any settlement function snapshot',async()=>{
+ const f=fixture(),waits=[];f.options.monotonicNow=()=>0;f.options.pause=async ms=>{waits.push(ms);};
+ const d=createOwnedVolumeSqlDiagnostics(f.options);d.observeWarmResponse(f.nonce,{ok:true,run:null});await d.prepareInstance();
+ const beforeSnapshots=f.calls.filter(sql=>sql===functionSnapshotSQL()).length;await assert.rejects(()=>d.prepare(),/preflight_failed/);
+ const out=f.saved.at(-1).value,window=out.functionSettlementWindows.at(-1);
+ assert.equal(window.idleWaitMs,0);assert.equal(window.idleWaitAttempts,1);assert.equal(window.samples,0);assert.equal(window.status,'FAIL');
+ assert.equal(f.calls.filter(sql=>sql===functionSnapshotSQL()).length,beforeSnapshots);assert.equal(f.rpcCalls.length,0);assert.equal(waits.filter(ms=>ms===11000).length,1);
+});
+
+for(const [name,step,expectedAttempts] of [
+ ['stalled',now=>now,1],['backward',now=>now-1,1],['nonfinite',()=>NaN,1],['infinite',()=>Infinity,1],
+ ['insufficient progress bounded by four waits',now=>now+1,4],
+])test(`monotonic ${name} prevents Apply and its first function snapshot`,async()=>{
+ const f=fixture();let clock=0,armed=false,attempts=0,invoked=0;
+ f.options.monotonicNow=()=>clock;f.options.pause=async ms=>{if(armed){attempts++;clock=step(clock);}else clock+=ms;};
+ const d=createOwnedVolumeSqlDiagnostics(f.options);d.observeWarmResponse(f.nonce,{ok:true,run:null});await d.prepare();d.capture('before_analysis');d.finish();
+ const safeClock=clock,beforeSnapshots=f.calls.filter(sql=>sql===functionSnapshotSQL()).length;armed=true;
+ await assert.rejects(()=>d.observeFinalization('baseline_apply',async()=>{invoked++;return {};}),/^Error: history_volume_diagnostic_finalization_observation_failed$/);
+ const window=f.saved.at(-1).value.functionSettlementWindows.at(-1);
+ assert.equal(invoked,0);assert.equal(attempts,expectedAttempts);assert.equal(window.idleWaitAttempts,expectedAttempts);assert.equal(window.samples,0);assert.equal(window.status,'FAIL');
+ assert.equal(f.calls.filter(sql=>sql===functionSnapshotSQL()).length,beforeSnapshots);
+ armed=false;clock=safeClock+11000;await d.restore();assert.equal(f.saved.at(-1).value.configurationRestored,true);
 });

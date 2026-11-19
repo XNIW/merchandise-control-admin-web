@@ -9,11 +9,11 @@ from pathlib import Path
 p=Path('scripts/ci/mobile-recovery-local-replay.py').resolve()
 spec=importlib.util.spec_from_file_location('reviewed_replay',p);m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
 files=m.reviewed_extension_test_files(m.REVIEWED_EXTENSIONS)
-assert len(files)==33 and len(m.REVIEWED_EXTENSIONS)==34
-assert 67+len(files)==100 and 4375+sum(x['additionalAssertions'] for x in m.REVIEWED_EXTENSIONS.values())==5510
-name='20261119012919_payment_history_baseline_apply_bulk_v1.sql'
-source=(Path('supabase/migrations')/name).read_bytes().replace(b'\r\n',b'\n')
-assert hashlib.sha256(source).hexdigest()==m.REVIEWED_EXTENSIONS[name]['sha256']
+assert len(files)==33 and len(m.REVIEWED_EXTENSIONS)==35
+assert 67+len(files)==100 and 4375+sum(x['additionalAssertions'] for x in m.REVIEWED_EXTENSIONS.values())==5517
+for name in ['20261119012919_payment_history_baseline_apply_bulk_v1.sql','20261119041341_payment_history_migration_movement_point_lookup_v1.sql']:
+ source=(Path('supabase/migrations')/name).read_bytes().replace(b'\r\n',b'\n')
+ assert hashlib.sha256(source).hexdigest()==m.REVIEWED_EXTENSIONS[name]['sha256']
 base={'01':{'testFile':'pipeline.sql','additionalAssertions':32},
       '02':{'testFile':'pipeline.sql','additionalAssertions':23,'extendsTestOf':'01'}}
 assert m.reviewed_extension_test_files(base)=={'pipeline.sql'}
