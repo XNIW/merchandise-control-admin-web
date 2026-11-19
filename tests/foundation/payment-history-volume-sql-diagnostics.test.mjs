@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createClient} from '@supabase/supabase-js';
 import {readFileSync} from 'node:fs';
-import {readOnlyCachedGatewayGet,closedDiagnosticFailure,closeExplainPlan,statementDelta,createOwnedVolumeSqlDiagnostics,statementSnapshotSQL,functionSnapshotSQL,functionDelta,positivePayloadProbeSQL,positivePayloadReadbackSQL,closePositivePayloadOutput} from '../../scripts/testing/asus019-history-volume-sql-diagnostics.mjs';
+import {readOnlyCachedGatewayGet,closedDiagnosticFailure,closeExplainPlan,statementDelta,createOwnedVolumeSqlDiagnostics,statementSnapshotSQL,functionSnapshotSQL,functionDelta,positivePayloadProbeSQL,positivePayloadReadbackSQL,closePositivePayloadOutput,fullSealSelect,fullSealProbeSQL,fullSealReadbackSQL,closeFullSealOutput} from '../../scripts/testing/asus019-history-volume-sql-diagnostics.mjs';
 import {measuredDeviceRequest} from '../../scripts/testing/asus019-history-volume-finalization.mjs';
 
 test('EXPLAIN export rebuilds a closed numerical tree and drops fixture values and query text',()=>{
@@ -355,6 +355,88 @@ function positiveRecords(){
 }
 function failedFinalization(){return {applyAttempts:1,steps:[{phase:'baseline_apply',httpStatus:500,sqlState:'57014'}],canonical:{state:'review_ready',runtimeRevision:'0',receiptPresent:false,applyKeyPresent:false,batches:0,movements:0,changeSets:0,replicaEvents:0,sourceSnapshots:0,acks:0,ackCount:0}};}
 
+function sealFixtureOutput(){
+ const metadata={...positiveRecords()[0].metadata,receipts:0,acks:0};
+ const definitions=['replica_payload','replica_entity_digest','replica_field_hash','revision_seal'].map((label,i)=>({label,sha256:String(i).repeat(64)}));
+ const before={phase:'before',metadata},after={phase:'after_rollback',metadata},functions={phase:'function_definitions',definitions};
+ const guard={phase:'seed_guard',batches:1,movements:25947,revisions:25947,joinedMovements:25947,unionEntities:25948,receipt:1,fkReferencesCoherent:true,constraintModeUnchanged:true,statementTimeoutMs:8000,lockTimeoutMs:6000};
+ const estimated=[{Plan:{'Node Type':'WindowAgg','Plan Rows':25948,'Plan Width':128,Plans:[{'Node Type':'Sort','Sort Key':['private fixture expression'],'Startup Cost':1,'Total Cost':2,Plans:[{'Node Type':'Append','Plan Rows':25948}]}]}}];
+ const analyzed=structuredClone(estimated);Object.assign(analyzed[0].Plan,{'Actual Rows':25948,'Actual Loops':1});analyzed[0]['Execution Time']=1700;
+ const prefix=[before,functions,guard].map(JSON.stringify).join('\n')+'\nA19_SEAL_PLAIN_BEGIN\n'+JSON.stringify(estimated,null,2)+'\nA19_SEAL_PLAIN_END\nA19_SEAL_ANALYZE_BEGIN\n';
+ const output=prefix+JSON.stringify(analyzed,null,2)+'\nA19_SEAL_ANALYZE_END\n'+[{phase:'rollback_complete',completed:true},after,functions].map(JSON.stringify).join('\n');
+ const readback=[after,functions,{phase:'connection_cleanup',activeConnections:0}].map(JSON.stringify).join('\n');
+ return {metadata,definitions,prefix,output,readback,guard,estimated,analyzed};
+}
+
+test('full seal probe binds the exact seven-column SELECT and preserves original constraint mode and limits',()=>{
+ const source=readFileSync(new URL('../../supabase/migrations/20261110044957_payment_history_migration_and_replica_v1.sql',import.meta.url),'utf8');
+ const select=fullSealSelect(source),script=fullSealProbeSQL(positiveRun);
+ assert.equal((select.match(/\$1/g)||[]).length,5);assert.equal((select.match(/\$2/g)||[]).length,4);
+ assert.match(select,/row_number\(\) over\(order by x.kind collate "C",x.id\)::integer/);
+ assert.match(script,new RegExp('prepare a19_seal_full\\(uuid,bigint\\) as '));assert.ok(script.includes(select));
+ assert.throws(()=>fullSealSelect(source.replace('row_number() over(order by x.kind','row_number() over(order by x.id')),/seal_source/);
+ assert.throws(()=>fullSealProbeSQL("bad';COMMIT;"),/scope/);
+ assert.equal((script.match(/explain \(analyze,buffers,timing off,format json\)/gi)||[]).length,1);assert.equal((script.match(/explain \(format json\)/gi)||[]).length,1);
+ assert.equal((script.match(/\bbegin;/g)||[]).length,1);assert.equal((script.match(/\brollback;/g)||[]).length,1);
+ assert.doesNotMatch(script,/\bcommit\b|set constraints|create function|alter function|\blimit 512\b|measure_payload512|\bvacuum\b|plan_cache_mode|__OWNED/i);
+ assert.match(script,/set local statement_timeout='8s'/);assert.match(script,/set local lock_timeout='6s'/);
+ assert.match(script,/seal_probe_uuid_collision/);assert.match(script,/b.local_id=m.local_batch_id/);
+ assert.ok(script.indexOf('insert into public.payment_history_receipts')<script.indexOf('insert into public.payment_history_revisions'));
+ assert.match(script,/q.shop_id=r.shop_id and q.operation_id=r.operation_id where q.operation_id is null/);
+ assert.ok(fullSealReadbackSQL(positiveRun).includes(`application_name='a19-seal-full-${positiveRun}'`));
+});
+
+test('full seal plan projection retains structural costs but no expressions, literals or fabricated node timing',()=>{
+ const secret='PRIVATE-DATA-DO-NOT-EXPORT',plan=[{Plan:{'Node Type':'WindowAgg','Plan Rows':25948,'Actual Rows':25948,'Actual Loops':1,'Actual Total Time':99,Output:[secret],Plans:[{'Node Type':'Hash Join','Join Type':'Inner','Hash Cond':secret,'Relation Name':'payment_history_revisions','Index Name':'payment_history_revisions_pkey','Shared Hit Blocks':40,'Temp Written Blocks':0,Plans:[{'Node Type':'Sort','Sort Method':'external merge','Sort Space Type':'Disk','Sort Space Used':24,'Sort Key':[secret],Workers:[{'Worker Number':0,'Actual Rows':1,Output:[secret]}]}]}]},'Execution Time':100,JIT:{Functions:2,Options:{Inlining:false,Optimization:true,Expressions:true,Deforming:true,secret},Timing:{Generation:0.1,Emission:0.5,Total:0.6,secret}}}];
+ const closed=closeExplainPlan(plan),json=JSON.stringify(closed);assert.equal(json.includes(secret),false);assert.equal(json.includes('Actual Total Time'),false);assert.equal(closed.plan.plans[0].relation,'payment_history_revisions');assert.equal(closed.plan.plans[0].joinType,'Inner');assert.equal(closed.plan.plans[0].plans[0].sortSpaceType,'Disk');assert.equal(closed.jit.timing.Total,0.6);
+ const out=sealFixtureOutput(),partial=closeFullSealOutput(out.prefix);assert.equal(partial.plans.estimated.plan.nodeType,'WindowAgg');assert.equal(partial.plans.analyzed,undefined);assert.equal(partial.partialPlan,'analyzed');assert.equal(partial.invalidLines,0);
+ const invalid=closeFullSealOutput(out.prefix+'raw sensitive SQL');assert.equal(JSON.stringify(invalid).includes('sensitive'),false);
+ assert.equal(closeFullSealOutput('raw sensitive SQL').invalidLines,1);
+});
+
+async function fullProbeFixture({failure,emptyPartial=false,cleanupSession=false,metadataDrift=false,definitionDrift=false,beforeDrift=false}={}){
+ const f=fixture(),original=f.options.query,o=sealFixtureOutput();let calls=0,reads=0;
+ f.options.query=(sql,options)=>{
+  if(options?.positiveProbe){calls++;assert.equal(sql,fullSealProbeSQL(positiveRun));if(failure){const e=Error('PRIVATE PROBE ERROR');e.diagnosticFailure=failure;e.diagnosticPartialOutput=emptyPartial?'':o.prefix;throw e;}return o.output;}
+  if(sql===fullSealReadbackSQL(positiveRun)){reads++;const parsed=o.readback.split('\n').map(JSON.parse);if(beforeDrift)parsed[0].metadata.run.stagedMovements=25946;if(reads>1){if(cleanupSession)parsed[2].activeConnections=1;if(metadataDrift)parsed[0].metadata.receipts=1;if(definitionDrift)parsed[1].definitions[0].sha256='f'.repeat(64);}return parsed.map(JSON.stringify).join('\n');}
+  return original(sql,options);
+ };
+ const d=createOwnedVolumeSqlDiagnostics(f.options);d.observeWarmResponse(f.nonce,{ok:true,run:null});await d.prepare();
+ return {f,d,o,counts:()=>({calls,reads})};
+}
+const completedWorker={status:'PASS_WORKER_ANALYSIS'};
+test('full seal observation is one diagnostic-only transaction with complete plans, function invariants and independently closed rollback',async()=>{
+ const {f,d,counts}=await fullProbeFixture();await d.fullSealProbe(positiveRun,failedFinalization(),completedWorker);await d.restore();
+ const out=f.saved.at(-1).value,item=out.fullSealProbe;assert.equal(counts().calls,1);assert.equal(item.status,'DIAGNOSTIC_SELECT_OBSERVATION_COMPLETE');assert.equal(item.analyzeAttempts,1);assert.equal(item.cleanupVerified,true);assert.equal(item.functionDefinitionsUnchanged,true);assert.equal(item.timingQualification,false);assert.equal(item.nodeTimingAvailable,false);assert.equal(out.configurationRestored,true);assert.notEqual(out.status,'PASS');
+ await assert.rejects(d.fullSealProbe(positiveRun,failedFinalization(),completedWorker),/probe_repeated/);assert.equal(counts().calls,1);
+});
+test('full seal timeout preserves estimated plan, original57014 and independent cleanup without retry',async()=>{
+ for(const failure of [{sqlState:'57014',kind:'sql_rejected'},{kind:'process_timeout'}]){
+  const {f,d,counts}=await fullProbeFixture({failure});const primary=failedFinalization(),original=structuredClone(primary);
+  await d.fullSealProbe(positiveRun,primary,completedWorker);assert.equal(await d.restore(),'DIAGNOSTIC_OBSERVATION_FAILED');
+  const item=f.saved.at(-1).value.fullSealProbe;assert.deepEqual(primary,original);assert.equal(counts().calls,1);assert.equal(item.status,'FAIL');assert.equal(item.estimatedPlanCaptured,true);assert.equal(item.analyzedPlanCaptured,false);assert.equal(item.analyzeAttempts,1);assert.equal(item.cleanupVerified,true);assert.equal(item.failure.kind,failure.kind);assert.equal(JSON.stringify(item).includes('PRIVATE'),false);
+ }
+});
+test('full seal observation cannot promote an open backend, state drift or changed function definitions',async()=>{
+ for(const option of ['cleanupSession','metadataDrift','definitionDrift']){
+  const {f,d,counts}=await fullProbeFixture({[option]:true});await d.fullSealProbe(positiveRun,failedFinalization(),completedWorker);await d.restore();
+  const out=f.saved.at(-1).value;assert.equal(out.fullSealProbe.status,'FAIL');assert.equal(out.fullSealProbe.cleanupVerified,false);assert.equal(out.status,'DIAGNOSTIC_OBSERVATION_FAILED');assert.equal(out.configurationRestored,true);assert.equal(counts().calls,1);if(option==='cleanupSession')assert.equal(counts().reads,9);
+ }
+});
+test('transport timeout without stdout leaves ANALYZE count unknown while proving cleanup separately',async()=>{
+ const {f,d,counts}=await fullProbeFixture({failure:{kind:'process_timeout'},emptyPartial:true});
+ await d.fullSealProbe(positiveRun,failedFinalization(),completedWorker);await d.restore();
+ const item=f.saved.at(-1).value.fullSealProbe;assert.equal(item.probeStarted,true);assert.equal(item.analyzeAttempts,null);assert.equal(item.maximumAnalyzeAttempts,1);assert.equal(item.estimatedPlanCaptured,false);assert.equal(item.cleanupVerified,true);assert.equal(item.status,'FAIL');assert.deepEqual(counts(),{calls:1,reads:2});
+});
+test('full seal prerequisites reject incomplete Worker, repeated Apply, wrong failure, publication or changed staging before seed',async()=>{
+ for(const change of [v=>v.applyAttempts=2,v=>v.steps.push({...v.steps[0]}),v=>v.steps[0].sqlState='42501',v=>v.canonical.receiptPresent=true,v=>v.canonical.runtimeRevision='1']){
+  const {f,d,counts}=await fullProbeFixture(),finalization=failedFinalization();change(finalization);await d.fullSealProbe(positiveRun,finalization,completedWorker);assert.equal(counts().calls,0);assert.equal(counts().reads,0);assert.equal(f.saved.at(-1).value.fullSealProbe.status,'NOT_RUN');
+ }
+ const noWorker=await fullProbeFixture();await noWorker.d.fullSealProbe(positiveRun,failedFinalization(),{status:'FAIL'});assert.equal(noWorker.counts().calls,0);
+ const drift=await fullProbeFixture({beforeDrift:true});await drift.d.fullSealProbe(positiveRun,failedFinalization(),completedWorker);assert.equal(drift.counts().calls,0);assert.equal(drift.f.saved.at(-1).value.fullSealProbe.probeStarted,false);
+ const runner=readFileSync(new URL('../../scripts/testing/asus019-history-volume.mjs',import.meta.url),'utf8');assert.doesNotMatch(runner,/\.positivePayloadProbe\(/);assert.match(runner,/fullSealProbe\(run.run_id,report.finalization,report.workerAnalysis\)/);assert.match(runner,/catch\{\/\* Primary RPC\/readback failure remains authoritative\. \*\/}}throw error;/);
+});
+
 test('positive fixture uses one rollback-only connection, exact512 and all six alternating positive samples',async()=>{
  let probes=0;const records=positiveRecords();
  const g=fixture(),original=g.options.query;
@@ -376,7 +458,7 @@ test('partial positive-probe failure preserves completed samples and separately 
 test('closed positive output never exports raw error text or accepts null payloads as equality',()=>{
  const records=positiveRecords();records[1].positive=0;records[2].secret='private-secret';const parsed=closePositivePayloadOutput(records.map(JSON.stringify).join('\n')+'\nraw secret error');
  assert.equal(parsed.invalidLines,2);assert.equal(JSON.stringify(parsed).includes('secret'),false);
- const runner=readFileSync(new URL('../../scripts/testing/asus019-history-volume.mjs',import.meta.url),'utf8');assert.match(runner,/timeout:positiveProbe\?90000:3000/);assert.match(runner,/positivePayloadProbe\(run.run_id,report.finalization\)/);assert.match(runner,/throw error;}/);
+ const runner=readFileSync(new URL('../../scripts/testing/asus019-history-volume.mjs',import.meta.url),'utf8');assert.match(runner,/timeout:positiveProbe\?90000:3000/);assert.match(runner,/fullSealProbe\(run.run_id,report.finalization,report.workerAnalysis\)/);assert.match(runner,/throw error;}/);
 });
 
 

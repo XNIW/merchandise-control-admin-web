@@ -142,7 +142,7 @@ try{
    'changeSets',(SELECT count(*) FROM public.payment_history_change_sets WHERE shop_id=${q(shop)}),
    'acks',(SELECT count(*) FROM public.payment_history_replica_acks WHERE shop_id=${q(shop)} AND shop_device_id=${q(device)}),
    'ackCount',(SELECT count(*) FROM public.payment_history_replica_acks a WHERE a.shop_id=j.shop_id AND a.shop_device_id=${q(device)} AND a.dataset_id=(j.receipt->>'dataset_id')::uuid AND a.revision=(j.receipt->>'revision')::bigint AND a.writer_epoch=(j.receipt->>'writer_epoch')::bigint AND a.checksum=${q(report.finalization.replica?.checksum??'')} AND a.protocol_version=1 AND a.client_build_sha=${q(clientSha)})) FROM public.payment_history_migration_runs j WHERE j.shop_id=${q(shop)} AND j.run_id=${q(run.run_id)};`))});
-  }catch(error){if(sqlDiagnostics){try{await sqlDiagnostics.positivePayloadProbe(run.run_id,report.finalization);}catch{/* Primary RPC/readback failure remains authoritative. */}}throw error;}
+  }catch(error){if(sqlDiagnostics){try{await sqlDiagnostics.fullSealProbe(run.run_id,report.finalization,report.workerAnalysis);}catch{/* Primary RPC/readback failure remains authoritative. */}}throw error;}
   demand(published.state==='applied'&&published.applyKeyPresent&&published.receiptPresent&&published.runtimeRevision===report.finalization.receipt.revision&&published.movements===25947&&published.batches===1&&published.sourceSnapshots===1&&published.replicaEvents===25948&&published.changeSets===1&&published.acks===1&&published.ackCount===1,'history_volume_finalization_canonical_readback');
   if(diagnosticOnly)report.finalization.status='DIAGNOSTIC_ONLY_FINALIZATION_COMPLETED';
  }

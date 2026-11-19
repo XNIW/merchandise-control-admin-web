@@ -1,6 +1,8 @@
 // Imported only by the existing owned volume runner. This is not a benchmark,
 // product migration or release qualification path. Never export query text.
 import {setTimeout as delay} from 'node:timers/promises';
+import {readFileSync} from 'node:fs';
+import {createHash} from 'node:crypto';
 const gateway='public.payment_history_worker_gateway_v1(uuid,text,text,jsonb)';
 const tables=['payment_history_migration_runs','payment_history_migration_objects','payment_history_migration_movements'];
 const tableList=tables.map(name=>`'${name}'`).join(',');
@@ -25,20 +27,33 @@ export async function readOnlyCachedGatewayGet(db,parameters,options){
 // EXPLAIN can contain fixture values in conditions, aliases, expressions and
 // output lists. Reconstruct a closed tree; do not remove a few known bad keys.
 export function closeExplainPlan(value){
- const allowedNodes=new Set(['Result','Seq Scan','Index Scan','Index Only Scan','Bitmap Heap Scan','Bitmap Index Scan','BitmapAnd','BitmapOr','Limit','LockRows','Nested Loop','Hash Join','Merge Join','Hash','Aggregate','Sort','Materialize','Memoize','Subquery Scan']);
+ const allowedNodes=new Set(['Result','Seq Scan','Index Scan','Index Only Scan','Bitmap Heap Scan','Bitmap Index Scan','BitmapAnd','BitmapOr','Limit','LockRows','Nested Loop','Hash Join','Merge Join','Hash','Aggregate','Sort','Incremental Sort','Materialize','Memoize','Subquery Scan','Append','Merge Append','WindowAgg','Gather','Gather Merge']);
+ const planTables=[...tables,'payment_history_batches','payment_history_movement_versions','payment_history_revisions'];
+ const indexes=new Map(planTables.map(t=>[t+'_pkey','primary_key']));
+ for(const [name,label] of [['payment_history_migration_runs_shop_id_run_id_key','run_shop_unique'],['payment_history_movement_versions_shop_id_movement_version_id_key','movement_shop_unique'],['payment_history_batches_shop_id_batch_id_key','batch_shop_unique'],['payment_history_movement_identity_versions_idx','movement_identity_versions'],['payment_history_movement_owner_idx','movement_owner'],['payment_history_movement_report_idx','movement_report'],['payment_history_movement_active_identity_idx','movement_active_identity']])indexes.set(name,label);
+ const numeric=['Plan Rows','Plan Width','Startup Cost','Total Cost','Actual Rows','Actual Loops','Rows Removed by Filter','Rows Removed by Index Recheck','Rows Removed by Join Filter','Shared Hit Blocks','Shared Read Blocks','Shared Dirtied Blocks','Shared Written Blocks','Local Hit Blocks','Local Read Blocks','Local Dirtied Blocks','Local Written Blocks','Temp Read Blocks','Temp Written Blocks','Sort Space Used','Workers Planned','Workers Launched','Hash Buckets','Original Hash Buckets','Hash Batches','Original Hash Batches','Peak Memory Usage'];
+ function properties(input){
+  const out={};for(const key of numeric)if(finite(input[key]))out[key]=input[key];
+  if(['Inner','Left','Right','Full','Semi','Anti'].includes(input['Join Type']))out.joinType=input['Join Type'];
+  if(['quicksort','top-N heapsort','external sort','external merge'].includes(input['Sort Method']))out.sortMethod=input['Sort Method'];
+  if(['Memory','Disk'].includes(input['Sort Space Type']))out.sortSpaceType=input['Sort Space Type'];
+  return out;
+ }
  let count=0;
  function node(input,depth=0){
   if(!input||typeof input!=='object'||depth>12||++count>64)throw Error('history_volume_diagnostic_plan_shape');
-  const out={nodeType:allowedNodes.has(input['Node Type'])?input['Node Type']:'other'};
-  if(input['Relation Name'])out.relation=tables.includes(input['Relation Name'])?input['Relation Name']:'other';
-  if(input['Index Name'])out.index=tables.some(t=>input['Index Name']===t+'_pkey')?'primary_key':input['Index Name']==='payment_history_migration_runs_shop_id_run_id_key'?'run_shop_unique':'other';
-  for(const key of ['Plan Rows','Plan Width','Actual Rows','Actual Loops','Rows Removed by Filter','Rows Removed by Index Recheck','Shared Hit Blocks','Shared Read Blocks','Shared Dirtied Blocks','Shared Written Blocks','Temp Read Blocks','Temp Written Blocks'])if(finite(input[key]))out[key]=input[key];
+   const out={nodeType:allowedNodes.has(input['Node Type'])?input['Node Type']:'other',...properties(input)};
+   if(input['Relation Name'])out.relation=planTables.includes(input['Relation Name'])?input['Relation Name']:'other';
+   if(input['Index Name'])out.index=indexes.get(input['Index Name'])??'other';
+   if(input.Workers){if(!Array.isArray(input.Workers)||input.Workers.length>16)throw Error('history_volume_diagnostic_plan_shape');out.workers=input.Workers.map(p=>properties(p));}
   if(input.Plans) {if(!Array.isArray(input.Plans)||input.Plans.length>16)throw Error('history_volume_diagnostic_plan_shape');out.plans=input.Plans.map(p=>node(p,depth+1));}
   return out;
  }
  if(!Array.isArray(value)||value.length!==1||!value[0]?.Plan)throw Error('history_volume_diagnostic_plan_shape');
  const result={plan:node(value[0].Plan),planOrigin:'fresh_observer_query_not_cached_plpgsql',cachedPlanObserved:false};
  for(const key of ['Planning Time','Execution Time'])if(finite(value[0][key]))result[key]=value[0][key];
+ if(value[0].JIT){const j=value[0].JIT;result.jit={};if(finite(j.Functions))result.jit.functions=j.Functions;
+  for(const [source,keys,target,type] of [['Options',['Inlining','Optimization','Expressions','Deforming'],'options','boolean'],['Timing',['Generation','Inlining','Optimization','Emission','Total'],'timing','number']])if(j[source]){result.jit[target]={};for(const k of keys)if(type==='boolean'?typeof j[source][k]==='boolean':finite(j[source][k]))result.jit[target][k]=j[source][k];}}
  return result;
 }
 
@@ -304,6 +319,120 @@ export function closePositivePayloadOutput(text){
  return {records,invalidLines};
 }
 
+// The measured SELECT is derived from the frozen product source, not a
+// hand-rewritten COUNT/projection. Only the two typed parameters differ.
+const sealSourceUrl=new URL('../../supabase/migrations/20261110044957_payment_history_migration_and_replica_v1.sql',import.meta.url);
+const sealSourceSha256='e71e3f076a9636297037b84086906329c0f872273f4110015473b492f2a801a2';
+const sealParametersSha256='46c51a217aea01e87c12320c44a2a9cc23e00d141f6bedd018ea37971fd07d45';
+export function fullSealSelect(source=readFileSync(sealSourceUrl,'utf8')){
+ const normalized=source.replaceAll('\r\n','\n'),start=normalized.indexOf('create function app_private.payment_history_seal_revision_v1('),end=normalized.indexOf('revoke all on function app_private.payment_history_seal_revision_v1(',start);
+ const body=normalized.slice(start,end),match=body.match(/\n (select p_shop,p_revision,[\s\S]*?\n \)x;)/);
+ const select=match?.[1]+'\n',hash=v=>createHash('sha256').update(v).digest('hex');
+ if(start<0||end<start||hash(select)!==sealSourceSha256)throw Error('history_volume_diagnostic_seal_source');
+ const parameters=select.replaceAll('p_shop','$1').replaceAll('p_revision','$2');
+ if(hash(parameters)!==sealParametersSha256)throw Error('history_volume_diagnostic_seal_parameters');
+ return parameters;
+}
+const sealFunctionLabels=['replica_payload','replica_entity_digest','replica_field_hash','revision_seal'];
+const sealFunctionsSQL=`SELECT jsonb_build_object('phase','function_definitions','definitions',jsonb_agg(jsonb_build_object('label',w.label,'sha256',CASE WHEN p.oid IS NOT NULL THEN encode(extensions.digest(convert_to(jsonb_build_array(p.prosrc,p.proowner,p.proacl,p.proconfig,p.prosecdef,p.provolatile,p.prorettype,p.proargtypes::text)::text,'UTF8'),'sha256'),'hex') END) ORDER BY w.ordinal)) FROM (VALUES
+ (1,'replica_payload','app_private.payment_history_replica_payload_v1(uuid,text,uuid)'),
+ (2,'replica_entity_digest','app_private.payment_history_replica_entity_digest_v1(text,jsonb)'),
+ (3,'replica_field_hash','app_private.payment_history_field_hash_v1(text[])'),
+ (4,'revision_seal','app_private.payment_history_seal_revision_v1(uuid,bigint)')) w(ordinal,label,signature) LEFT JOIN pg_proc p ON p.oid=to_regprocedure(w.signature);`;
+// Reuse the already reviewed seed's exact transaction/economic field mapping.
+// Full-cardinality additions (receipt/revisions) below are diagnostic data only.
+const fullSealMetadata=positivePayloadSQL.slice(positivePayloadSQL.lastIndexOf("select jsonb_build_object('phase','after_rollback'"))
+ .replace("'runtime',", "'receipts',(select count(*) from public.payment_history_receipts where shop_id='10000000-0000-4000-8000-000000693019'),'acks',(select count(*) from public.payment_history_replica_acks where shop_id='10000000-0000-4000-8000-000000693019'),'runtime',");
+function fullSealScope(runId){if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(runId??''))throw Error('history_volume_diagnostic_probe_scope');return `a19-seal-full-${runId}`;}
+export function fullSealReadbackSQL(runId){
+ const application=fullSealScope(runId);
+ return fullSealMetadata.replaceAll('__OWNED_SYNTHETIC_RUN_UUID__',runId)+'\n'+sealFunctionsSQL+`\nSELECT jsonb_build_object('phase','connection_cleanup','activeConnections',(SELECT count(*) FROM pg_stat_activity WHERE datname=current_database() AND application_name='${application}'));`;
+}
+export function fullSealProbeSQL(runId){
+ const application=fullSealScope(runId),select=fullSealSelect();
+ const seed=positivePayloadSQL.slice(positivePayloadSQL.indexOf('begin;'),positivePayloadSQL.indexOf('create temp table payload512_results'))
+ .replaceAll('payload512','seal_full').replaceAll('payload_probe_','seal_probe_').replaceAll('__OWNED_SYNTHETIC_RUN_UUID__',runId)
+ .replace('order by m.local_id::bigint limit 512;','order by m.local_id::bigint;').replaceAll('<>512','<>25947')
+ .replace('k.transaction,c.batch,null,','k.transaction,c.batch,(select r.source_upload_id from public.payment_history_migration_runs r where r.run_id=c.run_id and r.shop_id=c.shop),')
+ .replace("insert into public.payment_history_evidence",`do $full_guard$ begin
+ if (select count(*) from public.payment_history_migration_objects o join pg_temp.seal_full_context c on c.run_id=o.run_id)<>25955
+ or (select count(*) from public.payment_history_migration_objects o join pg_temp.seal_full_context c on c.run_id=o.run_id where o.table_name='batches')<>1
+ or (select count(*) from public.payment_history_migration_objects o join pg_temp.seal_full_context c on c.run_id=o.run_id where o.table_name='batches' and o.object->>'state'='Active')<>1
+ or (select count(*) from public.payment_history_migration_movements m join pg_temp.seal_full_context c on c.run_id=m.run_id and c.shop=m.shop_id join public.payment_history_migration_objects b on b.run_id=m.run_id and b.table_name='batches' and b.local_id=m.local_batch_id)<>25947
+ or (select count(*) from public.payment_history_migration_runs r join pg_temp.seal_full_context c on c.run_id=r.run_id and c.shop=r.shop_id join public.payment_history_uploads u on u.shop_id=r.shop_id and u.upload_id=r.source_upload_id)<>1
+ or exists(select 1 from public.payment_history_receipts r join pg_temp.seal_full_context c on c.shop=r.shop_id)
+ or exists(select 1 from public.payment_history_revisions r join pg_temp.seal_full_context c on c.shop=r.shop_id)
+ or exists(select 1 from public.payment_history_source_snapshots r join pg_temp.seal_full_context c on c.shop=r.shop_id)
+ or exists(select 1 from public.payment_history_replica_events r join pg_temp.seal_full_context c on c.shop=r.shop_id)
+ or exists(select 1 from public.payment_history_change_sets r join pg_temp.seal_full_context c on c.shop=r.shop_id)
+ or exists(select 1 from public.payment_history_runtime r join pg_temp.seal_full_context c on c.shop=r.shop_id where r.revision<>0)
+ then raise exception 'seal_probe_full_prerequisites';end if;
+ if exists(select 1 from public.payment_history_receipts r join pg_temp.seal_full_context c on r.operation_id=c.operation or (r.shop_id=c.shop and r.request_key=c.operation)) then raise exception 'seal_probe_uuid_collision';end if;
+end $full_guard$;
+insert into public.payment_history_evidence`);
+ const metadata=fullSealMetadata.replaceAll('__OWNED_SYNTHETIC_RUN_UUID__',runId);
+ return `SET application_name='${application}';
+${metadata.replace("'after_rollback'","'before'")}
+${sealFunctionsSQL}
+${seed}
+insert into public.payment_history_receipts(operation_id,shop_id,batch_id,operation_kind,actor_kind,actor_id,request_key,request_digest,receipt)
+ select operation,shop,batch,'migrate','pos_staff_manager',staff,operation,repeat('0',64),jsonb_build_object('syntheticRollbackOnly',true) from pg_temp.seal_full_context;
+insert into public.payment_history_revisions(shop_id,revision,ordinal,movement_version_id,operation_id,change_kind)
+ select c.shop,1,row_number() over(order by k.movement_id)::integer,k.movement_id,c.operation,'upsert' from pg_temp.seal_full_keys k cross join pg_temp.seal_full_context c;
+do $cardinality$ begin
+ if (select count(*) from public.payment_history_batches b join pg_temp.seal_full_context c on c.shop=b.shop_id)<>1
+ or (select count(*) from public.payment_history_batches b join pg_temp.seal_full_context c on c.shop=b.shop_id where b.created_revision=1 or b.cancelled_revision=1)<>1
+ or (select count(*) from public.payment_history_movement_versions v join pg_temp.seal_full_context c on c.shop=v.shop_id)<>25947
+ or (select count(*) from public.payment_history_revisions r join pg_temp.seal_full_context c on c.shop=r.shop_id where r.revision=1)<>25947
+ or (select count(*) from public.payment_history_revisions r join public.payment_history_movement_versions v on v.shop_id=r.shop_id and v.movement_version_id=r.movement_version_id join pg_temp.seal_full_context c on c.shop=r.shop_id where r.revision=1)<>25947
+ or (select count(*) from public.payment_history_receipts r join pg_temp.seal_full_context c on c.shop=r.shop_id and c.operation=r.operation_id)<>1
+ or exists(select 1 from public.payment_history_revisions r join pg_temp.seal_full_context c on c.shop=r.shop_id left join public.payment_history_receipts q on q.shop_id=r.shop_id and q.operation_id=r.operation_id where q.operation_id is null)
+ or exists(select 1 from public.payment_history_revisions r join pg_temp.seal_full_context c on c.shop=r.shop_id left join public.payment_history_movement_versions v on v.shop_id=r.shop_id and v.movement_version_id=r.movement_version_id where v.movement_version_id is null)
+ then raise exception 'seal_probe_cardinality';end if;
+end $cardinality$;
+select jsonb_build_object('phase','seed_guard','batches',1,'movements',25947,'revisions',25947,'joinedMovements',25947,'unionEntities',25948,'receipt',1,'fkReferencesCoherent',true,'constraintModeUnchanged',true,'statementTimeoutMs',extract(epoch from current_setting('statement_timeout')::interval)*1000,'lockTimeoutMs',extract(epoch from current_setting('lock_timeout')::interval)*1000);
+prepare a19_seal_full(uuid,bigint) as ${select}
+\u005cecho A19_SEAL_PLAIN_BEGIN
+explain (format json) execute a19_seal_full('10000000-0000-4000-8000-000000693019'::uuid,1::bigint);
+\u005cecho A19_SEAL_PLAIN_END
+\u005cecho A19_SEAL_ANALYZE_BEGIN
+explain (analyze,buffers,timing off,format json) execute a19_seal_full('10000000-0000-4000-8000-000000693019'::uuid,1::bigint);
+\u005cecho A19_SEAL_ANALYZE_END
+rollback;
+select jsonb_build_object('phase','rollback_complete','completed',true);
+${metadata}
+${sealFunctionsSQL}
+`;
+}
+export function closeFullSealOutput(text){
+ const records=[],plans={};let invalidLines=0,open=null,buffer=[],next=0;
+ const markers=['A19_SEAL_PLAIN_BEGIN','A19_SEAL_PLAIN_END','A19_SEAL_ANALYZE_BEGIN','A19_SEAL_ANALYZE_END'];
+ for(const line of String(text??'').split('\n').filter(s=>s.trim())){
+  const trimmed=line.trim();
+  if(markers.includes(trimmed)){
+   if(trimmed!==markers[next]){invalidLines++;continue;}next++;
+   if(trimmed.endsWith('_BEGIN')){open=trimmed.includes('PLAIN')?'estimated':'analyzed';buffer=[];}
+   else{try{plans[open]=closeExplainPlan(JSON.parse(buffer.join('\n')));}catch{invalidLines++;}open=null;buffer=[];}
+  }else if(open)buffer.push(line);
+  else try{
+   const v=JSON.parse(line);let out;
+   if(['before','after_rollback'].includes(v.phase)){
+    const original=closePositivePayloadOutput(line);if(original.invalidLines||original.records.length!==1||!['receipts','acks'].every(k=>Number.isSafeInteger(v.metadata?.[k])&&v.metadata[k]>=0))throw Error();
+    out=original.records[0];out.metadata.receipts=v.metadata.receipts;out.metadata.acks=v.metadata.acks;
+   }else if(v.phase==='function_definitions'){
+    if(!Array.isArray(v.definitions)||v.definitions.length!==4||!v.definitions.every((d,i)=>d.label===sealFunctionLabels[i]&&/^[0-9a-f]{64}$/.test(d.sha256)))throw Error();
+    out={phase:v.phase,definitions:v.definitions.map(d=>({label:d.label,sha256:d.sha256}))};
+   }else if(v.phase==='seed_guard'){
+    const expected={batches:1,movements:25947,revisions:25947,joinedMovements:25947,unionEntities:25948,receipt:1,fkReferencesCoherent:true,constraintModeUnchanged:true,statementTimeoutMs:8000,lockTimeoutMs:6000};
+    if(!Object.entries(expected).every(([k,value])=>v[k]===value))throw Error();out={phase:v.phase,...expected};
+   }else if(v.phase==='rollback_complete'&&v.completed===true)out={phase:v.phase,completed:true};
+   else if(v.phase==='connection_cleanup'&&Number.isSafeInteger(v.activeConnections)&&v.activeConnections>=0)out={phase:v.phase,activeConnections:v.activeConnections};
+   else throw Error();records.push(out);
+  }catch{invalidLines++;}
+ }
+ return {records,plans,invalidLines,partialPlan:open,completedPlanFrames:next};
+}
+
 export function createOwnedVolumeSqlDiagnostics({runtime,query:runQuery,rpcGet,save,serverSha,workerSha256,pause=delay,monotonicNow=()=>performance.now()}){
  if(runtime.url!=='http://127.0.0.1:54321'||!/^[0-9a-f]{64}$/.test(runtime.containerID)||!/^r4-ci-preflight-[0-9a-f]{12}$/.test(runtime.project)||runtime.head!==serverSha)throw Error('history_volume_diagnostic_ownership');
  const result={schema:'asus019-owned-volume-sql-diagnostic-v2',diagnosticOnly:true,timingQualification:false,ownershipVerified:true,serverSha,workerSha256,limits:{analysisBudgetMs:120000,requestBudgetMs:15000,canonicalRowLimit:200,vectorChunkLimit:4},snapshots:[],freshPlans:[],errors:[],configurationRestored:false,cachedPlanObserved:false,observerTimeScope:'synchronous_sql_calls_only_no_nested_double_count',preflight:{passed:false,stage:'not_started'},configurationScope:'single_owned_disposable_instance'};
@@ -486,6 +615,44 @@ export function createOwnedVolumeSqlDiagnostics({runtime,query:runQuery,rpcGet,s
    }
   }
  }
+ async function fullSealProbe(runId,finalization,workerAnalysis){
+  if(result.fullSealProbe)throw Error('history_volume_diagnostic_probe_repeated');
+  const failed=finalization?.steps?.filter(s=>s.phase==='baseline_apply'),c=finalization?.canonical;
+  const item=result.fullSealProbe={status:'NOT_RUN',diagnosticOnly:true,timingQualification:false,sourceSelectSha256:sealSourceSha256,parameterizedSelectSha256:sealParametersSha256,rows:25947,unionEntities:25948,statementTimeoutMs:8000,lockTimeoutMs:6000,transportTimeoutMs:90000,maximumAnalyzeAttempts:1,analyzeAttempts:0,cleanupVerified:false,
+   planOrigin:'fresh_prepared_select_not_cached_apply_plan',eventInsertMeasured:false,nodeTimingAvailable:false,bufferScope:'inclusive_nodes_not_additive',seedContext:'rollback_only_after_failed_apply_not_original_mvcc_or_cache',constraintMode:'unchanged_original_deferred_fk_with_coherent_references'};
+  if(!result.preflight.passed||workerAnalysis?.status!=='PASS_WORKER_ANALYSIS'||finalization?.applyAttempts!==1||failed?.length!==1||failed[0].sqlState!=='57014'||failed[0].httpStatus!==500||c?.state!=='review_ready'||c.runtimeRevision!=='0'||c.receiptPresent!==false||c.applyKeyPresent!==false||!['batches','movements','changeSets','replicaEvents','sourceSnapshots','acks','ackCount'].every(k=>c[k]===0)){item.reason='original_worker_apply_or_canonical_prerequisite_unavailable';persist();return;}
+  item.status='FAIL';item.afterOriginalFailedApply=true;let before,definitions,probeStarted=false;
+  const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+  const closeReadback=text=>{const closed=closeFullSealOutput(text);demand(closed.invalidLines===0&&closed.completedPlanFrames===0&&closed.records.length===3&&closed.records[0].phase==='after_rollback'&&closed.records[1].phase==='function_definitions'&&closed.records[2].phase==='connection_cleanup');return closed;};
+  const remember=closed=>{item.observation=closed;item.estimatedPlanCaptured=!!closed.plans.estimated;item.analyzedPlanCaptured=!!closed.plans.analyzed;item.analyzeAttempts=closed.completedPlanFrames>=3?1:null;};
+  try{
+   // Validate source binding before any seed or EXPLAIN can be emitted.
+   const script=fullSealProbeSQL(runId),baseline=closeReadback(query(fullSealReadbackSQL(runId)));
+   demand(baseline.records[2].activeConnections===0);before=baseline.records[0].metadata;definitions=baseline.records[1].definitions;item.before=before;item.functionDefinitionsBefore=definitions;
+   demand(before.run.stagedMovements===25947&&before.run.stagedObjects===25955&&before.runtime.revision==='0'&&before.run.receiptPresent===false&&before.run.applyKeyPresent===false&&['batches','movements','revisions','receipts','sourceSnapshots','replicaEvents','changeSets','acks'].every(k=>before[k]===0));
+   let output;probeStarted=true;
+   try{output=query(script,false,true);}catch(error){remember(closeFullSealOutput(error?.diagnosticPartialOutput));item.failure=closedDiagnosticFailure(error?.diagnosticFailure??{});throw error;}
+   const closed=closeFullSealOutput(output);remember(closed);
+   demand(closed.invalidLines===0&&closed.partialPlan===null&&closed.completedPlanFrames===4&&closed.plans.estimated&&closed.plans.analyzed&&closed.records.length===6);
+   demand(same(closed.records.map(r=>r.phase),['before','function_definitions','seed_guard','rollback_complete','after_rollback','function_definitions']));
+   demand(same(closed.records[0].metadata,before)&&same(closed.records[4].metadata,before)&&same(closed.records[1].definitions,definitions)&&same(closed.records[5].definitions,definitions));
+   demand(closed.plans.analyzed.plan['Actual Rows']===25948&&closed.plans.analyzed.plan['Actual Loops']===1&&finite(closed.plans.analyzed['Execution Time']));
+   item.completedObservationVerified=true;
+  }catch(error){item.failure??=closedDiagnosticFailure(error?.diagnosticFailure??{});try{record('full_seal_probe',error);}catch{/* Original Apply error remains primary. */}}
+  finally{
+   item.probeStarted=probeStarted;
+   if(before&&definitions)try{
+    for(let i=0;i<8;i++){
+     const cleanup=closeReadback(query(fullSealReadbackSQL(runId)));item.cleanup=cleanup;
+     if(cleanup.records[2].activeConnections===0){item.metadataRestored=same(cleanup.records[0].metadata,before);item.functionDefinitionsUnchanged=same(cleanup.records[1].definitions,definitions);item.cleanupVerified=item.metadataRestored&&item.functionDefinitionsUnchanged;break;}
+     await pause(1100);
+    }
+    demand(item.cleanupVerified);
+   }catch(error){try{record('full_seal_probe_cleanup',error);}catch{/* Restore both GUCs even if cleanup evidence fails. */}}
+   if(item.completedObservationVerified&&item.cleanupVerified)item.status='DIAGNOSTIC_SELECT_OBSERVATION_COMPLETE';
+   try{persist();}catch{/* Never replace the primary request error. */}
+  }
+ }
  async function positivePayloadProbe(runId,finalization){
   const failed=finalization?.steps?.find(s=>s.phase==='baseline_apply'),c=finalization?.canonical;
   if(!result.preflight.passed||finalization?.applyAttempts!==1||failed?.sqlState!=='57014'||failed?.httpStatus!==500||c?.state!=='review_ready'||c.runtimeRevision!=='0'||c.receiptPresent!==false||c.applyKeyPresent!==false||!['batches','movements','changeSets','replicaEvents','sourceSnapshots','acks','ackCount'].every(k=>c[k]===0))return;
@@ -556,5 +723,5 @@ export function createOwnedVolumeSqlDiagnostics({runtime,query:runQuery,rpcGet,s
   }
   return result.status;
  }
- return {observeWarmResponse,prepareInstance,prepare,capture,onVector,finish,observeFinalization,positivePayloadProbe,restore};
+ return {observeWarmResponse,prepareInstance,prepare,capture,onVector,finish,observeFinalization,positivePayloadProbe,fullSealProbe,restore};
 }
