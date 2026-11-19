@@ -5,6 +5,8 @@ import {readFileSync} from 'node:fs';
 import {createHash} from 'node:crypto';
 import {readOnlyCachedGatewayGet,closedDiagnosticFailure,closeExplainPlan,statementDelta,createOwnedVolumeSqlDiagnostics,statementSnapshotSQL,functionSnapshotSQL,functionDelta,positivePayloadProbeSQL,positivePayloadReadbackSQL,closePositivePayloadOutput,fullSealSelect,fullSealProbeSQL,fullSealReadbackSQL,closeFullSealOutput} from '../../scripts/testing/asus019-history-volume-sql-diagnostics.mjs';
 import {measuredDeviceRequest} from '../../scripts/testing/asus019-history-volume-finalization.mjs';
+import {load} from './helpers/payment-history-harness.mjs';
+const {isComposedHistoryV2}=load('src/server/payment-history/device-composed-contract.ts');
 
 test('EXPLAIN export rebuilds a closed numerical tree and drops fixture values and query text',()=>{
  const secret='synthetic-marker-must-not-escape';
@@ -184,7 +186,7 @@ test('primary Apply57014 survives successful collection or query, JSON, delta an
    requests++;return new Response(JSON.stringify({code:'57014',message:'private-primary-error'}),{status:500,headers:{'content-type':'application/json'}});
   }}});
   await assert.rejects(()=>f.d.observeFinalization('baseline_apply',async()=>{
-   try{return await measuredDeviceRequest({db,scope:{},operation:'baseline_apply',payload:{},steps});}
+   try{return await measuredDeviceRequest({db,scope:{},operation:'baseline_apply',payload:{},steps,isComposedHistoryV2});}
    catch(error){primary=error;f.setFault(fault);throw error;}
   }),error=>error===primary);
   assert.equal(requests,1);assert.equal(steps.length,1);assert.equal(steps[0].sqlState,'57014');assert.equal(steps[0].httpStatus,500);

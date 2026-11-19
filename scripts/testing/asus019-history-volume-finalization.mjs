@@ -14,9 +14,11 @@ export function verifyFinalizationSqlBudget(metadata){
 
 // One request, including on 57014/HTTP500. The original upstream status/code is
 // retained before throwing; neither an abort nor the outer catch overwrites it.
-export async function measuredDeviceRequest({db,scope,operation,payload,steps,phase=operation}){
+export async function measuredDeviceRequest({db,scope,operation,payload,steps,phase=operation,isComposedHistoryV2}){
+ demand(typeof isComposedHistoryV2==='function','finalization_rpc_selector');
+ const rpc=isComposedHistoryV2(operation)?'payment_history_device_http_v2':'payment_history_device_v1';
  const started=performance.now();let reply;
- try{reply=await db.rpc('payment_history_device_http_v2',{...scope,p_operation:operation,p_payload:payload}).abortSignal(AbortSignal.timeout(15000));}
+ try{reply=await db.rpc(rpc,{...scope,p_operation:operation,p_payload:payload}).abortSignal(AbortSignal.timeout(15000));}
  catch{steps.push({phase,operation,status:'FAIL',elapsedMs:performance.now()-started,httpStatus:null,sqlState:null,kind:'transport_unavailable'});throw Error('history_volume_finalization_transport');}
  const elapsedMs=performance.now()-started,ok=!reply.error&&reply.data?.ok===true&&reply.data.shop_id===scope.p_shop_id&&reply.data.device_id===scope.p_shop_device_id;
  steps.push({phase,operation,status:ok?'PASS':'FAIL',elapsedMs,httpStatus:Number.isInteger(reply.status)?reply.status:null,

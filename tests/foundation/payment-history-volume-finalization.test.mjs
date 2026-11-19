@@ -7,6 +7,7 @@ import {load} from './helpers/payment-history-harness.mjs';
 import {verifyFinalizationSqlBudget,measuredDeviceRequest,finalizeVolumeBaseline,observeFinalizationCanonical} from '../../scripts/testing/asus019-history-volume-finalization.mjs';
 const {projectBaselineSqlResult}=load('src/server/payment-history/local-baseline-contract.ts');
 const {validateDeviceHistoryResult}=load('src/server/payment-history/replica-contract.ts');
+const {isComposedHistoryV2}=load('src/server/payment-history/device-composed-contract.ts');
 const {windowsFieldHash}=load('src/server/payment-history/ledger-contract.ts');
 const sha=v=>createHash('sha256').update(v).digest('hex'),id=n=>'10000000-0000-4000-8000-'+String(n).padStart(12,'0');
 const shop=id(1),runId=id(2),device=id(3),dataset=id(4),batch=id(5),merchant=id(6),applyKey=id(7),snapshotKey=id(8),sourceSnapshot=id(9),operationId=id(10),lineage=id(11),clientSha='c4015dd1d7deac74c38bcb4532532ea511ba1880';
@@ -19,7 +20,7 @@ const entities=[batchEntity,...Array.from({length:25947},(_,i)=>entity('movement
  economic_digest:windowsFieldHash(['historical-economics-v1','1','1000','10','0','990','Sale','CONFIRMADA']),active:true,business_ticks:'1',gross_clp:'1000',fee_clp:'10',fee_vat_clp:'0',net_clp:'990',movement_kind:'Sale',transaction_state:'CONFIRMADA',external_namespace:'getnet.legacy.transaction',external_id:String(i),source_sheet:'Synthetic',source_row:'2',timestamp_raw:'synthetic',offset_minutes:null,occurred_at_utc:null,time_interpretation:null,time_policy_version:null,time_evidence_reference:null,card_subtype:'Debit',created_revision:'1'
 }))];
 const checksum=sha(['history-replica-snapshot-v1',shop,dataset,'1','1',''].join('\n')+entities.map(e=>e.kind+'|'+e.id+'|'+e.digest+'\n').join(''));
-function fixture(change=()=>{}){
+function fixture(change=()=>{},adaptRequest=request=>request){
  const calls=[],report={steps:[]};let ordinal=0;
  const request=async(operation,payload)=>{
   calls.push({operation,payload});let value;
@@ -33,7 +34,7 @@ function fixture(change=()=>{}){
   }else if(operation==='replica_ack')value={acknowledged:true,revision:'1',writer_epoch:'1'};
   else throw Error('Unexpected operation');change(operation,value,payload);return value;
  };
- return {calls,report,run:()=>finalizeVolumeBaseline({request,manifest,shop,runId,context,applyKey,snapshotKey,clientSha,validateBaseline:projectBaselineSqlResult,validateReplica:validateDeviceHistoryResult,report})};
+ return {calls,report,run:()=>finalizeVolumeBaseline({request:adaptRequest(request),manifest,shop,runId,context,applyKey,snapshotKey,clientSha,validateBaseline:projectBaselineSqlResult,validateReplica:validateDeviceHistoryResult,report})};
 }
 test('full-volume finalization matches c401 receipt-first order and130pages of200, validating contracts and checksum before ACK',async()=>{
  const f=fixture();await f.run();assert.equal(f.report.status,'PASS_FULL_VOLUME_FINALIZATION');assert.equal(f.report.applyAttempts,1);assert.equal(f.report.applyOutcome,'ACKNOWLEDGED');assert.equal(f.report.replica.movements,25947);assert.equal(f.report.replica.pages,130);assert.equal(f.report.replica.pageSize,200);assert.equal(f.report.receipt.sha256,f.report.receipt.readbackSha256);
@@ -43,6 +44,37 @@ test('full-volume finalization matches c401 receipt-first order and130pages of20
  assert.deepEqual(f.calls.filter(c=>c.operation==='baseline_apply').map(c=>c.payload.request_key),[applyKey]);
  const ack=f.calls.at(-1);assert.equal(ack.operation,'replica_ack');assert.equal(ack.payload.checksum,checksum);assert.equal(ack.payload.client_build_sha,clientSha);
  assert.equal(JSON.stringify(f.report).includes('gross_clp'),false);
+});
+
+test('actual SDK uses the production selector for the complete receipt Apply snapshot page ACK chain',async t=>{
+ const wire=[],timeouts=[],timeout=AbortSignal.timeout;
+ t.mock.method(AbortSignal,'timeout',milliseconds=>{timeouts.push(milliseconds);return timeout(milliseconds);});
+ const scope={p_shop_id:shop,p_shop_device_id:device,p_staff_id:id(20),p_pos_session_id:id(21),p_device_token_hash:'synthetic-device-hash',p_session_token_hash:'synthetic-session-hash',p_credential_version:1};
+ const f=fixture(()=>{},request=>{
+  const db=createClient('http://127.0.0.1:54321','synthetic-owned-key',{auth:{persistSession:false,autoRefreshToken:false},global:{fetch:async(url,init)=>{
+   const body=JSON.parse(init.body);wire.push({path:new URL(url).pathname,method:init.method,body,signal:init.signal});
+   const result=await request(body.p_operation,body.p_payload);
+   return new Response(JSON.stringify({ok:true,shop_id:shop,device_id:device,result}),{status:200,headers:{'Content-Type':'application/json'}});
+  }}});
+  return (operation,payload)=>measuredDeviceRequest({db,scope,operation,payload,steps:f.report.steps,isComposedHistoryV2});
+ });
+ await f.run();
+ assert.equal(f.report.status,'PASS_FULL_VOLUME_FINALIZATION');assert.equal(wire.length,136);assert.equal(f.report.steps.length,136);
+ for(let i=0;i<wire.length;i++){
+  const expected=isComposedHistoryV2(f.calls[i].operation)?'payment_history_device_http_v2':'payment_history_device_v1';
+  assert.equal(wire[i].path,'/rest/v1/rpc/'+expected,f.calls[i].operation);
+  assert.equal(wire[i].method,'POST');assert.deepEqual(wire[i].body,{...scope,p_operation:f.calls[i].operation,p_payload:f.calls[i].payload});
+  assert.ok(wire[i].signal instanceof AbortSignal);assert.equal(wire[i].signal.aborted,false);
+ }
+ assert.deepEqual(timeouts,Array(136).fill(15000));assert.equal(wire.filter(w=>w.body.p_operation==='baseline_apply').length,1);
+ assert.equal(wire.filter(w=>w.body.p_operation==='page').length,130);assert.equal(f.report.replica.pageSize,200);
+ assert.equal(f.report.receipt.sha256,f.report.receipt.readbackSha256);assert.equal(f.report.replica.checksum,checksum);assert.equal(f.report.replica.acknowledged,true);
+});
+
+test('measured device requests require the explicit frozen selector before any RPC',async()=>{
+ let calls=0;const steps=[];
+ await assert.rejects(()=>measuredDeviceRequest({db:{rpc(){calls++;throw Error('unexpected RPC');}},scope:{},operation:'snapshot_start',payload:{},steps}),/finalization_rpc_selector/);
+ assert.equal(calls,0);assert.deepEqual(steps,[]);
 });
 for(const [name,change,phase] of [
  ['preexisting receipt',(op,v)=>{if(op==='baseline_receipt'&&v.receipt===null)v.receipt=structuredClone(receipt);},'baseline_receipt_preflight'],
@@ -60,7 +92,7 @@ for(const [name,change,phase] of [
 test('actual PostgREST client retains HTTP500/57014 and never retries the Apply',async()=>{
  let requests=0;const scope={p_shop_id:shop,p_shop_device_id:device},steps=[];
  const db=createClient('http://127.0.0.1:54321','synthetic-owned-key',{auth:{persistSession:false,autoRefreshToken:false},global:{fetch:async(_url,init)=>{requests++;assert.ok(init.signal);return new Response(JSON.stringify({code:'57014',message:'private-marker',details:'private-marker',hint:'private-marker'}),{status:500,headers:{'Content-Type':'application/json'}});}}});
- await assert.rejects(()=>measuredDeviceRequest({db,scope,operation:'baseline_apply',payload:{},steps}),/finalization_rpc_failed/);
+ await assert.rejects(()=>measuredDeviceRequest({db,scope,operation:'baseline_apply',payload:{},steps,isComposedHistoryV2}),/finalization_rpc_failed/);
  assert.equal(requests,1);assert.equal(steps[0].httpStatus,500);assert.equal(steps[0].sqlState,'57014');assert.equal(steps[0].operation,'baseline_apply');assert.ok(steps[0].elapsedMs>=0);assert.equal(JSON.stringify(steps).includes('private-marker'),false);
 });
 test('failed Apply retains unknown outcome and phase without receipt/page requests',async()=>{
