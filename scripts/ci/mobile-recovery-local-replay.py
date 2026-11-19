@@ -18,6 +18,7 @@ NATIVE_EMPTY = '20261108051044_asus_019_native_empty_catalog_scope.sql'
 NATIVE_EMPTY_SHA = 'af69667d6e8e9988a833c4cb2b818c4378061cbc6869c4821b29aa5e64e379ce'
 NATIVE_EMPTY_BODY_MD5 = '9622c4d3a4c793a7803d730b8a8c51d4'
 REVIEWED_EXTENSIONS = {
+    '20261119012919_payment_history_baseline_apply_bulk_v1.sql': {'sha256':'0b9728acc5822c1ba5712d34310d7235e156a7d48c3668b673f26dc89e64a450','additionalAssertions':23,'testFile':'supabase/tests/asus019_payment_history_device_baseline_pipeline.sql','extendsTestOf':'20261111014055_payment_history_device_baseline_pipeline_v2.sql'},
     '20261114114133_asus019_failed_baseline_recovery_v1.sql': {'sha256':'874970dc5184ca90b7210126310be8529936bb34f70bedf59062dba028b304bd','additionalAssertions':67,'testFile':'supabase/tests/asus019_payment_history_failed_baseline_recovery.sql'},
     '20261114024018_payment_history_migration_stage_vector_v2.sql': {'sha256':'c9811ee6228e71f9d8788ad1d65bddf6d5e5d4973bda5ddeaec41e2feb4faf07','additionalAssertions':23,'testFile':'supabase/tests/asus019_history_migration_stage_vector.sql'},
     '20261112234538_asus019_history_qualified_configuration_v1.sql': {'sha256':'e2d31646d59cf12f627281bdf800e90c5e3fc779fc2cee96d87d586c949968bc','additionalAssertions':41,'testFile':'supabase/tests/asus019_history_qualified_configuration.sql'},
@@ -1144,6 +1145,24 @@ def apply_reviewed_extension(root, name, spec):
     prefix_manifest(root)
 
 
+def reviewed_extension_test_files(extensions):
+    # An additive migration may extend its earlier reviewed test file, but
+    # duplicate membership must name that exact earlier migration explicitly.
+    files = set()
+    reviewed = {}
+    for name, spec in sorted(extensions.items()):
+        parent = spec.get('extendsTestOf')
+        if parent is not None:
+            require(parent in reviewed and spec['testFile'] == reviewed[parent]['testFile']
+                    and type(spec['additionalAssertions']) is int and spec['additionalAssertions'] > 0,
+                    'reviewed extension test parent drift')
+        else:
+            require(spec['testFile'] not in files, 'unreviewed duplicate extension test membership')
+        files.add(spec['testFile'])
+        reviewed[name] = spec
+    return files
+
+
 def replay(repo, workdir, bootstrap_only=False):
     global ERROR_ROOT, REPLAY_STAGE
     os.umask(0o077)
@@ -1152,8 +1171,8 @@ def replay(repo, workdir, bootstrap_only=False):
     root = root_path(workdir); ERROR_ROOT = root
     inputs = prefix_manifest(root)
     tests = sorted(name for name in inputs["files"] if name.startswith("supabase/tests/") and name.endswith(".sql"))
-    extension_tests = {spec["testFile"] for spec in REVIEWED_EXTENSIONS.values()}
-    require(len(extension_tests) == len(REVIEWED_EXTENSIONS) and extension_tests.issubset(tests)
+    extension_tests = reviewed_extension_test_files(REVIEWED_EXTENSIONS)
+    require(extension_tests.issubset(tests)
             and len(tests) == 67 + len(extension_tests) and "supabase/tests/asus_019_native_empty_catalog_scope.sql" in tests,
             "reviewed HEAD database test membership changed")
     for name, action in (("fresh local gate", empty_local), ("prefix bootstrap", start_prefix),
