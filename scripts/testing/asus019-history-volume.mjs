@@ -115,8 +115,10 @@ try{
  report.workerAnalysis={status:'PASS_WORKER_ANALYSIS',publishedBatchesBeforeApply:0,elapsedMs:measured.elapsedMs};
  // Keep analysis and publication separate. A finalization failure cannot emit
  // a qualified artifact, even when the unchanged120s Worker test passed.
- if(!diagnosticOnly){
-  phase='finalization';report.finalization={status:'NOT_RUN',steps:[]};
+ // Diagnostic mode uses the same real finalization once, while retaining
+ // its nonqualifying status and excluding every release artifact below.
+ {
+  phase='finalization';report.finalization={status:'NOT_RUN',diagnosticOnly,timingQualification:!diagnosticOnly,steps:[]};
   const budget=JSON.parse(sql(`SELECT jsonb_build_object(
    'authenticator',(SELECT split_part(c,'=',2) FROM pg_roles,unnest(rolconfig) c WHERE rolname='authenticator' AND c LIKE 'statement_timeout=%'),
    'authenticated',(SELECT split_part(c,'=',2) FROM pg_roles,unnest(rolconfig) c WHERE rolname='authenticated' AND c LIKE 'statement_timeout=%'),
@@ -129,7 +131,7 @@ try{
   await build({stdin:{contents:"export {projectBaselineSqlResult} from './src/server/payment-history/local-baseline-contract';export {validateDeviceHistoryResult} from './src/server/payment-history/replica-contract';",resolveDir:root},bundle:true,platform:'node',target:'node24',format:'cjs',conditions:['react-server'],outfile:join(evidence,'volume-validation.cjs'),logLevel:'silent'});
   const validation=createRequire(import.meta.url)(join(evidence,'volume-validation.cjs'));
   let finalizationError;
-  try{await finalizeVolumeBaseline({request:(operation,payload)=>{if(operation==='baseline_apply')report.financialApply=true;return measuredDeviceRequest({db,scope,operation,payload,steps:report.finalization.steps,phase:report.finalization.phase});},manifest:m,shop,runId:run.run_id,context,applyKey:randomUUID(),snapshotKey:randomUUID(),clientSha,
+  try{await finalizeVolumeBaseline({request:(operation,payload)=>{const invoke=()=>{if(operation==='baseline_apply')report.financialApply=true;return measuredDeviceRequest({db,scope,operation,payload,steps:report.finalization.steps,phase:report.finalization.phase});};return sqlDiagnostics?sqlDiagnostics.observeFinalization(report.finalization.phase,invoke):invoke();},manifest:m,shop,runId:run.run_id,context,applyKey:randomUUID(),snapshotKey:randomUUID(),clientSha,
    validateBaseline:validation.projectBaselineSqlResult,validateReplica:validation.validateDeviceHistoryResult,report:report.finalization});}catch(error){finalizationError=error;}
   const published=observeFinalizationCanonical({originalError:finalizationError,report:report.finalization,read:()=>JSON.parse(sql(`SELECT jsonb_build_object('state',j.state,'applyKeyPresent',j.apply_request_key IS NOT NULL,'receiptPresent',j.receipt IS NOT NULL,
    'runtimeRevision',(SELECT revision::text FROM public.payment_history_runtime WHERE shop_id=${q(shop)}),
@@ -140,6 +142,7 @@ try{
    'acks',(SELECT count(*) FROM public.payment_history_replica_acks WHERE shop_id=${q(shop)} AND shop_device_id=${q(device)}),
    'ackCount',(SELECT count(*) FROM public.payment_history_replica_acks a WHERE a.shop_id=j.shop_id AND a.shop_device_id=${q(device)} AND a.dataset_id=(j.receipt->>'dataset_id')::uuid AND a.revision=(j.receipt->>'revision')::bigint AND a.writer_epoch=(j.receipt->>'writer_epoch')::bigint AND a.checksum=${q(report.finalization.replica?.checksum??'')} AND a.protocol_version=1 AND a.client_build_sha=${q(clientSha)})) FROM public.payment_history_migration_runs j WHERE j.shop_id=${q(shop)} AND j.run_id=${q(run.run_id)};`))});
   demand(published.state==='applied'&&published.applyKeyPresent&&published.receiptPresent&&published.runtimeRevision===report.finalization.receipt.revision&&published.movements===25947&&published.batches===1&&published.sourceSnapshots===1&&published.replicaEvents===25948&&published.changeSets===1&&published.acks===1&&published.ackCount===1,'history_volume_finalization_canonical_readback');
+  if(diagnosticOnly)report.finalization.status='DIAGNOSTIC_ONLY_FINALIZATION_COMPLETED';
  }
  // Diagnostic observations perturb timing and instance tracking. They
  // can never produce the exact PASS status or an artifact accepted for release.

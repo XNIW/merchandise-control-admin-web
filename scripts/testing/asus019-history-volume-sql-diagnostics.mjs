@@ -5,7 +5,7 @@ const gateway='public.payment_history_worker_gateway_v1(uuid,text,text,jsonb)';
 const tables=['payment_history_migration_runs','payment_history_migration_objects','payment_history_migration_movements'];
 const tableList=tables.map(name=>`'${name}'`).join(',');
 const metrics=['calls','total_exec_time','rows','shared_blks_hit','shared_blks_read','shared_blks_dirtied','shared_blks_written','temp_blks_read','temp_blks_written','wal_records','wal_fpi','wal_bytes'];
-const labels=['object_movement_lookup','object_binding_lookup','object_file_lookup','movement_insert','parent_fk_check','run_counter_update','actor_guard','other_scoped'];
+const labels=['object_movement_lookup','object_binding_lookup','object_file_lookup','movement_insert','parent_fk_check','run_counter_update','actor_guard','other_scoped','apply_review','apply_review_rows','apply_decisions','apply_bulk_new_facts','canonical_movement_insert','local_movement_map_insert','canonical_fk_check','source_snapshot_insert','source_objects_insert','revision_write','revision_seal','replica_event_insert','change_set_digest','change_set_insert','replica_payload_read','replica_field_hash','run_state_or_receipt_update','replica_snapshot_write','replica_entities_read'];
 const quote=value=>`'${String(value).replaceAll("'","''")}'`;
 const finite=value=>typeof value==='number'&&Number.isFinite(value)&&value>=0;
 const sqlStates=new Set(['42501','25001','25006','55P03','57014','42704','42883','0A000','08006','28P01','28000','22023','22P02']);
@@ -91,6 +91,25 @@ export function statementSnapshotSQL(schema){
  WHEN normalized LIKE 'insert into public.payment_history_migration_movements%' THEN 'movement_insert'
  WHEN normalized LIKE '%payment_history_migration_runs%' AND normalized LIKE '%for key share%' THEN 'parent_fk_check'
  WHEN normalized LIKE 'update public.payment_history_migration_runs set processed_%' THEN 'run_counter_update'
+ WHEN normalized LIKE 'with new_rows as materialized %' THEN 'apply_bulk_new_facts'
+ WHEN normalized LIKE 'insert into public.payment_history_migration_decisions%' THEN 'apply_decisions'
+ WHEN normalized LIKE 'insert into public.payment_history_movement_versions%' THEN 'canonical_movement_insert'
+ WHEN normalized LIKE 'insert into public.payment_history_local_movement_map%' THEN 'local_movement_map_insert'
+ WHEN normalized LIKE '%for key share%' AND (normalized LIKE '%payment_history_movement_versions%' OR normalized LIKE '%payment_history_batches%') THEN 'canonical_fk_check'
+ WHEN normalized LIKE 'insert into public.payment_history_source_snapshots%' THEN 'source_snapshot_insert'
+ WHEN normalized LIKE 'insert into public.payment_history_source_objects%' THEN 'source_objects_insert'
+ WHEN normalized LIKE 'insert into public.payment_history_replica_events%' THEN 'replica_event_insert'
+ WHEN normalized LIKE 'insert into public.payment_history_change_sets%' THEN 'change_set_insert'
+ WHEN normalized LIKE 'select count(%' AND normalized LIKE '%string_agg(%' AND normalized LIKE '%from public.payment_history_replica_events %' THEN 'change_set_digest'
+ WHEN normalized LIKE '%payment_history_seal_revision_v1%' THEN 'revision_seal'
+ WHEN normalized LIKE 'insert into public.payment_history_revisions%' OR normalized LIKE 'update public.payment_history_runtime set revision=%' THEN 'revision_write'
+ WHEN normalized LIKE 'update public.payment_history_migration_runs set state=%' OR normalized LIKE 'update public.payment_history_migration_runs set receipt=%' THEN 'run_state_or_receipt_update'
+ WHEN normalized LIKE 'insert into public.payment_history_replica_snapshot%' OR normalized LIKE 'insert into public.payment_history_replica_cursors%' OR normalized LIKE 'insert into public.payment_history_replica_acks%' THEN 'replica_snapshot_write'
+ WHEN normalized LIKE '%payment_history_replica_entities_v1%' OR normalized LIKE '%payment_history_replica_checksum_v1%' THEN 'replica_entities_read'
+ WHEN normalized LIKE 'select case when %' AND normalized LIKE '%from public.payment_history_batches b %' AND normalized LIKE '%from public.payment_history_movement_versions v %' THEN 'replica_payload_read'
+ WHEN normalized LIKE 'select encode(%' AND normalized LIKE '%from generate_series(%' AND normalized LIKE '%from unnest(%' AND normalized LIKE '%with ordinality x(f,ord)%' THEN 'replica_field_hash'
+ WHEN normalized LIKE '%payment_history_migration_review_v1%' OR normalized LIKE '%payment_history_migration_review_rows_v1%' THEN 'apply_review'
+ WHEN normalized LIKE 'with run as materialized%' AND normalized LIKE '%payment_history_migration_movements%' AND normalized LIKE '%payment_history_migration_objects%' AND normalized LIKE '%classified as%' THEN 'apply_review_rows'
  WHEN normalized LIKE '%payment_history_migration_actor_current_v1%' THEN 'actor_guard'
  WHEN normalized LIKE '%payment_history_migration_%' THEN 'other_scoped' ELSE NULL END label FROM scoped),
  epochs AS (SELECT label,to_jsonb(classified)->>'stats_since' AS since,count(*) AS members FROM classified WHERE label IS NOT NULL GROUP BY label,to_jsonb(classified)->>'stats_since'),
@@ -192,6 +211,55 @@ export function createOwnedVolumeSqlDiagnostics({runtime,query:runQuery,rpcGet,s
   });
   persist();
  }
+ // Separate bounded phase observations after the original seven analysis
+ // captures. These wrap only the real RPCs; no replay or EXPLAIN model query.
+ const finalizationPhases=['baseline_receipt_preflight','baseline_review','baseline_apply','baseline_receipt','snapshot_start','page','replica_ack'];
+ const phaseRecords=new Map();
+ async function observeFinalization(label,action){
+  if(!result.preflight.passed||!finished||!finalizationPhases.includes(label))throw Error('history_volume_diagnostic_finalization_scope');
+  result.finalization??={diagnosticOnly:true,timingQualification:false,overlappingNestedTotals:true,
+   limitation:'Interrupted statements may be absent from pg_stat_statements; completed nested statements are not an exclusive allocation of endpoint time. Missing categories do not imply zero cost; aggregates do not record statement chronology.',phases:[]};
+  let item=phaseRecords.get(label);
+  if(!item){
+   item={phase:label,state:'RUNNING',rpcCalls:0,rpcElapsedMs:0};phaseRecords.set(label,item);result.finalization.phases.push(item);
+   try{
+    item.before=bounded('before_'+label,()=>JSON.parse(query(statementSnapshotSQL(schema))));
+    if(!item.before||!Array.isArray(item.before.statements)||typeof item.before.statsReset!=='string'||!finite(item.before.dealloc))throw Error('history_volume_diagnostic_snapshot_unavailable');
+   }catch(error){
+    item.state='OBSERVER_FAILED';item.observationState='UNAVAILABLE';
+    result.errors.push({operation:'before_'+label,code:'diagnostic_observation_unavailable',...closedDiagnosticFailure(error?.diagnosticFailure??{})});
+    try{persist();}catch{/* The RPC has not been invoked, including on storage failure. */}
+    throw Error('history_volume_diagnostic_finalization_observation_failed');
+   }
+  }else if(label!=='page'||item.state!=='RUNNING')throw Error('history_volume_diagnostic_finalization_repeated');
+  const started=performance.now();let response,failed=true;
+  try{response=await action();failed=false;return response;}
+  finally{
+   item.rpcCalls++;item.rpcElapsedMs+=performance.now()-started;
+   // All130 actual page requests form one interval, not260 observer queries.
+   const terminal=label!=='page'||failed||response?.done===true;
+   if(terminal)item.state=failed?'RPC_FAILED':'RPC_COMPLETED';
+   try{
+    if(terminal){
+     item.after=bounded('after_'+label,()=>JSON.parse(query(statementSnapshotSQL(schema))));
+     if(!item.after)throw Error('history_volume_diagnostic_snapshot_unavailable');
+     item.delta=statementDelta(item.before,item.after);
+     item.classificationCoverage=labels.slice(8).map(label=>{
+      const row=item.delta.statements.find(s=>s.label===label);
+      return {label,status:row&&!row.valid?'not_comparable':row?.calls>0?'observed':'not_observed_or_unclassified'};
+     });
+    }
+    persist();
+   }catch(error){
+    // bounded also persists; persistence or malformed observation can throw.
+    // A secondary observer failure must never replace the original RPC error.
+    item.observationState='UNAVAILABLE';
+    result.errors.push({operation:'after_'+label,code:'diagnostic_observation_unavailable',...closedDiagnosticFailure(error?.diagnosticFailure??{})});
+    try{persist();}catch{/* No fabricated durable observation when storage fails. */}
+    if(!failed)throw Error('history_volume_diagnostic_finalization_observation_failed');
+   }
+  }
+ }
  async function restore(){
   let stage='restore_instance_setting';
   try{
@@ -204,10 +272,16 @@ export function createOwnedVolumeSqlDiagnostics({runtime,query:runQuery,rpcGet,s
     stage='restored_real_rpc_canary';await canary('restoredCanary',priorInstance.effective==='all'?1:0);result.configurationRestored=true;
    }else{result.configurationRestored=!writeAttempted;result.restorationAction='no_configuration_write_attempted';}
   }catch(error){record(stage,error);}finally{
-   const completeCoverage=measurementStarted&&result.classificationCoverage?.length===6&&result.classificationCoverage.every(c=>c.status==='observed');
+   if(result.finalization){
+    // Only attempted phases need observations. Later phases remain NOT_RUN
+    // after a real failure. An open page interval cannot be called complete.
+    result.finalization.notRun=finalizationPhases.filter(label=>!phaseRecords.has(label));
+    result.finalization.status=result.finalization.phases.every(p=>p.state!=='RUNNING'&&p.delta?.valid&&p.delta.allCategoriesComparable)?'DIAGNOSTIC_PHASES_COLLECTED':'DIAGNOSTIC_PHASES_PARTIAL';
+   }
+   const completeCoverage=measurementStarted&&result.classificationCoverage?.length===6&&result.classificationCoverage.every(c=>c.status==='observed')&&(!result.finalization||result.finalization.status==='DIAGNOSTIC_PHASES_COLLECTED');
    result.status=!result.preflight.passed||!result.configurationRestored||result.errors.length>0?'DIAGNOSTIC_OBSERVATION_FAILED':completeCoverage?'DIAGNOSTIC_OBSERVATION_COLLECTED':'DIAGNOSTIC_OBSERVATION_PARTIAL';persist();
   }
   return result.status;
  }
- return {observeWarmResponse,prepare,capture,onVector,finish,restore};
+ return {observeWarmResponse,prepare,capture,onVector,finish,observeFinalization,restore};
 }

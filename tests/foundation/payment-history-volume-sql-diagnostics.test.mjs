@@ -1,7 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createClient} from '@supabase/supabase-js';
+import {readFileSync} from 'node:fs';
 import {readOnlyCachedGatewayGet,closedDiagnosticFailure,closeExplainPlan,statementDelta,createOwnedVolumeSqlDiagnostics,statementSnapshotSQL} from '../../scripts/testing/asus019-history-volume-sql-diagnostics.mjs';
+import {measuredDeviceRequest} from '../../scripts/testing/asus019-history-volume-finalization.mjs';
 
 test('EXPLAIN export rebuilds a closed numerical tree and drops fixture values and query text',()=>{
  const secret='synthetic-marker-must-not-escape';
@@ -127,4 +129,150 @@ test('real pinned SDK sends the cached gateway GET with exact JSON payload and n
  assert.deepEqual(Object.fromEntries(url.searchParams),{p_request_id:parameters.p_request_id,p_lane:'migration',p_operation:'claim',p_payload:'{}'});assert.deepEqual(JSON.parse(url.searchParams.get('p_payload')),parameters.p_payload);assert.equal(options.signal.aborted,false);
  assert.deepEqual(parameters.p_payload,{});await assert.rejects(()=>readOnlyCachedGatewayGet(db,parameters,{get:false}),/readonly_required/);assert.equal(calls.length,1);
  assert.deepEqual(closedDiagnosticFailure({sqlState:'22P02'}),{sqlState:'22P02',kind:'sql_rejected'});
+});
+
+async function finalizationFixture(){
+ const f=fixture({completeCategories:true}),query=f.options.query,save=f.options.save;
+ let fault=null,armed=false,snapshots=0;
+ f.options.query=(sql,options)=>{
+  if(armed&&sql.startsWith('WITH scoped')){
+   snapshots++;
+   if(fault==='query'){const error=Error('private-observer-query');error.diagnosticFailure={sqlState:'42501'};throw error;}
+   if(fault==='json')return 'private-invalid-json';
+   if(fault==='null')return 'null';
+   if(fault==='delta')return JSON.stringify({statsReset:'same',dealloc:0,statements:{invalid:true}});
+   const value=JSON.parse(query(sql,options));
+   if(fault==='cohort')value.statements[0].epochs=[{since:'new',members:1}];
+   if(fault==='reset')value.statsReset='new';
+   return JSON.stringify(value);
+  }
+  return query(sql,options);
+ };
+ f.options.save=(name,value)=>{if(armed&&fault==='save')throw Error('private-disk-error');save(name,value);};
+ const d=createOwnedVolumeSqlDiagnostics(f.options);d.observeWarmResponse(f.nonce,{ok:true,run:null});await d.prepare();
+ d.capture('before_analysis');d.onVector({phase:'stage_objects',last_ordinal:25955});
+ for(const last_ordinal of [6400,12800,19200,25600])d.onVector({phase:'stage_movements',last_ordinal});
+ d.finish();armed=true;
+ return {...f,d,setFault:value=>{fault=value;},snapshotCount:()=>snapshots};
+}
+
+test('seven finalization phases keep130 real pages in one two-snapshot interval and restore tracking',async()=>{
+ const f=await finalizationFixture(),phases=['baseline_receipt_preflight','baseline_review','baseline_apply','baseline_receipt','snapshot_start','page','replica_ack'];
+ let applied=0;
+ for(const phase of phases){
+  if(phase==='page'){for(let i=0;i<130;i++)await f.d.observeFinalization(phase,async()=>({done:i===129}));}
+  else await f.d.observeFinalization(phase,async()=>{if(phase==='baseline_apply')applied++;return {};});
+ }
+ assert.equal(applied,1);assert.equal(f.snapshotCount(),14);
+ await assert.rejects(()=>f.d.observeFinalization('baseline_apply',async()=>{applied++;}),/repeated/);assert.equal(applied,1);
+ assert.equal(await f.d.restore(),'DIAGNOSTIC_OBSERVATION_COLLECTED');const out=f.saved.at(-1).value;
+ assert.equal(out.snapshots.length,7);assert.deepEqual(out.finalization.phases.map(p=>p.phase),phases);
+ assert.equal(out.finalization.phases.find(p=>p.phase==='page').rpcCalls,130);assert.equal(out.finalization.notRun.length,0);
+ assert.equal(out.configurationRestored,true);assert.equal(f.getAuto(),null);assert.equal(out.timingQualification,false);
+ assert.equal(out.finalization.timingQualification,false);assert.equal(out.finalization.overlappingNestedTotals,true);
+ assert.match(out.finalization.limitation,/Interrupted statements may be absent/);
+ assert.equal(out.finalization.phases.every(p=>p.classificationCoverage.some(c=>c.label==='replica_event_insert'&&c.status==='not_observed_or_unclassified')),true);
+ assert.deepEqual(out.limits,{analysisBudgetMs:120000,requestBudgetMs:15000,canonicalRowLimit:200,vectorChunkLimit:4});
+});
+
+test('primary Apply57014 survives successful collection or query, JSON, delta and persistence failures without a second Apply',async()=>{
+ for(const fault of [null,'query','json','delta','save']){
+  const f=await finalizationFixture(),steps=[];let requests=0,primary;
+  const db=createClient('http://127.0.0.1:54321','synthetic-key',{auth:{persistSession:false,autoRefreshToken:false},global:{fetch:async()=>{
+   requests++;return new Response(JSON.stringify({code:'57014',message:'private-primary-error'}),{status:500,headers:{'content-type':'application/json'}});
+  }}});
+  await assert.rejects(()=>f.d.observeFinalization('baseline_apply',async()=>{
+   try{return await measuredDeviceRequest({db,scope:{},operation:'baseline_apply',payload:{},steps});}
+   catch(error){primary=error;f.setFault(fault);throw error;}
+  }),error=>error===primary);
+  assert.equal(requests,1);assert.equal(steps.length,1);assert.equal(steps[0].sqlState,'57014');assert.equal(steps[0].httpStatus,500);
+  f.setFault(null);await assert.rejects(()=>f.d.observeFinalization('baseline_apply',async()=>{requests++;}),/repeated/);
+  assert.equal(await f.d.restore(),fault===null?'DIAGNOSTIC_OBSERVATION_COLLECTED':'DIAGNOSTIC_OBSERVATION_FAILED');const out=f.saved.at(-1).value;
+  assert.equal(out.finalization.phases[0].state,'RPC_FAILED');assert.equal(out.finalization.phases[0].rpcCalls,1);assert.equal(requests,1);
+  assert.equal(out.finalization.notRun.includes('baseline_receipt'),true);assert.equal(out.configurationRestored,true);
+  assert.equal(JSON.stringify({out,steps}).includes('private-'),false);
+ }
+});
+
+test('failed preliminary observation never invokes Apply or sets its financial flag',async()=>{
+ for(const fault of ['query','json','null','delta','save']){
+  const f=await finalizationFixture();let financialApply=false,requests=0;f.setFault(fault);
+  await assert.rejects(()=>f.d.observeFinalization('baseline_apply',async()=>{financialApply=true;requests++;return {};}));
+  assert.equal(financialApply,false);assert.equal(requests,0);f.setFault(null);
+  assert.equal(await f.d.restore(),'DIAGNOSTIC_OBSERVATION_FAILED');const out=f.saved.at(-1).value;
+  assert.equal(out.finalization.phases[0].rpcCalls,0);assert.equal(out.configurationRestored,true);
+ }
+});
+
+test('successful RPC with unavailable observer remains diagnostic failure, never an inferred Apply failure',async()=>{
+ const f=await finalizationFixture();let requests=0;
+ await assert.rejects(()=>f.d.observeFinalization('baseline_apply',async()=>{requests++;f.setFault('json');return {ok:true};}),/observation_failed/);
+ f.setFault(null);assert.equal(await f.d.restore(),'DIAGNOSTIC_OBSERVATION_FAILED');const out=f.saved.at(-1).value;
+ assert.equal(requests,1);assert.equal(out.finalization.phases[0].state,'RPC_COMPLETED');assert.equal(out.configurationRestored,true);
+});
+
+test('finalization reset, changed cohort or an interrupted page sequence stays partial with restore',async()=>{
+ for(const fault of ['reset','cohort','partial_page']){
+  const f=await finalizationFixture();
+  if(fault==='partial_page')await f.d.observeFinalization('page',async()=>({done:false}));
+  else await f.d.observeFinalization('baseline_apply',async()=>{f.setFault(fault);return {};});
+  f.setFault(null);assert.equal(await f.d.restore(),'DIAGNOSTIC_OBSERVATION_PARTIAL');const out=f.saved.at(-1).value;
+  assert.equal(out.finalization.status,'DIAGNOSTIC_PHASES_PARTIAL');assert.equal(out.configurationRestored,true);
+  if(fault==='partial_page'){assert.equal(f.snapshotCount(),1);assert.equal(out.finalization.phases[0].state,'RUNNING');assert.equal(out.finalization.notRun.includes('replica_ack'),true);}
+  else assert.equal(out.finalization.phases[0].delta.allCategoriesComparable,false);
+ }
+});
+
+// Evaluate only the closed LIKE/AND/OR grammar emitted by the SQL classifier.
+// This is a static source regression, not a PostgreSQL execution or cached plan.
+function classifyFromGeneratedSql(text){
+ const normalized=text.replaceAll('"','').replace(/\s+/g,' ').trim().toLowerCase();
+ const source=statementSnapshotSQL('extensions'),branches=[...source.matchAll(/WHEN (.*?) THEN '([a-z_]+)'/g)];
+ for(const [,condition,label] of branches){
+  const tokens=[...condition.matchAll(/normalized LIKE '([^']*)'|\bAND\b|\bOR\b|[()]/g)];let index=0;
+  const atom=()=>{const t=tokens[index++];assert.ok(t);if(t[0]==='('){const value=or();assert.equal(tokens[index++][0],')');return value;}
+   assert.ok(t[1]!==undefined);const pattern=t[1].split('').map(c=>c==='%'?'.*':c==='_'?'.':c.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('');return new RegExp('^'+pattern+'$','s').test(normalized);};
+  const and=()=>{let value=atom();while(tokens[index]?.[0]==='AND'){index++;const next=atom();value=value&&next;}return value;};
+  const or=()=>{let value=and();while(tokens[index]?.[0]==='OR'){index++;const next=and();value=value||next;}return value;};
+  const matched=or();assert.equal(index,tokens.length);if(matched)return label;
+ }
+ return null;
+}
+
+test('closed classifier covers actual bulk, provenance, seal and review SQL with outer-statement precedence',()=>{
+ const bulk=readFileSync('supabase/migrations/20261119012919_payment_history_baseline_apply_bulk_v1.sql','utf8');
+ const replica=readFileSync('supabase/migrations/20261110044957_payment_history_migration_and_replica_v1.sql','utf8');
+ const pipeline=readFileSync('supabase/migrations/20261111014055_payment_history_device_baseline_pipeline_v2.sql','utf8');
+ const inactive=readFileSync('supabase/migrations/20261112013056_payment_history_frozen_inactive_reconciliation_v1.sql','utf8');
+ const ledger=readFileSync('supabase/migrations/20261110032142_payment_history_cloud_ledger_v1.sql','utf8');
+ const body=(source,name)=>{const start=source.indexOf('function app_private.'+name+'(');assert.ok(start>=0);return source.slice(source.indexOf('$$',start)+2,source.indexOf('$$;',start));};
+ const statement=(source,start)=>{const offset=source.indexOf(start);assert.ok(offset>=0,start);return source.slice(offset,source.indexOf(';',offset)+1);};
+ for(const [source,start,label] of [
+  [bulk,'with new_rows as materialized','apply_bulk_new_facts'],
+  [bulk,'insert into public.payment_history_migration_decisions','apply_decisions'],
+  [bulk,'insert into public.payment_history_source_snapshots','source_snapshot_insert'],
+  [bulk,'insert into public.payment_history_source_objects','source_objects_insert'],
+  [bulk,'insert into public.payment_history_revisions','revision_write'],
+  [bulk,'perform app_private.payment_history_seal_revision_v1','revision_seal'],
+  [body(replica,'payment_history_seal_revision_v1'),'insert into public.payment_history_replica_events','replica_event_insert'],
+  [body(replica,'payment_history_seal_revision_v1'),'select count(*)','change_set_digest'],
+  [body(replica,'payment_history_seal_revision_v1'),'insert into public.payment_history_change_sets','change_set_insert']
+ ])assert.equal(classifyFromGeneratedSql(statement(source,start)),label,start);
+ assert.equal(classifyFromGeneratedSql(body(pipeline,'payment_history_migration_review_v1')),'apply_review');
+ assert.equal(classifyFromGeneratedSql(body(inactive,'payment_history_migration_review_rows_v1')),'apply_review_rows');
+ assert.equal(classifyFromGeneratedSql(body(replica,'payment_history_replica_payload_v1')),'replica_payload_read');
+ assert.equal(classifyFromGeneratedSql(body(ledger,'payment_history_field_hash_v1')),'replica_field_hash');
+ const projection=statementSnapshotSQL('extensions').split('totals AS')[1];assert.doesNotMatch(projection,/\bquery\b|\bqueryid\b/);
+});
+
+test('diagnostic finalization uses the same single invocation and cannot publish or continue authenticated qualification',()=>{
+ const runner=readFileSync('scripts/testing/asus019-history-volume.mjs','utf8'),workflow=readFileSync('.github/workflows/ci.yml','utf8');
+ assert.match(runner,/const invoke=\(\)=>\{if\(operation==='baseline_apply'\)report.financialApply=true;return measuredDeviceRequest/);
+ assert.match(runner,/sqlDiagnostics\?sqlDiagnostics.observeFinalization\(report.finalization.phase,invoke\):invoke\(\)/);
+ assert.equal((runner.match(/await finalizeVolumeBaseline\(/g)??[]).length,1);
+ assert.match(runner,/if\(diagnosticOnly\)report.finalization.status='DIAGNOSTIC_ONLY_FINALIZATION_COMPLETED'/);
+ assert.match(runner,/if\(diagnosticOnly\)\{report.status='DIAGNOSTIC_ONLY_MEASURED_PASS'[\s\S]*?\}\s*else \{\s*report.status='PASS_REAL_GATEWAY_SQL_FULL_VOLUME'/);
+ assert.match(workflow,/name: Authenticated service and browser roundtrip\s+if: \$\{\{ inputs.history_volume_diagnostics != true \}\}/);
+ assert.match(workflow,/name: Preserve the exact qualified dedicated Worker artifact\s+if: \$\{\{ inputs.history_volume_diagnostics != true \}\}/);
+ assert.match(runner,/measured.elapsedMs<120000/);
 });
