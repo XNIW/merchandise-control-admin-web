@@ -9,9 +9,9 @@ from pathlib import Path
 p=Path('scripts/ci/mobile-recovery-local-replay.py').resolve()
 spec=importlib.util.spec_from_file_location('reviewed_replay',p);m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
 files=m.reviewed_extension_test_files(m.REVIEWED_EXTENSIONS)
-assert len(files)==33 and len(m.REVIEWED_EXTENSIONS)==36
-assert 67+len(files)==100 and 4375+sum(x['additionalAssertions'] for x in m.REVIEWED_EXTENSIONS.values())==5592
-for name in ['20261119061612_payment_history_field_hash_ascii_v1.sql','20261119012919_payment_history_baseline_apply_bulk_v1.sql','20261119041341_payment_history_migration_movement_point_lookup_v1.sql']:
+assert len(files)==33 and len(m.REVIEWED_EXTENSIONS)==37
+assert 67+len(files)==100 and 4375+sum(x['additionalAssertions'] for x in m.REVIEWED_EXTENSIONS.values())==5608
+for name in ['20261119072331_payment_history_seal_revision_direct_ids_v1.sql','20261119061612_payment_history_field_hash_ascii_v1.sql','20261119012919_payment_history_baseline_apply_bulk_v1.sql','20261119041341_payment_history_migration_movement_point_lookup_v1.sql']:
  source=(Path('supabase/migrations')/name).read_bytes().replace(b'\r\n',b'\n')
  assert hashlib.sha256(source).hexdigest()==m.REVIEWED_EXTENSIONS[name]['sha256']
 base={'01':{'testFile':'pipeline.sql','additionalAssertions':32},

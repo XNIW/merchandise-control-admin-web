@@ -373,12 +373,16 @@ function sealFixtureOutput(){
 }
 
 test('full seal probe binds the exact seven-column SELECT and preserves original constraint mode and limits',()=>{
- const source=readFileSync(new URL('../../supabase/migrations/20261110044957_payment_history_migration_and_replica_v1.sql',import.meta.url),'utf8');
+ const source=readFileSync(new URL('../../supabase/migrations/20261119072331_payment_history_seal_revision_direct_ids_v1.sql',import.meta.url),'utf8');
+ const previous=readFileSync(new URL('../../supabase/migrations/20261110044957_payment_history_migration_and_replica_v1.sql',import.meta.url),'utf8').replaceAll('\r\n','\n');
  const select=fullSealSelect(source),script=fullSealProbeSQL(positiveRun);
  assert.equal((select.match(/\$1/g)||[]).length,5);assert.equal((select.match(/\$2/g)||[]).length,4);
  assert.match(select,/row_number\(\) over\(order by x.kind collate "C",x.id\)::integer/);
  assert.match(script,new RegExp('prepare a19_seal_full\\(uuid,bigint\\) as '));assert.ok(script.includes(select));
  assert.throws(()=>fullSealSelect(source.replace('row_number() over(order by x.kind','row_number() over(order by x.id')),/seal_source/);
+ assert.throws(()=>fullSealSelect(previous),/seal_source/);
+ assert.match(select,/union all select 'movement',c.movement_version_id/);
+ assert.doesNotMatch(select,/join public\.payment_history_movement_versions/);
  assert.throws(()=>fullSealProbeSQL("bad';COMMIT;"),/scope/);
  assert.equal((script.match(/explain \(analyze,buffers,timing off,format json\)/gi)||[]).length,1);assert.equal((script.match(/explain \(format json\)/gi)||[]).length,1);
  assert.equal((script.match(/\bbegin;/g)||[]).length,1);assert.equal((script.match(/\brollback;/g)||[]).length,1);
@@ -389,7 +393,10 @@ test('full seal probe binds the exact seven-column SELECT and preserves original
  assert.match(script,/q.shop_id=r.shop_id and q.operation_id=r.operation_id where q.operation_id is null/);
  assert.ok(fullSealReadbackSQL(positiveRun).includes(`application_name='a19-seal-full-${positiveRun}'`));
  const unframed=script.replace(/^\\echo A19_SEED_[A-Z_]+_(?:BEGIN|END)\n/gm,'');
- assert.equal(createHash('sha256').update(unframed).digest('hex'),'11cd32e358b79bcb9b0395295053dd9d8a26975b0dd685fd34f57ce31c2d35f6');
+ assert.equal(createHash('sha256').update(unframed).digest('hex'),'ba51c83f3cd1f890e69e372c2506f341b41f1d660b5be11d4aae66ec0d095335');
+ const oldBody=previous.slice(previous.indexOf('create function app_private.payment_history_seal_revision_v1('));
+ const oldSelect=(oldBody.match(/\n (select p_shop,p_revision,[\s\S]*?\n \)x;)/)[1]+'\n').replaceAll('p_shop','$1').replaceAll('p_revision','$2');
+ assert.equal(createHash('sha256').update(unframed.replace(select,oldSelect)).digest('hex'),'11cd32e358b79bcb9b0395295053dd9d8a26975b0dd685fd34f57ce31c2d35f6');
  assert.equal((script.match(/^\\echo A19_SEED_/gm)||[]).length,40);
 });
 

@@ -321,11 +321,11 @@ export function closePositivePayloadOutput(text){
 
 // The measured SELECT is derived from the frozen product source, not a
 // hand-rewritten COUNT/projection. Only the two typed parameters differ.
-const sealSourceUrl=new URL('../../supabase/migrations/20261110044957_payment_history_migration_and_replica_v1.sql',import.meta.url);
-const sealSourceSha256='e71e3f076a9636297037b84086906329c0f872273f4110015473b492f2a801a2';
-const sealParametersSha256='46c51a217aea01e87c12320c44a2a9cc23e00d141f6bedd018ea37971fd07d45';
+const sealSourceUrl=new URL('../../supabase/migrations/20261119072331_payment_history_seal_revision_direct_ids_v1.sql',import.meta.url);
+const sealSourceSha256='3924e568ffc0bb8ea35156493b7712eb6a3851cd902e4506c61ddeda3f5cb1b5';
+const sealParametersSha256='346405f183024831cdb94c4c6bee1084d1906c2a5fc143a8f052e7783bf36e29';
 export function fullSealSelect(source=readFileSync(sealSourceUrl,'utf8')){
- const normalized=source.replaceAll('\r\n','\n'),start=normalized.indexOf('create function app_private.payment_history_seal_revision_v1('),end=normalized.indexOf('revoke all on function app_private.payment_history_seal_revision_v1(',start);
+ const normalized=source.replaceAll('\r\n','\n'),start=normalized.indexOf('create or replace function app_private.payment_history_seal_revision_v1('),end=normalized.indexOf('end;$$;$definition$;',start);
  const body=normalized.slice(start,end),match=body.match(/\n (select p_shop,p_revision,[\s\S]*?\n \)x;)/);
  const select=match?.[1]+'\n',hash=v=>createHash('sha256').update(v).digest('hex');
  if(start<0||end<start||hash(select)!==sealSourceSha256)throw Error('history_volume_diagnostic_seal_source');

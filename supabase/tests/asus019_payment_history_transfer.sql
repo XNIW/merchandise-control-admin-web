@@ -2,7 +2,7 @@ begin;
 set local role postgres;
 create extension if not exists pgtap with schema extensions;
 set local search_path=public,extensions;
-select plan(64);
+select plan(80);
 select has_table('public','payment_history_source_objects','original local provenance has a dedicated store');
 select ok(not has_function_privilege('authenticated','public.payment_history_device_v1(uuid,uuid,uuid,uuid,text,text,integer,text,jsonb)','EXECUTE'),'browser cannot impersonate a POS replica');
 select ok(not has_function_privilege('authenticated','public.payment_history_worker_gateway_v1(uuid,text,text,jsonb)','EXECUTE'),'browser cannot claim work');
@@ -132,5 +132,115 @@ select is((select count(*) from public.payment_history_change_sets where shop_id
 update public.pos_sessions set status='revoked',revoked_at=clock_timestamp() where pos_session_id='60000000-0000-4000-8000-000000003019';
 set local role service_role;
 select throws_ok($$select pg_temp.device('authority')$$,'42501','payment_history_device_denied','revocation closes even an authority read');
+
+-- Direct revision IDs: preserve the exact old SELECT as an independent oracle.
+set local role postgres;
+create function pg_temp.seal_preimage_rows(p_shop uuid,p_revision bigint)
+returns table(shop_id uuid,revision bigint,ordinal integer,entity_kind text,entity_id uuid,entity_digest text,payload jsonb)
+language sql stable set search_path='' as $oracle$
+select p_shop,p_revision,row_number() over(order by x.kind collate "C",x.id)::integer,x.kind,x.id,app_private.payment_history_replica_entity_digest_v1(x.kind,x.payload),x.payload from(
+  select 'batch'::text kind,b.batch_id id,app_private.payment_history_replica_payload_v1(p_shop,'batch',b.batch_id) payload from public.payment_history_batches b where b.shop_id=p_shop and (b.created_revision=p_revision or b.cancelled_revision=p_revision)
+  union all select 'movement',v.movement_version_id,app_private.payment_history_replica_payload_v1(p_shop,'movement',v.movement_version_id) from public.payment_history_revisions c join public.payment_history_movement_versions v on v.shop_id=c.shop_id and v.movement_version_id=c.movement_version_id where c.shop_id=p_shop and c.revision=p_revision
+ )x;
+$oracle$;
+select is((select encode(extensions.digest(convert_to(prosrc,'UTF8'),'sha256'),'hex') from pg_proc
+ where oid='app_private.payment_history_seal_revision_v1(uuid,bigint)'::regprocedure),
+ '830d71506150224fdc886653ba59bbd579f708190e7dcab632e18ce487cfcb57','seal has only the reviewed direct revision ID body');
+select ok((select prosecdef and provolatile='v' and not proisstrict and proconfig=array['search_path=""']
+ from pg_proc where oid='app_private.payment_history_seal_revision_v1(uuid,bigint)'::regprocedure)
+ and not has_function_privilege('anon','app_private.payment_history_seal_revision_v1(uuid,bigint)','EXECUTE')
+ and not has_function_privilege('authenticated','app_private.payment_history_seal_revision_v1(uuid,bigint)','EXECUTE')
+ and not has_function_privilege('service_role','app_private.payment_history_seal_revision_v1(uuid,bigint)','EXECUTE'),
+ 'seal preserves security definer, volatility, empty search path and private execute ACL');
+select ok(exists(select 1 from pg_constraint c where c.conrelid='public.payment_history_revisions'::regclass
+ and c.confrelid='public.payment_history_movement_versions'::regclass and c.contype='f'
+ and c.convalidated and not c.condeferrable and not c.condeferred)
+ and (select bool_and(relrowsecurity) from pg_class where oid in ('public.payment_history_revisions'::regclass,'public.payment_history_movement_versions'::regclass)),
+ 'reference remains validated and immediate with RLS enabled');
+
+create temp table seal_fixture as
+ select v.movement_version_id,v.owner_batch_id,r.operation_id from public.payment_history_movement_versions v
+ join public.payment_history_receipts r on r.shop_id=v.shop_id and r.batch_id=v.owner_batch_id
+ where v.shop_id='10000000-0000-4000-8000-000000003019' order by v.movement_version_id,r.operation_id limit 1;
+insert into public.shops(shop_id,shop_code,shop_name,shop_status)
+ values('10000000-0000-4000-8000-000000003929','SEAL019','Synthetic seal second shop','active');
+insert into public.payment_history_evidence(evidence_id,shop_id,kind,verification_level,policy_version,reference,scope,actor_kind,actor_id)
+ values('84000000-0000-4000-8000-000000003929','10000000-0000-4000-8000-000000003929','merchant_mapping','operator_attested',
+ 'synthetic-seal-v1','Synthetic isolation fixture','{}','pos_staff_manager','30000000-0000-4000-8000-000000003019');
+insert into public.payment_history_merchants(merchant_id,shop_id,label,evidence_id)
+ values('83000000-0000-4000-8000-000000003929','10000000-0000-4000-8000-000000003929','Synthetic seal merchant','84000000-0000-4000-8000-000000003929');
+insert into public.payment_history_batches(batch_id,shop_id,origin,state,apply_operation_id,created_revision,cancelled_revision,cancelled_at)
+ values('81000000-0000-4000-8000-000000003929','10000000-0000-4000-8000-000000003929','local_migration','cancelled',
+ '82000000-0000-4000-8000-000000003929',100,101,clock_timestamp());
+insert into public.payment_history_receipts(operation_id,shop_id,batch_id,operation_kind,actor_kind,actor_id,request_key,request_digest,receipt)
+ values('82000000-0000-4000-8000-000000003929','10000000-0000-4000-8000-000000003929','81000000-0000-4000-8000-000000003929',
+ 'migrate','pos_staff_manager','30000000-0000-4000-8000-000000003019','86000000-0000-4000-8000-000000003929',repeat('a',64),'{}');
+insert into public.payment_history_movement_versions
+ select (jsonb_populate_record(null::public.payment_history_movement_versions,to_jsonb(v)||jsonb_build_object(
+  'movement_version_id','85000000-0000-4000-8000-000000003929','shop_id','10000000-0000-4000-8000-000000003929',
+  'merchant_id','83000000-0000-4000-8000-000000003929','owner_batch_id','81000000-0000-4000-8000-000000003929',
+  'source_upload_id',null,'supersedes_version_id',null,'created_revision',100,'active',false))).*
+ from public.payment_history_movement_versions v join seal_fixture f using(movement_version_id);
+insert into public.payment_history_revisions(shop_id,revision,ordinal,movement_version_id,operation_id,change_kind)
+ select '10000000-0000-4000-8000-000000003019',x.revision,x.ordinal,f.movement_version_id,f.operation_id,x.kind
+ from seal_fixture f cross join (values(100,1,'upsert'),(100,2,'tombstone'),(101,1,'tombstone')) x(revision,ordinal,kind);
+insert into public.payment_history_revisions(shop_id,revision,ordinal,movement_version_id,operation_id,change_kind)
+ values('10000000-0000-4000-8000-000000003929',100,1,'85000000-0000-4000-8000-000000003929','82000000-0000-4000-8000-000000003929','upsert'),
+       ('10000000-0000-4000-8000-000000003929',101,1,'85000000-0000-4000-8000-000000003929','82000000-0000-4000-8000-000000003929','tombstone');
+create temp table seal_targets as select shop_id,revision from
+ (values('10000000-0000-4000-8000-000000003019'::uuid),('10000000-0000-4000-8000-000000003929'::uuid)) s(shop_id)
+ cross join (values(100::bigint),(101::bigint),(102::bigint)) r(revision);
+create temp table seal_expected as select e.* from seal_targets t cross join lateral pg_temp.seal_preimage_rows(t.shop_id,t.revision) e;
+create function pg_temp.seal_all_targets() returns void language plpgsql as $$declare t record;begin
+ for t in select * from seal_targets loop perform app_private.payment_history_seal_revision_v1(t.shop_id,t.revision);end loop;
+end;$$;
+select lives_ok($$select pg_temp.seal_all_targets()$$,'seal admits two shops, repeated IDs across revisions, tombstones and empty revisions');
+select results_eq(
+ $$select e.shop_id,e.revision,e.ordinal,e.entity_kind,e.entity_id,e.entity_digest,e.payload from public.payment_history_replica_events e join seal_targets t using(shop_id,revision) order by shop_id,revision,ordinal$$,
+ $$select * from seal_expected order by shop_id,revision,ordinal$$,
+ 'all seven event values, JSONB and protocol hashes match the frozen joined SELECT in order');
+select is((select count(*) from public.payment_history_replica_events where shop_id='10000000-0000-4000-8000-000000003019' and revision=100 and entity_kind='movement'),2::bigint,
+ 'two revision rows for the same movement remain two events');
+select is((select count(*) from public.payment_history_replica_events e join seal_targets t using(shop_id,revision) where entity_kind='movement' and payload->>'active'='false'),5::bigint,
+ 'inactive and tombstone payloads are retained without active filtering');
+select is((select count(*) from public.payment_history_replica_events e join seal_targets t using(shop_id,revision)
+ where e.entity_kind='movement' and ((e.shop_id='10000000-0000-4000-8000-000000003019' and e.entity_id='85000000-0000-4000-8000-000000003929')
+ or (e.shop_id='10000000-0000-4000-8000-000000003929' and e.entity_id<>(select movement_version_id from public.payment_history_movement_versions where shop_id=e.shop_id)))),0::bigint,
+ 'same revision numbers never cross the composite shop scope');
+select is((select count(*) from public.payment_history_change_sets c join seal_targets t using(shop_id,revision) where revision=102 and change_count=0),2::bigint,
+ 'each empty revision retains its explicit zero change marker');
+select results_eq(
+ $$select c.shop_id,c.revision,c.change_count,c.changes_digest from public.payment_history_change_sets c join seal_targets t using(shop_id,revision) order by shop_id,revision$$,
+ $$select t.shop_id,t.revision,count(e.ordinal)::integer,encode(extensions.digest(convert_to(coalesce(string_agg(e.entity_kind||'|'||e.entity_id::text||'|'||e.entity_digest||chr(10),'' order by e.ordinal),''),'UTF8'),'sha256'),'hex') from seal_targets t left join seal_expected e using(shop_id,revision) group by t.shop_id,t.revision order by t.shop_id,t.revision$$,
+ 'change counts and ordered change-set digests equal the frozen selector');
+create function pg_temp.seal_observation() returns jsonb language sql as $$select jsonb_build_object(
+ 'events',(select jsonb_agg(to_jsonb(e) order by e.shop_id,e.revision,e.ordinal) from public.payment_history_replica_events e join seal_targets t using(shop_id,revision)),
+ 'changes',(select jsonb_agg(to_jsonb(c) order by c.shop_id,c.revision) from public.payment_history_change_sets c join seal_targets t using(shop_id,revision)));$$;
+create temp table seal_before_replay as select pg_temp.seal_observation() value;
+do $$begin perform pg_temp.seal_all_targets();end;$$;
+select is(pg_temp.seal_observation(),(select value from seal_before_replay),'repeated seal preserves all existing events, markers and timestamps');
+select throws_ok($$insert into public.payment_history_revisions(shop_id,revision,ordinal,movement_version_id,operation_id,change_kind)
+ select '10000000-0000-4000-8000-000000003019',103,1,'85000000-0000-4000-8000-000000003929',operation_id,'upsert' from seal_fixture$$,
+ '23503',null,'composite FK immediately rejects an existing movement from another shop');
+select throws_ok($$insert into public.payment_history_revisions(shop_id,revision,ordinal,movement_version_id,operation_id,change_kind)
+ select '10000000-0000-4000-8000-000000003019',103,1,'85000000-0000-4000-8000-000000003930',operation_id,'upsert' from seal_fixture$$,
+ '23503',null,'immediate FK rejects a missing movement rather than silently filtering it');
+select throws_ok($$insert into public.payment_history_revisions(shop_id,revision,ordinal,movement_version_id,operation_id,change_kind)
+ select '10000000-0000-4000-8000-000000003019',103,1,null,operation_id,'upsert' from seal_fixture$$,
+ '23502',null,'reference UUID cannot be null');
+insert into public.payment_history_revisions(shop_id,revision,ordinal,movement_version_id,operation_id,change_kind)
+ select '10000000-0000-4000-8000-000000003019',200,x,f.movement_version_id,f.operation_id,'tombstone' from seal_fixture f cross join generate_series(1,2) x;
+create function pg_temp.fail_second_seal_event() returns trigger language plpgsql as $$begin
+ if new.shop_id='10000000-0000-4000-8000-000000003019' and new.revision=200 and new.ordinal=2 then
+  raise exception using errcode='P0196',message='synthetic_seal_second_event';end if;return new;
+end;$$;
+create trigger asus019_seal_event_rollback after insert on public.payment_history_replica_events for each row execute function pg_temp.fail_second_seal_event();
+select throws_ok($$select app_private.payment_history_seal_revision_v1('10000000-0000-4000-8000-000000003019',200)$$,
+ 'P0196','synthetic_seal_second_event','a failure after event writes is preserved');
+select is((select count(*) from public.payment_history_replica_events where shop_id='10000000-0000-4000-8000-000000003019' and revision=200)
+ +(select count(*) from public.payment_history_change_sets where shop_id='10000000-0000-4000-8000-000000003019' and revision=200),0::bigint,
+ 'failed seal rolls back every event and change marker');
+drop trigger asus019_seal_event_rollback on public.payment_history_replica_events;
+-- End direct revision ID regressions; original transfer assertions remain above.
 select * from finish();
 rollback;

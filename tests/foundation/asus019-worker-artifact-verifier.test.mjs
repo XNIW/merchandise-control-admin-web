@@ -3,7 +3,7 @@ import {createHash} from 'node:crypto';
 import {readFileSync} from 'node:fs';
 import test from 'node:test';
 import {zip} from './helpers/payment-history-harness.mjs';
-import {verifyWorkerArtifactMetadata,verifyWorkerArtifactArchive,workerSqlQualificationContract,workerArtifactRepository,workerArtifactName} from '../../scripts/testing/asus019-verify-worker-artifact.mjs';
+import {verifyWorkerArtifactMetadata,verifyWorkerArtifactArchive,workerSqlQualificationContract,verifyWorkerFinalization,workerArtifactRepository,workerArtifactName} from '../../scripts/testing/asus019-verify-worker-artifact.mjs';
 const hash=bytes=>createHash('sha256').update(bytes).digest('hex');
 // All objects/bytes below are in-memory unit inputs. They never become a CI
 // artifact, qualification receipt or installable package and never run a worker.
@@ -14,6 +14,16 @@ function fixture(){
  const sqlContract=workerSqlQualificationContract({runnerSource,runnerSha256,concurrencySha256,files}),source={runId:'123',artifactId:'456',sourceSha,sourceTree,lockSha256,sqlContract};
  const sql={status:'LOCAL_CANONICAL_BYTE_EXACT_AND_PGTAP_PASS',head:sourceSha,CLI:'2.109.0',profile:'ci',operatorSQLByteExactReplay:true,runnerSHA256:runnerSha256,pgTAPFiles:files.length,pgTAPTests:4434,databaseTestFiles:files,historicalConcurrency:{status:'PASS',cases:3,receiptSHA256:'f'.repeat(64),harnessSHA256:concurrencySha256},pgtapStdoutSHA256:'1'.repeat(64)};
  const volume={status:'PASS_REAL_GATEWAY_SQL_FULL_VOLUME',serverSha:sourceSha,workerSha256:hash(worker),realGateway:true,gatewayRuntime:'node24-native-route-adapter',sqlRuntime:'postgres-postgrest-owned-fixture',payload:{rows:25947,movementBytes:20274917},canonical:{state:'review_ready',processed_objects:25955,processed_movements:25947},limits:{analysisBudgetMs:120000,requestBudgetMs:15000,canonicalRowLimit:200,vectorChunkLimit:4},measurement:{elapsedMs:100000,exit:{code:0,signal:null},peakRssBytes:1000000,diagnosticsSha256:'2'.repeat(64),diagnosticsBytes:4000},transport:{latencyMsPerGatewayRequest:300,encodedWorkerLinkBytesPerSecond:51200,storageLink:'actual-loopback',heapMiB:640,processRssLimitBytes:1073741824},counters:{vectorRequests:67,lostAckInjected:true}};
+ volume.diagnosticOnly=false;volume.timingQualification=true;volume.syntheticOnly=true;volume.financialApply=true;
+ volume.workerAnalysis={status:'PASS_WORKER_ANALYSIS',publishedBatchesBeforeApply:0,elapsedMs:volume.measurement.elapsedMs};
+ const operation='01000000-0000-4000-8000-000000000001',dataset='02000000-0000-4000-8000-000000000001',client='9'.repeat(40);
+ const finalSteps=[['baseline_receipt_preflight','baseline_receipt'],['baseline_review','baseline_review'],['baseline_apply','baseline_apply'],['baseline_receipt','baseline_receipt'],['snapshot_start','snapshot_start'],...Array.from({length:130},()=>['page','page']),['replica_ack','replica_ack']];
+ volume.finalization={status:'PASS_FULL_VOLUME_FINALIZATION',phase:'complete',diagnosticOnly:false,timingQualification:true,syntheticOnly:true,rows:25947,applyAttempts:1,applyOutcome:'ACKNOWLEDGED',applyRequestKey:operation,clientSha:client,
+  sqlBudget:{statementTimeoutMs:8000,requestTimeoutMs:15000,metadataVerified:true,basis:'authenticator8s_service_role_inherited_no_database_or_function_override'},
+  preflightReceipt:{status:'PASS',receiptAbsent:true},steps:finalSteps.map(([phase,operation])=>({phase,operation,status:'PASS',kind:'response',httpStatus:200,sqlState:null,elapsedMs:1})),
+  receipt:{status:'PASS',sha256:'3'.repeat(64),readbackSha256:'3'.repeat(64),sourceRunId:'03000000-0000-4000-8000-000000000001',sourceSnapshotId:'04000000-0000-4000-8000-000000000001',datasetId:dataset,revision:'1',writerEpoch:'1',operationId:'05000000-0000-4000-8000-000000000001'},
+  replica:{status:'PASS',mode:'snapshot',movements:25947,batches:1,pages:130,pageSize:200,datasetId:dataset,revision:'1',writerEpoch:'1',checksum:'4'.repeat(64),protocolVersion:1,clientBuildSha:client,acknowledged:true},
+  canonical:{status:'OBSERVED',state:'applied',applyKeyPresent:true,receiptPresent:true,runtimeRevision:'1',movements:25947,batches:1,sourceSnapshots:1,replicaEvents:25948,changeSets:1,acks:1,ackCount:1}};
  volume.payload.archiveBytes=486290;volume.counters.encodedStagingBytes=1800000;volume.counters.chargedStagingBytes=1800000*Math.max(1,869952/486290);
  volume.representativeness={aggregateReferenceArchiveBytes:869952,syntheticArchiveBytes:486290,encodedLinkChargeFactor:Math.max(1,869952/486290),encodedWireToMovementRatio:1800000/20274917,liveCloudQualified:false};
  volume.representativeness.additiveNetworkFloorMs=volume.counters.chargedStagingBytes/51200*1000+67*300;
@@ -55,7 +65,7 @@ test('sequential additive charge requires elapsed at or above latency plus charg
  const x=fixture(),floor=x.volume.counters.chargedStagingBytes/x.volume.transport.encodedWorkerLinkBytesPerSecond*1000+x.volume.counters.vectorRequests*x.volume.transport.latencyMsPerGatewayRequest;
  x.volume.measurement.elapsedMs=floor-0.001;
  await assert.rejects(()=>verifyWorkerArtifactArchive(x.archive(),x.metadata,x.source),/^Error: history_worker_artifact_volume_additive_time_rejected$/);
- x.volume.measurement.elapsedMs=floor;
+ x.volume.measurement.elapsedMs=floor;x.volume.workerAnalysis.elapsedMs=floor;
  await verifyWorkerArtifactArchive(x.archive(),x.metadata,x.source);
  x.volume.representativeness.additiveNetworkFloorMs=floor-1;
  await assert.rejects(()=>verifyWorkerArtifactArchive(x.archive(),x.metadata,x.source),/^Error: history_worker_artifact_volume_additive_time_rejected$/);
@@ -70,4 +80,49 @@ test('workflow takes only opaque IDs and the externally verified receipt hash, n
  for(const field of ['qualified_run_id','qualified_artifact_id','expected_receipt_sha256'])assert.match(text,new RegExp(field+':'));
  assert.match(text,/GH_TOKEN: \$\{\{ github.token \}\}/);assert.match(text,/actions: read/);assert.match(text,/asus019-verify-worker-artifact\.mjs/);assert.match(text,/-RuntimeQualificationReceiptSha256 \$env:EXPECTED_RECEIPT_SHA256/);
  for(const block of text.matchAll(/        run: \|\r?\n([\s\S]*?)(?=\r?\n      - name:|$)/g))assert.equal(block[1].includes('${{ inputs.'),false);
+});
+
+// The registry has deliberate, reviewed test extensions. Never silently drop
+// assertion counts or accept a repeated test belonging to an unrelated parent.
+test('explicit earlier test extension deduplicates membership and retains every assertion',()=>{
+ const x=fixture(),runnerSource="REVIEWED_EXTENSIONS = {\n '01': {'additionalAssertions':36,'testFile':'supabase/tests/asus019_history_qualified_configuration.sql'},\n '02': {'additionalAssertions':23,'testFile':'supabase/tests/asus019_history_migration_stage_vector.sql'},\n '03': {'additionalAssertions':7,'testFile':'supabase/tests/asus019_history_qualified_configuration.sql','extendsTestOf':'01'},\n}\nexpected_assertions = 4375 + sum(x)\nlen(tests) == 67 + len(extension_tests)";
+ const input={runnerSource,runnerSha256:x.source.sqlContract.runnerSha256,concurrencySha256:x.source.sqlContract.concurrencySha256,files:x.source.sqlContract.files};
+ assert.equal(workerSqlQualificationContract(input).assertions,4441);
+ for(const changed of [runnerSource.replace(",'extendsTestOf':'01'",''),runnerSource.replace("'extendsTestOf':'01'","'extendsTestOf':'missing'"),runnerSource.replace("'extendsTestOf':'01'","'extendsTestOf':'03'"),runnerSource.replace("'extendsTestOf':'01'","'extendsTestOf':'02'"),runnerSource.replace("'additionalAssertions':7","'additionalAssertions':0"),runnerSource.replace("'additionalAssertions':7","'additionalAssertions':-1"),runnerSource.replace("'01': {","'00': {'extendsTestOf':'03',")]){
+  assert.throws(()=>workerSqlQualificationContract({...input,runnerSource:changed}),/sql_contract_invalid/);
+ }
+});
+const finalizationChanges={
+ 'missing finalization':x=>delete x.volume.finalization,
+ 'analysis-only legacy report':x=>{delete x.volume.finalization;x.volume.financialApply=false;},
+ 'failed Apply':x=>x.volume.finalization.status='FAIL',
+ 'diagnostic finalization mislabeled PASS':x=>x.volume.finalization.diagnosticOnly=true,
+ 'higher SQL budget':x=>x.volume.finalization.sqlBudget.statementTimeoutMs=9000,
+ 'higher request budget':x=>x.volume.finalization.sqlBudget.requestTimeoutMs=16000,
+ 'one request at deadline':x=>x.volume.finalization.steps[2].elapsedMs=15000,
+ 'failed request hidden by outer PASS':x=>x.volume.finalization.steps[2].sqlState='57014',
+ 'second Apply':x=>x.volume.finalization.applyAttempts=2,
+ 'receipt readback differs':x=>x.volume.finalization.receipt.readbackSha256='8'.repeat(64),
+ 'malformed receipt operation':x=>x.volume.finalization.receipt.operationId='not-a-uuid',
+ 'partial pages':x=>x.volume.finalization.replica.pages=129,
+ 'missing page request':x=>x.volume.finalization.steps.splice(20,1),
+ 'unacknowledged replica':x=>x.volume.finalization.replica.acknowledged=false,
+ 'missing checksum':x=>delete x.volume.finalization.replica.checksum,
+ 'malformed checksum':x=>x.volume.finalization.replica.checksum='PASS',
+ 'different dataset':x=>x.volume.finalization.replica.datasetId='05000000-0000-4000-8000-000000000001',
+ 'different epoch':x=>x.volume.finalization.replica.writerEpoch='2',
+ 'wrong ACK client':x=>x.volume.finalization.replica.clientBuildSha='8'.repeat(40),
+ 'orphan ACK':x=>x.volume.finalization.canonical.ackCount=0,
+ 'rolled back canonical data':x=>x.volume.finalization.canonical.movements=0,
+ 'missing published receipt':x=>x.volume.finalization.canonical.receiptPresent=false
+};
+for(const [name,change] of Object.entries(finalizationChanges))test('finalization gate rejects '+name,async()=>{
+ const x=fixture();change(x);await assert.rejects(()=>verifyWorkerArtifactArchive(x.archive(),x.metadata,x.source),/^Error: history_worker_artifact_finalization_/);
+});
+test('full finalization evidence is separate and runtime v2 receipt shape remains unchanged',async()=>{
+ const x=fixture(),result=await verifyWorkerArtifactArchive(x.archive(),x.metadata,x.source);
+ assert.equal(result.receipt.schema,'history-worker-runtime-qualification-v2');assert.equal(Object.hasOwn(result.receipt,'finalization'),false);
+ assert.equal(result.finalizationProof.status,'PASS_FULL_VOLUME_FINALIZATION');assert.equal(result.finalizationProof.pages,130);
+ assert.equal(result.finalizationProof.volumeEvidenceSha256,result.receipt.realVolume.reportSha256);
+ assert.equal(verifyWorkerFinalization(x.volume).clientSourceSha,x.volume.finalization.clientSha);
 });
