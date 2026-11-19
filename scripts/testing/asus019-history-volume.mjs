@@ -52,8 +52,8 @@ try{
  command(process.execPath,['scripts/build-payment-history-worker.mjs',join(evidence,'history-worker.cjs')]);report.workerSha256=sha(readFileSync(join(evidence,'history-worker.cjs')));
  if(diagnosticOnly){
   // Only this proven disposable container. The existing local admin changes
-  // one instance setting; no roles, grants, authentication or function metadata.
-  const diagnosticQuery=(text,{admin=false}={})=>{const r=spawnSync('docker',['exec','-i',runtime.containerID,'/nix/var/nix/profiles/default/bin/psql','-X','-w','-qAt','-v','ON_ERROR_STOP=1','-v','VERBOSITY=sqlstate','-U',admin?'supabase_admin':'postgres','-d','postgres'],{input:"SET statement_timeout='1s';SET lock_timeout='500ms';\n"+text,encoding:'utf8',timeout:3000,maxBuffer:131072});if(r.status!==0||r.error){const error=Error('history_volume_diagnostic_query_unavailable');error.diagnosticFailure=closedDiagnosticFailure({stderr:r.stderr,timedOut:r.error?.code==='ETIMEDOUT',status:r.status});throw error;}return r.stdout.trim();};
+  // two tracking settings; no roles, grants, authentication or function metadata.
+  const diagnosticQuery=(text,{admin=false,positiveProbe=false}={})=>{const r=spawnSync('docker',['exec','-i',runtime.containerID,'/nix/var/nix/profiles/default/bin/psql','-X','-w','-qAt','-v','ON_ERROR_STOP=1','-v','VERBOSITY=sqlstate','-U',admin?'supabase_admin':'postgres','-d','postgres'],{input:(positiveProbe?"SET statement_timeout='8s';SET lock_timeout='6s';\n":"SET statement_timeout='1s';SET lock_timeout='500ms';\n")+text,encoding:'utf8',timeout:positiveProbe?90000:3000,maxBuffer:131072});if(r.status!==0||r.error){const error=Error('history_volume_diagnostic_query_unavailable');error.diagnosticFailure=closedDiagnosticFailure({stderr:r.stderr,timedOut:r.error?.code==='ETIMEDOUT',status:r.status});if(positiveProbe)error.diagnosticPartialOutput=r.stdout;throw error;}return r.stdout.trim();};
   const rpcGet=(parameters,options)=>readOnlyCachedGatewayGet(db,parameters,options);
   sqlDiagnostics=createOwnedVolumeSqlDiagnostics({runtime,query:diagnosticQuery,rpcGet,save,serverSha:report.serverSha,workerSha256:report.workerSha256});
  }
@@ -90,6 +90,7 @@ try{
   const elapsedMs=performance.now()-started,bytes=readFileSync(diagnostic),events=bytes.toString('utf8').trim().split('\n').filter(Boolean).map(JSON.parse);report.lastWorkerRuntime={label,elapsedMs,peakRssBytes:peak,exit,diagnosticsSha256:sha(bytes),diagnosticsBytes:bytes.length};demand(bytes.length<=524288&&exit.code===0&&exit.signal===null&&peak<=939524096,'history_volume_worker_runtime_failed');
   return {elapsedMs,peakRssBytes:peak,exit,diagnosticsSha256:sha(bytes),diagnosticsBytes:bytes.length,events};
  }
+ if(sqlDiagnostics){phase='diagnostic_owned_instance_preflight';await sqlDiagnostics.prepareInstance();}
  await worker('warm',30000);
  if(sqlDiagnostics){phase='diagnostic_preflight';await sqlDiagnostics.prepare();}
  const scope={p_shop_id:shop,p_shop_device_id:device,p_staff_id:staff,p_pos_session_id:session,p_device_token_hash:deviceHash,p_session_token_hash:sessionHash,p_credential_version:7};
@@ -133,7 +134,7 @@ try{
   let finalizationError;
   try{await finalizeVolumeBaseline({request:(operation,payload)=>{const invoke=()=>{if(operation==='baseline_apply')report.financialApply=true;return measuredDeviceRequest({db,scope,operation,payload,steps:report.finalization.steps,phase:report.finalization.phase});};return sqlDiagnostics?sqlDiagnostics.observeFinalization(report.finalization.phase,invoke):invoke();},manifest:m,shop,runId:run.run_id,context,applyKey:randomUUID(),snapshotKey:randomUUID(),clientSha,
    validateBaseline:validation.projectBaselineSqlResult,validateReplica:validation.validateDeviceHistoryResult,report:report.finalization});}catch(error){finalizationError=error;}
-  const published=observeFinalizationCanonical({originalError:finalizationError,report:report.finalization,read:()=>JSON.parse(sql(`SELECT jsonb_build_object('state',j.state,'applyKeyPresent',j.apply_request_key IS NOT NULL,'receiptPresent',j.receipt IS NOT NULL,
+  let published;try{published=observeFinalizationCanonical({originalError:finalizationError,report:report.finalization,read:()=>JSON.parse(sql(`SELECT jsonb_build_object('state',j.state,'applyKeyPresent',j.apply_request_key IS NOT NULL,'receiptPresent',j.receipt IS NOT NULL,
    'runtimeRevision',(SELECT revision::text FROM public.payment_history_runtime WHERE shop_id=${q(shop)}),
    'movements',(SELECT count(*) FROM public.payment_history_movement_versions WHERE shop_id=${q(shop)}),'batches',(SELECT count(*) FROM public.payment_history_batches WHERE shop_id=${q(shop)}),
    'sourceSnapshots',(SELECT count(*) FROM public.payment_history_source_snapshots WHERE shop_id=${q(shop)}),
@@ -141,6 +142,7 @@ try{
    'changeSets',(SELECT count(*) FROM public.payment_history_change_sets WHERE shop_id=${q(shop)}),
    'acks',(SELECT count(*) FROM public.payment_history_replica_acks WHERE shop_id=${q(shop)} AND shop_device_id=${q(device)}),
    'ackCount',(SELECT count(*) FROM public.payment_history_replica_acks a WHERE a.shop_id=j.shop_id AND a.shop_device_id=${q(device)} AND a.dataset_id=(j.receipt->>'dataset_id')::uuid AND a.revision=(j.receipt->>'revision')::bigint AND a.writer_epoch=(j.receipt->>'writer_epoch')::bigint AND a.checksum=${q(report.finalization.replica?.checksum??'')} AND a.protocol_version=1 AND a.client_build_sha=${q(clientSha)})) FROM public.payment_history_migration_runs j WHERE j.shop_id=${q(shop)} AND j.run_id=${q(run.run_id)};`))});
+  }catch(error){if(sqlDiagnostics){try{await sqlDiagnostics.positivePayloadProbe(run.run_id,report.finalization);}catch{/* Primary RPC/readback failure remains authoritative. */}}throw error;}
   demand(published.state==='applied'&&published.applyKeyPresent&&published.receiptPresent&&published.runtimeRevision===report.finalization.receipt.revision&&published.movements===25947&&published.batches===1&&published.sourceSnapshots===1&&published.replicaEvents===25948&&published.changeSets===1&&published.acks===1&&published.ackCount===1,'history_volume_finalization_canonical_readback');
   if(diagnosticOnly)report.finalization.status='DIAGNOSTIC_ONLY_FINALIZATION_COMPLETED';
  }

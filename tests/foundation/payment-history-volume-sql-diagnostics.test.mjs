@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createClient} from '@supabase/supabase-js';
 import {readFileSync} from 'node:fs';
-import {readOnlyCachedGatewayGet,closedDiagnosticFailure,closeExplainPlan,statementDelta,createOwnedVolumeSqlDiagnostics,statementSnapshotSQL} from '../../scripts/testing/asus019-history-volume-sql-diagnostics.mjs';
+import {readOnlyCachedGatewayGet,closedDiagnosticFailure,closeExplainPlan,statementDelta,createOwnedVolumeSqlDiagnostics,statementSnapshotSQL,functionSnapshotSQL,functionDelta,positivePayloadProbeSQL,positivePayloadReadbackSQL,closePositivePayloadOutput} from '../../scripts/testing/asus019-history-volume-sql-diagnostics.mjs';
 import {measuredDeviceRequest} from '../../scripts/testing/asus019-history-volume-finalization.mjs';
 
 test('EXPLAIN export rebuilds a closed numerical tree and drops fixture values and query text',()=>{
@@ -29,16 +29,16 @@ test('statement intervals preserve nested overlap and invalidate reset, eviction
  const missingEpoch=structuredClone(after);delete missingEpoch.statements[0].epochsAvailable;assert.equal(statementDelta(before,missingEpoch).statements[0].valid,false);
 });
 
-function fixture({previous=null,failSnapshot=false,adminDenied=false,nestedMissing=false,cacheMiss=false,missingCounters=false,completeCategories=false,resetCanaryEntry=false}={}){
- const calls=[],saved=[],rpcCalls=[],nonce='12345678-1234-4234-8234-123456789012';let auto=previous,counter=0,snapshotCount=0,counterReads=0;
+function fixture({previousFunction=null,functionCanaryMissing=false,previous=null,failSnapshot=false,adminDenied=false,nestedMissing=false,cacheMiss=false,missingCounters=false,completeCategories=false,resetCanaryEntry=false}={}){
+ const calls=[],saved=[],rpcCalls=[],nonce='12345678-1234-4234-8234-123456789012';let auto=previous,functionAuto=previousFunction,gatewayCalls=0,cryptoCalls=0,counter=0,snapshotCount=0,counterReads=0;
  const config=['search_path=""'];
  const invariants={definitionSha256:'a'.repeat(64),accessSha256:'b'.repeat(64),otherConfigSha256:'c'.repeat(64)};
- const effective=()=>auto??'top';
+ const effective=()=>auto??'top',functionEffective=()=>functionAuto??'none';
  const query=(sql,{admin=false}={})=>{calls.push(sql);
-  if(sql.startsWith('ALTER SYSTEM')){assert.equal(admin,true);auto=sql.includes('RESET')?null:sql.match(/='(all|top|none)'/)[1];return '';}
+  if(sql.startsWith('ALTER SYSTEM')){assert.equal(admin,true);const value=sql.includes('RESET')?null:sql.match(/='(all|top|none|pl)'/)[1];if(sql.includes('track_functions'))functionAuto=value;else auto=value;return '';}
   if(sql==='SELECT pg_reload_conf();'){assert.equal(admin,true);return 't';}
-  if(sql.includes("'autoEntries'")){assert.equal(admin,true);return JSON.stringify({effective:effective(),autoEntries:auto===null?0:1,autoValue:auto,autoValid:true,pendingRestart:false,otherSettingsSha256:'9'.repeat(64)});}
-  if(sql.includes("'expectedPreexistingRole'")){assert.equal(admin,true);return JSON.stringify({expectedPreexistingRole:true,superuser:!adminDenied,canSet:!adminDenied,canAlterSystem:!adminDenied});}
+  if(sql.includes("'autoEntries'")){assert.equal(admin,true);const value=sql.includes("current_setting('track_functions')")?functionAuto:auto;return JSON.stringify({effective:value??(sql.includes("current_setting('track_functions')")?'none':'top'),autoEntries:value===null?0:1,autoValue:value,autoValid:true,pendingRestart:false,otherSettingsSha256:'9'.repeat(64)});}
+  if(sql.includes("'expectedPreexistingRole'")){assert.equal(admin,true);return JSON.stringify({expectedPreexistingRole:true,superuser:!adminDenied,canSet:!adminDenied,canAlterSystem:!adminDenied,canSetFunctions:!adminDenied,canAlterSystemFunctions:!adminDenied});}
   if(sql.includes('FROM pg_db_role_setting'))return '[]';
   if(sql.includes("'cacheMatches'"))return JSON.stringify({cacheMatches:!cacheMiss,cacheRowSha256:'8'.repeat(64),requestCount:3,importActive:0,migrationActive:0,uploadActive:0});
   if(sql.includes("'calls',coalesce((SELECT sum(calls)")){counterReads++;return JSON.stringify({calls:counter,statsReset:missingCounters?null:'same',dealloc:0,statementEntries:counter===0?0:1,epochsAvailable:true,epochs:counter===0?[]:[{since:resetCanaryEntry&&counterReads>=4?'changed':'same',members:1}]});}
@@ -48,12 +48,13 @@ function fixture({previous=null,failSnapshot=false,adminDenied=false,nestedMissi
   if(sql.startsWith('SELECT count(*)'))return '0';
   if(sql.includes("'serverVersionNum'"))return JSON.stringify({serverVersionNum:170006});
   if(sql.includes('FROM pg_stat_all_tables'))return '[]';
+  if(sql.startsWith('WITH wanted(label,signature)'))return JSON.stringify({statsReset:'2026-11-19T00:00:00Z',functions:['gateway_canary','crypto_canary','replica_payload','replica_entity_digest','replica_field_hash','revision_seal'].map(label=>{const calls=label==='gateway_canary'?gatewayCalls:label==='crypto_canary'?cryptoCalls:0;return {label,exists:true,definitionMD5:'a'.repeat(32),present:calls>0,calls:calls||null,total_time:calls||null,self_time:calls||null};})});
   if(sql.startsWith('WITH scoped')){if(failSnapshot)throw Error('private error query/parameter must not escape');const count=snapshotCount++*10;return JSON.stringify({statsReset:'same',dealloc:0,statements:completeCategories?['object_movement_lookup','object_binding_lookup','object_file_lookup','movement_insert','parent_fk_check','run_counter_update'].map(label=>({label,calls:count,total_exec_time:count,rows:count,shared_blks_hit:0,shared_blks_read:0,shared_blks_dirtied:0,shared_blks_written:0,temp_blks_read:0,temp_blks_written:0,wal_records:0,wal_fpi:0,wal_bytes:0,statementEntries:1,epochsAvailable:true,epochs:[{since:'same',members:1}]})):[]});}
   throw Error('unhandled fixture SQL');
  };
- const rpcGet=async(parameters,options)=>{rpcCalls.push({parameters,options});assert.deepEqual(options,{get:true});assert.deepEqual(parameters,{p_request_id:nonce,p_lane:'migration',p_operation:'claim',p_payload:{}});if(effective()==='all'&&!nestedMissing)counter++;return {data:{ok:true,run:null},errorCode:null};};
- const options={runtime:{url:'http://127.0.0.1:54321',containerID:'d'.repeat(64),project:'r4-ci-preflight-'+'e'.repeat(12),head:'f'.repeat(40)},serverSha:'f'.repeat(40),workerSha256:'0'.repeat(64),query,rpcGet,save:(name,value)=>saved.push({name,value:structuredClone(value)})};
- return {calls,saved,options,rpcCalls,nonce,getConfig:()=>config,getAuto:()=>auto};
+ const rpcGet=async(parameters,options)=>{rpcCalls.push({parameters,options});assert.deepEqual(options,{get:true});assert.deepEqual(parameters,{p_request_id:nonce,p_lane:'migration',p_operation:'claim',p_payload:{}});if(effective()==='all'&&!nestedMissing)counter++;if(functionEffective()!=='none')gatewayCalls++;if(functionEffective()==='all'&&!functionCanaryMissing)cryptoCalls++;return {data:{ok:true,run:null},errorCode:null};};
+ const options={runtime:{url:'http://127.0.0.1:54321',containerID:'d'.repeat(64),project:'r4-ci-preflight-'+'e'.repeat(12),head:'f'.repeat(40)},serverSha:'f'.repeat(40),workerSha256:'0'.repeat(64),query,rpcGet,pause:async()=>{},save:(name,value)=>saved.push({name,value:structuredClone(value)})};
+ return {calls,saved,options,rpcCalls,nonce,getConfig:()=>config,getAuto:()=>auto,getFunctionAuto:()=>functionAuto};
 }
 
 test('ownership is rejected before any database operation or evidence export',()=>{
@@ -275,4 +276,99 @@ test('diagnostic finalization uses the same single invocation and cannot publish
  assert.match(workflow,/name: Authenticated service and browser roundtrip\s+if: \$\{\{ inputs.history_volume_diagnostics != true \}\}/);
  assert.match(workflow,/name: Preserve the exact qualified dedicated Worker artifact\s+if: \$\{\{ inputs.history_volume_diagnostics != true \}\}/);
  assert.match(runner,/measured.elapsedMs<120000/);
+});
+
+
+test('function tracking is enabled before warm and restores each original enum/presence with real RPC category canary',async()=>{
+ for(const previousFunction of [null,'none','pl','all']){
+  const f=fixture({previousFunction}),d=createOwnedVolumeSqlDiagnostics(f.options);
+  await d.prepareInstance();assert.equal(f.rpcCalls.length,0);assert.equal(f.getFunctionAuto(),'all');assert.equal(f.getAuto(),'all');
+  d.observeWarmResponse(f.nonce,{ok:true,run:null});await d.prepare();await d.restore();
+  const out=f.saved.at(-1).value;assert.equal(f.getFunctionAuto(),previousFunction);assert.equal(f.getAuto(),null);assert.equal(out.configurationRestored,true);
+  assert.equal(out.trackingCanary.functions.functions.find(x=>x.label==='crypto_canary').calls,1);
+  assert.equal(out.restoredCanary.functions.functions.find(x=>x.label==='crypto_canary').calls,previousFunction==='all'?1:0);
+  assert.equal(out.restoredCanary.functions.functions.find(x=>x.label==='gateway_canary').calls,['pl','all'].includes(previousFunction)?1:0);
+  assert.equal(f.calls.some(s=>s.includes("WHERE name NOT IN('pg_stat_statements.track','track_functions')")),true);
+ }
+ const runner=readFileSync(new URL('../../scripts/testing/asus019-history-volume.mjs',import.meta.url),'utf8');
+ assert.ok(runner.indexOf('await sqlDiagnostics.prepareInstance()')<runner.indexOf("await worker('warm',30000)"));
+});
+
+test('procedural-only tracking cannot pass the all-functions RPC preflight',async()=>{
+ const f=fixture({functionCanaryMissing:true}),d=createOwnedVolumeSqlDiagnostics(f.options);d.observeWarmResponse(f.nonce,{ok:true,run:null});
+ await assert.rejects(()=>d.prepare(),/preflight_failed/);assert.equal(f.saved.at(-1).value.preflight.passed,false);
+ await d.restore();assert.equal(f.getFunctionAuto(),null);assert.equal(f.getAuto(),null);
+});
+
+test('restoring either GUC is attempted even when the other restore fails',async()=>{
+ for(const failedSetting of ['pg_stat_statements.track','track_functions']){
+  const f=fixture(),base=f.options.query;let armed=false;
+  f.options.query=(sql,options)=>{if(armed&&sql===`ALTER SYSTEM RESET ${failedSetting};`)throw Error('private-restore-detail');return base(sql,options);};
+  const d=createOwnedVolumeSqlDiagnostics(f.options);d.observeWarmResponse(f.nonce,{ok:true,run:null});await d.prepare();armed=true;
+  assert.equal(await d.restore(),'DIAGNOSTIC_OBSERVATION_FAILED');const out=f.saved.at(-1).value;assert.equal(out.configurationRestored,false);
+  assert.equal(f.calls.includes(`ALTER SYSTEM RESET ${failedSetting==='track_functions'?'pg_stat_statements.track':'track_functions'};`),true);
+  assert.equal(JSON.stringify(out).includes('private-restore-detail'),false);
+ }
+});
+
+test('function delta rejects drift, missing metrics and resets while preserving completed-call limitations',()=>{
+ const functions=['gateway_canary','crypto_canary','replica_payload','replica_entity_digest','replica_field_hash','revision_seal'].map(label=>({label,exists:true,present:true,definitionMD5:'a'.repeat(32),calls:10,total_time:5,self_time:3}));
+ const a={statsReset:null,functions},b=structuredClone(a);b.functions[2].calls=20;b.functions[2].total_time=8;b.functions[2].self_time=5;
+ const delta=functionDelta(a,b);assert.equal(delta.valid,true);assert.equal(delta.functions[2].calls,10);assert.equal(delta.securityWrapperOverheadExcluded,true);assert.equal(delta.selectiveFunctionResetNotIndependentlyDetectable,true);assert.equal(delta.interruptedCallsMayBeAbsent,true);
+ for(const change of [v=>v.functions[2].total_time=null,v=>v.functions[2].calls=1,v=>v.functions[2].definitionMD5='b'.repeat(32),v=>v.statsReset='new']){const changed=structuredClone(b);change(changed);assert.equal(functionDelta(a,changed).valid,false);}
+ for(const invalid of [undefined,42,'same']){const bad=structuredClone(a);if(invalid===undefined)delete bad.statsReset;else bad.statsReset=invalid;assert.equal(functionDelta(bad,bad).valid,false);}
+ assert.doesNotMatch(functionSnapshotSQL(),/pg_stat_reset|queryid|GRANT|ALTER/);
+});
+
+const positiveRun='10000000-0000-4000-8000-000000000002';
+function positiveRecords(){
+ const metadata={evidence:0,merchants:0,batches:0,movements:0,revisions:0,replicaEvents:0,changeSets:0,sourceSnapshots:0,runtime:{revision:'0',epoch:'1',authority:'frozen'},run:{state:'review_ready',receiptPresent:false,applyKeyPresent:false,stagedMovements:25947,stagedObjects:25955}};
+ const samples=['helper','inline','inline','helper','helper','inline'].map((variant,i)=>({phase:'positive_payload_sample',sequence:i+1,variant,elapsedMs:10+i,rows:512,positive:512,bytes:10000,root:'a'.repeat(64)}));
+ return [{phase:'before',metadata},...samples,{phase:'positive_payload_parity',rows:512,jsonbEqual:true,protocolDigestEqual:true,batchJsonbEqual:true,batchProtocolDigestEqual:true},{phase:'after_rollback',metadata}];
+}
+function failedFinalization(){return {applyAttempts:1,steps:[{phase:'baseline_apply',httpStatus:500,sqlState:'57014'}],canonical:{state:'review_ready',runtimeRevision:'0',receiptPresent:false,applyKeyPresent:false,batches:0,movements:0,changeSets:0,replicaEvents:0,sourceSnapshots:0,acks:0,ackCount:0}};}
+
+test('positive fixture uses one rollback-only connection, exact512 and all six alternating positive samples',async()=>{
+ let probes=0;const records=positiveRecords();
+ const g=fixture(),original=g.options.query;
+ g.options.query=(sql,options)=>{if(options?.positiveProbe){probes++;assert.equal(sql,positivePayloadProbeSQL(positiveRun));return records.map(JSON.stringify).join('\n');}if(sql===positivePayloadReadbackSQL(positiveRun))return [records.at(-1),{phase:'connection_cleanup',activeConnections:0}].map(JSON.stringify).join('\n');return original(sql,options);};
+ const d=createOwnedVolumeSqlDiagnostics(g.options);d.observeWarmResponse(g.nonce,{ok:true,run:null});await d.prepare();await d.positivePayloadProbe(positiveRun,failedFinalization());await d.restore();
+ const out=g.saved.at(-1).value;assert.equal(probes,1);assert.equal(out.positivePayloadProbe.status,'PASS_SYNTHETIC_ROLLBACK_ONLY_COMPARISON');assert.equal(out.positivePayloadProbe.cleanupVerified,true);assert.equal(out.positivePayloadProbe.records.length,9);assert.equal(out.configurationRestored,true);
+ const sql=positivePayloadProbeSQL(positiveRun);assert.equal((sql.match(/select pg_temp.measure_payload512/g)||[]).length,6);assert.equal((sql.match(/\bbegin;/g)||[]).length,1);assert.equal((sql.match(/\brollback;/g)||[]).length,1);assert.doesNotMatch(sql,/\bcommit\b|baseline_apply|__OWNED/);assert.match(sql,/payload_probe_uuid_collision/);assert.match(sql,/set local statement_timeout='8s'/);
+ assert.throws(()=>positivePayloadProbeSQL("invalid';COMMIT;"),/scope/);
+ assert.ok(sql.startsWith(`SET application_name='a19-payload512-${positiveRun}';`));assert.ok(positivePayloadReadbackSQL(positiveRun).includes(`application_name='a19-payload512-${positiveRun}'`));assert.ok(`a19-payload512-${positiveRun}`.length<64);
+});
+
+test('partial positive-probe failure preserves completed samples and separately attests session exit and rollback',async()=>{
+ const g=fixture(),original=g.options.query,records=positiveRecords();let probes=0;
+ g.options.query=(sql,options)=>{if(options?.positiveProbe){probes++;const e=Error('private-primary-probe');e.diagnosticFailure={sqlState:'57014'};e.diagnosticPartialOutput=records.slice(0,4).map(JSON.stringify).join('\n');throw e;}if(sql===positivePayloadReadbackSQL(positiveRun))return [records.at(-1),{phase:'connection_cleanup',activeConnections:0}].map(JSON.stringify).join('\n');return original(sql,options);};
+ const d=createOwnedVolumeSqlDiagnostics(g.options);d.observeWarmResponse(g.nonce,{ok:true,run:null});await d.prepare();await d.positivePayloadProbe(positiveRun,failedFinalization());assert.equal(await d.restore(),'DIAGNOSTIC_OBSERVATION_FAILED');
+ const out=g.saved.at(-1).value;assert.equal(probes,1);assert.equal(out.positivePayloadProbe.partial.records.length,4);assert.equal(out.positivePayloadProbe.failure.sqlState,'57014');assert.equal(out.positivePayloadProbe.cleanupVerified,true);assert.equal(out.positivePayloadProbe.status,'FAIL');assert.equal(out.configurationRestored,true);assert.equal(JSON.stringify(out).includes('private-primary-probe'),false);
+});
+
+test('closed positive output never exports raw error text or accepts null payloads as equality',()=>{
+ const records=positiveRecords();records[1].positive=0;records[2].secret='private-secret';const parsed=closePositivePayloadOutput(records.map(JSON.stringify).join('\n')+'\nraw secret error');
+ assert.equal(parsed.invalidLines,2);assert.equal(JSON.stringify(parsed).includes('secret'),false);
+ const runner=readFileSync(new URL('../../scripts/testing/asus019-history-volume.mjs',import.meta.url),'utf8');assert.match(runner,/timeout:positiveProbe\?90000:3000/);assert.match(runner,/positivePayloadProbe\(run.run_id,report.finalization\)/);assert.match(runner,/throw error;}/);
+});
+
+
+test('positive probe never follows a successful or repeated Apply and refuses failed parity or unclosed session',async()=>{
+ for(const mode of ['applied','attempts','parity','session']){
+  const f=fixture(),original=f.options.query,records=positiveRecords();let probes=0,reads=0;
+  if(mode==='parity')records[7].protocolDigestEqual=false;
+  f.options.query=(sql,options)=>{if(options?.positiveProbe){probes++;return records.map(JSON.stringify).join('\n');}if(sql===positivePayloadReadbackSQL(positiveRun)){reads++;return [records.at(-1),{phase:'connection_cleanup',activeConnections:mode==='session'&&reads>1?1:0}].map(JSON.stringify).join('\n');}return original(sql,options);};
+  const d=createOwnedVolumeSqlDiagnostics(f.options);d.observeWarmResponse(f.nonce,{ok:true,run:null});await d.prepare();const failure=failedFinalization();if(mode==='applied')failure.canonical.state='applied';if(mode==='attempts')failure.applyAttempts=2;
+  await d.positivePayloadProbe(positiveRun,failure);await d.restore();const out=f.saved.at(-1).value;
+  if(['applied','attempts'].includes(mode)){assert.equal(probes,0);assert.equal(reads,0);assert.equal(out.positivePayloadProbe,undefined);}
+  else{assert.equal(probes,1);assert.equal(out.positivePayloadProbe.status,'FAIL');assert.equal(out.status,'DIAGNOSTIC_OBSERVATION_FAILED');if(mode==='session'){assert.equal(reads,9);assert.equal(out.positivePayloadProbe.cleanupVerified,false);}}
+  assert.equal(out.configurationRestored,true);
+ }
+});
+
+test('unavailable function snapshot prevents the financial invocation before Apply',async()=>{
+ const f=fixture(),original=f.options.query;let armed=false,requests=0;
+ f.options.query=(sql,options)=>armed&&sql===functionSnapshotSQL()?'null':original(sql,options);
+ const d=createOwnedVolumeSqlDiagnostics(f.options);d.observeWarmResponse(f.nonce,{ok:true,run:null});await d.prepare();d.capture('before_analysis');d.finish();armed=true;
+ await assert.rejects(()=>d.observeFinalization('baseline_apply',async()=>{requests++;return {};}));assert.equal(requests,0);armed=false;await d.restore();assert.equal(f.saved.at(-1).value.configurationRestored,true);
 });
